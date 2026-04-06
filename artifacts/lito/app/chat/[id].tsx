@@ -3,6 +3,8 @@ import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   FlatList,
   Platform,
   StyleSheet,
@@ -64,6 +66,7 @@ export default function ChatDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { conversations, messages, sendMessage, toggleTranslation, unlockExternalContact } = useApp();
   const [inputText, setInputText] = useState("");
+  const [aiSuggesting, setAiSuggesting] = useState(false);
   const flatRef = useRef<FlatList>(null);
 
   const conversation = conversations.find((c) => c.id === id);
@@ -87,9 +90,50 @@ export default function ChatDetailScreen() {
     // TODO: Connect to OpenAI to get AI reply suggestions and translations
   };
 
-  const handleAiSuggest = () => {
-    // TODO: Connect to OpenAI API to generate context-aware reply suggestion
-    setInputText("素敵ですね！もっと教えてください 😊");
+  const handleAiSuggest = async () => {
+    if (aiSuggesting) return;
+    setAiSuggesting(true);
+    try {
+      // Build the conversation payload — last 10 messages for context
+      const recentMessages = convMessages.slice(-10).map((m) => ({
+        sender: m.senderId === CURRENT_USER_ID ? "me" : "them",
+        text: m.text,
+      }));
+
+      // Determine target language from the other user's country
+      // TODO: expose language preference per-conversation for finer control
+      const targetLang = conversation.user.country === "jp" ? "ja" : "ko";
+
+      // Use EXPO_PUBLIC_DOMAIN to reach the API server through the Replit proxy
+      const domain = process.env.EXPO_PUBLIC_DOMAIN;
+      const apiBase = domain
+        ? `https://${domain}/api-server`
+        : "http://localhost:3001";
+
+      const response = await fetch(`${apiBase}/api/ai/suggest-reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: recentMessages, targetLang }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = (await response.json()) as { suggestion?: string; error?: string };
+
+      if (data.suggestion) {
+        setInputText(data.suggestion);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } else {
+        throw new Error(data.error ?? "No suggestion returned");
+      }
+    } catch (err) {
+      // TODO: Show a more specific error (e.g. network vs. server vs. quota)
+      Alert.alert("AI Suggestion", "Could not generate a reply. Please try again.");
+    } finally {
+      setAiSuggesting(false);
+    }
   };
 
   const handleUnlock = () => {
@@ -180,10 +224,21 @@ export default function ChatDetailScreen() {
           ]}
         >
           <TouchableOpacity
-            style={[styles.aiBtn, { backgroundColor: colors.roseLight }]}
+            style={[
+              styles.aiBtn,
+              {
+                backgroundColor: aiSuggesting ? colors.roseSoft : colors.roseLight,
+                opacity: aiSuggesting ? 0.8 : 1,
+              },
+            ]}
             onPress={handleAiSuggest}
+            disabled={aiSuggesting}
           >
-            <Feather name="zap" size={16} color={colors.rose} />
+            {aiSuggesting ? (
+              <ActivityIndicator size="small" color={colors.rose} />
+            ) : (
+              <Feather name="zap" size={16} color={colors.rose} />
+            )}
           </TouchableOpacity>
           <TextInput
             style={[styles.input, { backgroundColor: colors.muted, borderColor: colors.border, color: colors.charcoal }]}
