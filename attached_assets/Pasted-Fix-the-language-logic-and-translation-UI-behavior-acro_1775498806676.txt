@@ -1,0 +1,56 @@
+Fix the language logic and translation UI behavior across the app.
+
+Current issues:
+1. When the pronunciation button is toggled, the translation disappears. This is wrong.
+2. Country selection does not change the app's primary UI language.
+3. Profile text is not translated and still shows only the original language.
+
+Please fix the app with these rules:
+
+1. Pronunciation toggle behavior
+- The pronunciation toggle must ONLY show or hide the pronunciation line.
+- It must NEVER replace or hide the translation.
+- Correct behavior:
+  - default: original text + translated text
+  - pronunciation ON: original text + translated text + pronunciation
+  - pronunciation OFF: original text + translated text
+
+2. Country-based primary language
+- The selected country must control the primary app language and content display.
+- If user selects Korea:
+  - app UI should default to Korean
+  - translation direction should prioritize Japanese -> Korean
+  - pronunciation should use Korean pronunciation of Japanese
+- If user selects Japan:
+  - app UI should default to Japanese
+  - translation direction should prioritize Korean -> Japanese
+  - pronunciation should use Katakana pronunciation of Korean
+
+3. Apply this country-based language logic across the app UI
+- chat screen
+- settings labels
+- placeholders
+- button text
+- helper text
+- any visible UI copy that should adapt to user country
+
+4. Chat message display rules
+- Translation must always remain visible
+- Pronunciation is optional and secondary
+- Keep a clean three-layer structure only when pronunciation is ON
+
+5. Add AI translation to profile text
+- Translate profile bio / introduction / profile text fields based on viewer language
+- Keep original text available
+- For MVP, profile translation can show:
+  - translated text as primary
+  - original text as secondary
+- Pronunciation in profile is optional and can be skipped for now
+
+6. Keep the UI design mostly unchanged
+- Focus on fixing logic, state, and rendering rules
+- Do not redesign the whole app
+
+7. Make the implementation consistent and global
+- Use one shared app-level language/state source of truth
+- Country selection should not affect only chat; it should affect the entire app experience

@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -80,26 +80,34 @@ async function fetchTranslation(
 function MessageBubble({
   msg,
   translationEnabled,
-  showPronunciation,
   viewerLang,
   senderLang,
 }: {
   msg: Message;
   translationEnabled: boolean;
-  showPronunciation: boolean;
   viewerLang: "ko" | "ja";
   senderLang: "ko" | "ja";
 }) {
   const colors = useColors();
+  // Read showPronunciation directly from context so FlatList items don't
+  // unmount/remount when this setting changes
+  const { showPronunciation } = useApp();
   const isMe = msg.senderId === CURRENT_USER_ID;
 
   const shouldTranslate = translationEnabled && !isMe && senderLang !== viewerLang;
 
-  const [result, setResult] = useState<TranslationResult | null>(null);
+  // Lazy-init from module-level cache so there is never a blank flash when
+  // the component is remounted (e.g. after a FlatList re-render)
+  const [result, setResult] = useState<TranslationResult | null>(() => {
+    if (!shouldTranslate) return null;
+    return translationCache.get(`${msg.id}:${viewerLang}`) ?? null;
+  });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!shouldTranslate) return;
+    // Already loaded (either from lazy init or a previous render)
+    if (result) return;
 
     const cacheKey = `${msg.id}:${viewerLang}`;
     const cached = translationCache.get(cacheKey);
@@ -114,6 +122,7 @@ function MessageBubble({
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [msg.id, msg.text, shouldTranslate, senderLang, viewerLang]);
 
   // ── colour tokens ──────────────────────────────────────────────────────────
@@ -142,6 +151,13 @@ function MessageBubble({
       >
         {/* ── NO translation: just the message ─────────────────────────── */}
         {!shouldTranslate && (
+          <Text style={[styles.bubbleText, { color: originalColor }]}>
+            {msg.text}
+          </Text>
+        )}
+
+        {/* ── Fallback: shouldTranslate but no result yet (not loading either) */}
+        {shouldTranslate && !loading && !result && (
           <Text style={[styles.bubbleText, { color: originalColor }]}>
             {msg.text}
           </Text>
@@ -250,7 +266,6 @@ export default function ChatDetailScreen() {
     sendMessage,
     toggleTranslation,
     unlockExternalContact,
-    showPronunciation,
   } = useApp();
   const [inputText, setInputText] = useState("");
   const [aiSuggesting, setAiSuggesting] = useState(false);
@@ -269,9 +284,24 @@ export default function ChatDetailScreen() {
     );
   }
 
-  // My language and the other user's language
-  const viewerLang = profile.language;
+  // Derive viewer language from country (KR→ko, JP→ja) for robustness
+  const viewerLang: "ko" | "ja" = profile.country === "KR" ? "ko" : "ja";
   const senderLang = conversation.user.language;
+  const translationEnabled = !!conversation.translationEnabled;
+
+  const renderMessage = useCallback(
+    ({ item }: { item: Message }) => (
+      <MessageBubble
+        msg={item}
+        translationEnabled={translationEnabled}
+        viewerLang={viewerLang}
+        senderLang={senderLang}
+      />
+    ),
+    // showPronunciation is read directly inside MessageBubble from context,
+    // so it does NOT appear here — FlatList items won't remount on toggle
+    [translationEnabled, viewerLang, senderLang]
+  );
 
   const handleSend = () => {
     if (!inputText.trim() || !id) return;
@@ -381,15 +411,7 @@ export default function ChatDetailScreen() {
         ref={flatRef}
         data={convMessages}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <MessageBubble
-            msg={item}
-            translationEnabled={!!conversation.translationEnabled}
-            showPronunciation={showPronunciation}
-            viewerLang={viewerLang}
-            senderLang={senderLang}
-          />
-        )}
+        renderItem={renderMessage}
         contentContainerStyle={[styles.messageList, { paddingBottom: 12 }]}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })}

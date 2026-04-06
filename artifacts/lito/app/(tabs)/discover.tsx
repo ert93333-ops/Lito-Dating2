@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -21,6 +21,76 @@ import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { User } from "@/types";
 
+// ─── Bio translation helpers ───────────────────────────────────────────────────
+
+const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+  : "http://localhost:8080";
+
+interface TranslationResult { translation: string; pronunciation: string; }
+const bioCache = new Map<string, TranslationResult>();
+
+async function fetchBioTranslation(
+  userId: string,
+  text: string,
+  sourceLang: "ko" | "ja",
+  viewerLang: "ko" | "ja"
+): Promise<TranslationResult> {
+  const key = `bio_${userId}:${viewerLang}`;
+  const cached = bioCache.get(key);
+  if (cached) return cached;
+  const res = await fetch(`${API_BASE}/api/ai/translate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, sourceLang, viewerLang }),
+  });
+  if (!res.ok) throw new Error(`API ${res.status}`);
+  const data = (await res.json()) as TranslationResult;
+  bioCache.set(key, data);
+  return data;
+}
+
+function TranslatedBio({ user, viewerLang }: { user: User; viewerLang: "ko" | "ja" }) {
+  const colors = useColors();
+  const originalLine = user.bio.split("\n")[0];
+  const senderLang = user.language as "ko" | "ja";
+  const shouldTranslate = senderLang !== viewerLang;
+
+  const [result, setResult] = useState<TranslationResult | null>(() =>
+    shouldTranslate ? (bioCache.get(`bio_${user.id}:${viewerLang}`) ?? null) : null
+  );
+
+  useEffect(() => {
+    if (!shouldTranslate || result) return;
+    let cancelled = false;
+    fetchBioTranslation(user.id, originalLine, senderLang, viewerLang)
+      .then((d) => { if (!cancelled) setResult(d); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user.id, originalLine, senderLang, viewerLang, shouldTranslate, result]);
+
+  if (!shouldTranslate || !result) {
+    return (
+      <Text style={[styles.bioPreview, { color: colors.charcoalLight }]} numberOfLines={2}>
+        {originalLine}
+      </Text>
+    );
+  }
+
+  return (
+    <View style={styles.bioWrap}>
+      {/* Translated (primary) */}
+      <Text style={[styles.bioPreview, { color: colors.charcoal }]} numberOfLines={2}>
+        {result.translation.split("\n")[0]}
+      </Text>
+      {/* Original (secondary) */}
+      <Text style={[styles.bioOriginal, { color: colors.charcoalLight }]} numberOfLines={1}>
+        {originalLine}
+      </Text>
+    </View>
+  );
+}
+
 const { width, height } = Dimensions.get("window");
 const CARD_WIDTH = width - 48;
 
@@ -36,6 +106,8 @@ function DiscoverCard({
   isTop: boolean;
 }) {
   const colors = useColors();
+  const { profile } = useApp();
+  const viewerLang: "ko" | "ja" = profile.country === "KR" ? "ko" : "ja";
   const pan = useRef(new Animated.ValueXY()).current;
   const [likeOpacity] = useState(new Animated.Value(0));
   const [passOpacity] = useState(new Animated.Value(0));
@@ -110,9 +182,7 @@ function DiscoverCard({
           ))}
         </View>
 
-        <Text style={[styles.bioPreview, { color: colors.charcoalLight }]} numberOfLines={2}>
-          {user.bio.split("\n")[0]}
-        </Text>
+        <TranslatedBio user={user} viewerLang={viewerLang} />
       </View>
     </Animated.View>
   );
@@ -297,10 +367,19 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     marginBottom: 8,
   },
+  bioWrap: {
+    gap: 3,
+  },
   bioPreview: {
     fontFamily: "Inter_400Regular",
     fontSize: 14,
     lineHeight: 20,
+  },
+  bioOriginal: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    lineHeight: 17,
+    fontStyle: "italic",
   },
   likeStamp: {
     position: "absolute",

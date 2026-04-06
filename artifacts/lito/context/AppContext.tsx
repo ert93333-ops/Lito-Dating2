@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import { mockConversations, mockMatches, mockMessages, mockUsers, myProfile } from "@/data/mockData";
 import { Conversation, Match, Message, MyProfile, User } from "@/types";
@@ -43,6 +43,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
   const [activeConversationId, setActiveConversation] = useState<string | null>(null);
   const [showPronunciation, setShowPronunciationState] = useState(false);
+
+  // Keep a ref to profile so callbacks don't go stale
+  const profileRef = useRef(profile);
+  useEffect(() => { profileRef.current = profile; }, [profile]);
 
   useEffect(() => {
     AsyncStorage.getItem("lito_onboarding").then((val) => {
@@ -96,7 +100,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       text,
       timestamp: new Date().toISOString(),
       isRead: true,
-      language: "ja",
+      language: profileRef.current.language,
     };
     setMessages((prev) => ({
       ...prev,
@@ -130,7 +134,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateProfile = useCallback((updates: Partial<MyProfile>) => {
-    setProfile((prev) => ({ ...prev, ...updates }));
+    setProfile((prev) => {
+      const next = { ...prev, ...updates };
+      // Auto-derive language from country when country changes
+      if (updates.country !== undefined) {
+        next.language = updates.country === "KR" ? "ko" : "ja";
+      }
+      return next;
+    });
     // TODO: In production, save to Supabase
   }, []);
 

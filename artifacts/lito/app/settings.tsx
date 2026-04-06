@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React from "react";
 import {
   Alert,
   Platform,
@@ -19,8 +19,8 @@ import { useColors } from "@/hooks/useColors";
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { logout, showPronunciation, setShowPronunciation } = useApp();
-  const [appLanguage, setAppLanguage] = useState<"en" | "ko" | "ja">("en");
+  const { logout, showPronunciation, setShowPronunciation, profile, updateProfile } = useApp();
+  const appLanguage = profile.language;
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
@@ -123,10 +123,10 @@ export default function SettingsScreen() {
             <SettingRow
               icon="globe"
               label="App Language"
-              sublabel={appLanguage === "en" ? "English" : appLanguage === "ko" ? "한국어" : "日本語"}
+              sublabel={appLanguage === "ko" ? "한국어 (Korean)" : "日本語 (Japanese)"}
               right={
                 <View style={styles.langToggle}>
-                  {(["en", "ko", "ja"] as const).map((lang) => (
+                  {(["ko", "ja"] as const).map((lang) => (
                     <TouchableOpacity
                       key={lang}
                       style={[
@@ -136,7 +136,9 @@ export default function SettingsScreen() {
                           borderColor: appLanguage === lang ? colors.rose : colors.border,
                         },
                       ]}
-                      onPress={() => setAppLanguage(lang)}
+                      onPress={() =>
+                        updateProfile({ country: lang === "ko" ? "KR" : "JP", language: lang })
+                      }
                     >
                       <Text
                         style={[
@@ -144,7 +146,7 @@ export default function SettingsScreen() {
                           { color: appLanguage === lang ? colors.white : colors.charcoalMid },
                         ]}
                       >
-                        {lang.toUpperCase()}
+                        {lang === "ko" ? "KO" : "JA"}
                       </Text>
                     </TouchableOpacity>
                   ))}
