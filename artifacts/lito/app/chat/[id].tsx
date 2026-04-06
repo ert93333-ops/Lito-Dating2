@@ -104,11 +104,10 @@ export default function ChatDetailScreen() {
       // TODO: expose language preference per-conversation for finer control
       const targetLang = conversation.user.country === "jp" ? "ja" : "ko";
 
-      // Use EXPO_PUBLIC_DOMAIN to reach the API server through the Replit proxy
+      // Use EXPO_PUBLIC_DOMAIN to reach the API server through the Replit proxy.
+      // The /api path is routed to the API server by the Replit proxy.
       const domain = process.env.EXPO_PUBLIC_DOMAIN;
-      const apiBase = domain
-        ? `https://${domain}/api-server`
-        : "http://localhost:3001";
+      const apiBase = domain ? `https://${domain}` : "http://localhost:8080";
 
       const response = await fetch(`${apiBase}/api/ai/suggest-reply`, {
         method: "POST",

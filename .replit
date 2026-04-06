@@ -24,3 +24,8 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[userenv]
+
+[userenv.development]
+EXPO_PUBLIC_DOMAIN = "897d9e56-871c-4974-ac62-08cd46e83fb1-00-1t8plx8vfjhzz.riker.replit.dev"
