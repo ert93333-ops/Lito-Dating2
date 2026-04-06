@@ -60,137 +60,22 @@ async function fetchTranslation(
 }
 
 // ─── Message Bubble ───────────────────────────────────────────────────────────
-
-interface BubbleTranslationProps {
-  msg: Message;
-  translationEnabled: boolean;
-  showPronunciation: boolean;
-  viewerLang: "ko" | "ja";
-  senderLang: "ko" | "ja";
-  isMe: boolean;
-  colors: ReturnType<typeof useColors>;
-}
-
-function BubbleTranslation({
-  msg,
-  translationEnabled,
-  showPronunciation,
-  viewerLang,
-  senderLang,
-  isMe,
-  colors,
-}: BubbleTranslationProps) {
-  const [result, setResult] = useState<TranslationResult | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  // Only translate "them" messages when translation is enabled and languages differ
-  const shouldTranslate =
-    translationEnabled && !isMe && senderLang !== viewerLang;
-
-  useEffect(() => {
-    if (!shouldTranslate) return;
-
-    // Check cache first (synchronously)
-    const cacheKey = `${msg.id}:${viewerLang}`;
-    const cached = translationCache.get(cacheKey);
-    if (cached) {
-      setResult(cached);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-
-    fetchTranslation(msg.id, msg.text, senderLang, viewerLang)
-      .then((data) => {
-        if (!cancelled) setResult(data);
-      })
-      .catch(() => {
-        // TODO: Surface a subtle inline error indicator instead of silently failing
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [msg.id, msg.text, shouldTranslate, senderLang, viewerLang]);
-
-  if (!shouldTranslate) return null;
-
-  if (loading) {
-    return (
-      <View style={bubbleStyles.translationWrap}>
-        <ActivityIndicator size="small" color={isMe ? "rgba(255,255,255,0.7)" : colors.charcoalLight} />
-      </View>
-    );
-  }
-
-  if (!result) return null;
-
-  // Layout:
-  // 1. Translation (main — largest, darkest)
-  // 2. Pronunciation (optional — small, subtle)
-  // 3. Original (lightest — already shown above in bubble)
-  // We show a separator then the layered text below the original message
-  const mutedColor = isMe ? "rgba(255,255,255,0.65)" : colors.charcoalLight;
-  const pronunciationColor = isMe ? "rgba(255,255,255,0.5)" : "#ABABAB";
-  const translationColor = isMe ? colors.white : colors.charcoal;
-
-  return (
-    <View style={[bubbleStyles.translationBlock, { borderTopColor: isMe ? "rgba(255,255,255,0.25)" : colors.border }]}>
-      {/* Translation — primary emphasis */}
-      <Text style={[bubbleStyles.translationText, { color: translationColor }]}>
-        {result.translation}
-      </Text>
-      {/* Pronunciation — secondary, subtle */}
-      {showPronunciation && !!result.pronunciation && (
-        <Text style={[bubbleStyles.pronunciationText, { color: pronunciationColor }]}>
-          {result.pronunciation}
-        </Text>
-      )}
-      {/* Original divider indicator */}
-      <View style={[bubbleStyles.originalDivider, { backgroundColor: isMe ? "rgba(255,255,255,0.2)" : colors.border }]} />
-      <Text style={[bubbleStyles.originalText, { color: mutedColor }]}>
-        {msg.text}
-      </Text>
-    </View>
-  );
-}
-
-const bubbleStyles = StyleSheet.create({
-  translationBlock: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    gap: 3,
-  },
-  translationText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  pronunciationText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 11,
-    lineHeight: 15,
-    letterSpacing: 0.2,
-  },
-  originalDivider: {
-    height: 1,
-    marginVertical: 4,
-    borderRadius: 1,
-  },
-  originalText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 11,
-    lineHeight: 16,
-    fontStyle: "italic",
-  },
-});
-
-// ─── Message Bubble wrapper ────────────────────────────────────────────────────
+//
+// Layout rules (only applies to received messages when translationEnabled):
+//
+//  KR viewer reading JP message:
+//    ① original Japanese   (msg.text — normal weight)
+//    ── separator ──
+//    ② Korean translation  (medium, clearest)
+//    ③ Korean pronunciation (small, gray — only if showPronunciation)
+//
+//  JP viewer reading KR message:
+//    ① Japanese translation (medium, clearest — shown FIRST)
+//    ── separator ──
+//    ② original Korean     (msg.text — dimmer)
+//    ③ Katakana pronunciation (small, gray — only if showPronunciation)
+//
+//  Own messages / translation off: just msg.text, no layers.
 
 function MessageBubble({
   msg,
@@ -208,38 +93,149 @@ function MessageBubble({
   const colors = useColors();
   const isMe = msg.senderId === CURRENT_USER_ID;
 
+  const shouldTranslate = translationEnabled && !isMe && senderLang !== viewerLang;
+
+  const [result, setResult] = useState<TranslationResult | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!shouldTranslate) return;
+
+    const cacheKey = `${msg.id}:${viewerLang}`;
+    const cached = translationCache.get(cacheKey);
+    if (cached) { setResult(cached); return; }
+
+    let cancelled = false;
+    setLoading(true);
+
+    fetchTranslation(msg.id, msg.text, senderLang, viewerLang)
+      .then((data) => { if (!cancelled) setResult(data); })
+      .catch(() => { /* TODO: show subtle inline retry indicator */ })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [msg.id, msg.text, shouldTranslate, senderLang, viewerLang]);
+
+  // ── colour tokens ──────────────────────────────────────────────────────────
+  const originalColor  = isMe ? "rgba(255,255,255,0.90)" : colors.charcoal;
+  const translColor    = isMe ? colors.white             : colors.charcoal;
+  const dimColor       = isMe ? "rgba(255,255,255,0.55)" : colors.charcoalLight;
+  const pronunciColor  = isMe ? "rgba(255,255,255,0.42)" : "#ABABAB";
+  const sepColor       = isMe ? "rgba(255,255,255,0.20)" : colors.border;
+
+  // ── separator helper ───────────────────────────────────────────────────────
+  const Separator = () => (
+    <View style={[bubbleStyles.separator, { backgroundColor: sepColor }]} />
+  );
+
+  // ── render ─────────────────────────────────────────────────────────────────
   return (
     <View style={[styles.bubbleWrap, { alignSelf: isMe ? "flex-end" : "flex-start" }]}>
-      <TouchableOpacity
+      <View
         style={[
           styles.bubble,
           {
             backgroundColor: isMe ? colors.rose : colors.white,
-            borderColor: isMe ? colors.rose : colors.border,
+            borderColor:     isMe ? colors.rose : colors.border,
           },
         ]}
-        activeOpacity={0.85}
       >
-        <Text style={[styles.bubbleText, { color: isMe ? colors.white : colors.charcoal }]}>
-          {msg.text}
-        </Text>
+        {/* ── NO translation: just the message ─────────────────────────── */}
+        {!shouldTranslate && (
+          <Text style={[styles.bubbleText, { color: originalColor }]}>
+            {msg.text}
+          </Text>
+        )}
 
-        <BubbleTranslation
-          msg={msg}
-          translationEnabled={translationEnabled}
-          showPronunciation={showPronunciation}
-          viewerLang={viewerLang}
-          senderLang={senderLang}
-          isMe={isMe}
-          colors={colors}
-        />
-      </TouchableOpacity>
+        {/* ── Loading spinner ───────────────────────────────────────────── */}
+        {shouldTranslate && loading && (
+          <>
+            <Text style={[styles.bubbleText, { color: originalColor }]}>
+              {msg.text}
+            </Text>
+            <Separator />
+            <ActivityIndicator
+              size="small"
+              color={isMe ? "rgba(255,255,255,0.6)" : colors.charcoalLight}
+              style={{ marginTop: 2, alignSelf: "flex-start" }}
+            />
+          </>
+        )}
+
+        {/* ── KR viewer reading JP:  original → translation → pronunciation */}
+        {shouldTranslate && !loading && result && viewerLang === "ko" && (
+          <>
+            {/* ① original Japanese */}
+            <Text style={[styles.bubbleText, { color: originalColor }]}>
+              {msg.text}
+            </Text>
+            <Separator />
+            {/* ② Korean translation — primary */}
+            <Text style={[bubbleStyles.translText, { color: translColor }]}>
+              {result.translation}
+            </Text>
+            {/* ③ Korean pronunciation — last, smallest */}
+            {showPronunciation && !!result.pronunciation && (
+              <Text style={[bubbleStyles.pronText, { color: pronunciColor }]}>
+                {result.pronunciation}
+              </Text>
+            )}
+          </>
+        )}
+
+        {/* ── JP viewer reading KR:  translation → original → pronunciation */}
+        {shouldTranslate && !loading && result && viewerLang === "ja" && (
+          <>
+            {/* ① Japanese translation — primary (shown FIRST) */}
+            <Text style={[bubbleStyles.translText, { color: translColor }]}>
+              {result.translation}
+            </Text>
+            <Separator />
+            {/* ② original Korean — dimmed */}
+            <Text style={[bubbleStyles.originalText, { color: dimColor }]}>
+              {msg.text}
+            </Text>
+            {/* ③ Katakana pronunciation — last, smallest */}
+            {showPronunciation && !!result.pronunciation && (
+              <Text style={[bubbleStyles.pronText, { color: pronunciColor }]}>
+                {result.pronunciation}
+              </Text>
+            )}
+          </>
+        )}
+      </View>
+
       <Text style={[styles.timestamp, { color: colors.charcoalLight, alignSelf: isMe ? "flex-end" : "flex-start" }]}>
         {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
       </Text>
     </View>
   );
 }
+
+const bubbleStyles = StyleSheet.create({
+  separator: {
+    height: 1,
+    marginVertical: 6,
+    borderRadius: 1,
+  },
+  translText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  originalText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  pronText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    lineHeight: 16,
+    letterSpacing: 0.3,
+    marginTop: 2,
+  },
+});
 
 // ─── Chat Detail Screen ────────────────────────────────────────────────────────
 
