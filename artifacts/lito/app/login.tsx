@@ -155,16 +155,18 @@ export default function LoginScreen() {
               style={({ pressed }) => [
                 styles.socialBtn,
                 {
-                  backgroundColor: "#FEF08A",
-                  borderColor: "#FDE047",
+                  backgroundColor: "#FEFCE8",
+                  borderColor: "#E9D95C",
                   opacity: pressed ? 0.88 : 1,
                   flex: 1,
                 },
               ]}
               onPress={() => handleSocialLogin("kakao")}
             >
-              <Text style={styles.socialBtnIcon}>💬</Text>
-              <Text style={[styles.socialBtnLabel, { color: "#78350F" }]}>Kakao</Text>
+              <View style={[styles.socialIconWrap, { backgroundColor: "#E9D95C" }]}>
+                <Text style={styles.socialBtnIconSm}>K</Text>
+              </View>
+              <Text style={[styles.socialBtnLabel, { color: "#5C4A00" }]}>Kakao</Text>
             </Pressable>
 
             {/* LINE */}
@@ -172,16 +174,18 @@ export default function LoginScreen() {
               style={({ pressed }) => [
                 styles.socialBtn,
                 {
-                  backgroundColor: "#F0FDF4",
-                  borderColor: "#BBF7D0",
+                  backgroundColor: "#F7FEFB",
+                  borderColor: "#7EC8A4",
                   opacity: pressed ? 0.88 : 1,
                   flex: 1,
                 },
               ]}
               onPress={() => handleSocialLogin("line")}
             >
-              <Text style={styles.socialBtnIcon}>💚</Text>
-              <Text style={[styles.socialBtnLabel, { color: "#166534" }]}>LINE</Text>
+              <View style={[styles.socialIconWrap, { backgroundColor: "#7EC8A4" }]}>
+                <Text style={styles.socialBtnIconSm}>L</Text>
+              </View>
+              <Text style={[styles.socialBtnLabel, { color: "#1A5C3A" }]}>LINE</Text>
             </Pressable>
           </View>
         </View>
@@ -316,6 +320,19 @@ const styles = StyleSheet.create({
   },
   socialBtnIcon: {
     fontSize: 18,
+  },
+  socialIconWrap: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  socialBtnIconSm: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 12,
+    color: "#FFFFFF",
+    lineHeight: 14,
   },
   socialBtnLabel: {
     fontFamily: "Inter_600SemiBold",
