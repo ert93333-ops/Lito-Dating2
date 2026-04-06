@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -24,10 +24,189 @@ import { Message } from "@/types";
 
 const CURRENT_USER_ID = "me";
 
-function MessageBubble({ msg, showTranslation }: { msg: Message; showTranslation: boolean }) {
+// Build the API base URL from the injected domain env var
+const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+  : "http://localhost:8080";
+
+interface TranslationResult {
+  translation: string;
+  pronunciation: string;
+}
+
+// Per-session in-memory cache keyed by "<msgId>:<viewerLang>"
+const translationCache = new Map<string, TranslationResult>();
+
+async function fetchTranslation(
+  msgId: string,
+  text: string,
+  sourceLang: "ko" | "ja",
+  viewerLang: "ko" | "ja"
+): Promise<TranslationResult> {
+  const cacheKey = `${msgId}:${viewerLang}`;
+  const cached = translationCache.get(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetch(`${API_BASE}/api/ai/translate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, sourceLang, viewerLang }),
+  });
+
+  if (!response.ok) throw new Error(`API error: ${response.status}`);
+  const data = (await response.json()) as TranslationResult;
+  translationCache.set(cacheKey, data);
+  return data;
+}
+
+// ─── Message Bubble ───────────────────────────────────────────────────────────
+
+interface BubbleTranslationProps {
+  msg: Message;
+  translationEnabled: boolean;
+  showPronunciation: boolean;
+  viewerLang: "ko" | "ja";
+  senderLang: "ko" | "ja";
+  isMe: boolean;
+  colors: ReturnType<typeof useColors>;
+}
+
+function BubbleTranslation({
+  msg,
+  translationEnabled,
+  showPronunciation,
+  viewerLang,
+  senderLang,
+  isMe,
+  colors,
+}: BubbleTranslationProps) {
+  const [result, setResult] = useState<TranslationResult | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Only translate "them" messages when translation is enabled and languages differ
+  const shouldTranslate =
+    translationEnabled && !isMe && senderLang !== viewerLang;
+
+  useEffect(() => {
+    if (!shouldTranslate) return;
+
+    // Check cache first (synchronously)
+    const cacheKey = `${msg.id}:${viewerLang}`;
+    const cached = translationCache.get(cacheKey);
+    if (cached) {
+      setResult(cached);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+
+    fetchTranslation(msg.id, msg.text, senderLang, viewerLang)
+      .then((data) => {
+        if (!cancelled) setResult(data);
+      })
+      .catch(() => {
+        // TODO: Surface a subtle inline error indicator instead of silently failing
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [msg.id, msg.text, shouldTranslate, senderLang, viewerLang]);
+
+  if (!shouldTranslate) return null;
+
+  if (loading) {
+    return (
+      <View style={bubbleStyles.translationWrap}>
+        <ActivityIndicator size="small" color={isMe ? "rgba(255,255,255,0.7)" : colors.charcoalLight} />
+      </View>
+    );
+  }
+
+  if (!result) return null;
+
+  // Layout:
+  // 1. Translation (main — largest, darkest)
+  // 2. Pronunciation (optional — small, subtle)
+  // 3. Original (lightest — already shown above in bubble)
+  // We show a separator then the layered text below the original message
+  const mutedColor = isMe ? "rgba(255,255,255,0.65)" : colors.charcoalLight;
+  const pronunciationColor = isMe ? "rgba(255,255,255,0.5)" : "#ABABAB";
+  const translationColor = isMe ? colors.white : colors.charcoal;
+
+  return (
+    <View style={[bubbleStyles.translationBlock, { borderTopColor: isMe ? "rgba(255,255,255,0.25)" : colors.border }]}>
+      {/* Translation — primary emphasis */}
+      <Text style={[bubbleStyles.translationText, { color: translationColor }]}>
+        {result.translation}
+      </Text>
+      {/* Pronunciation — secondary, subtle */}
+      {showPronunciation && !!result.pronunciation && (
+        <Text style={[bubbleStyles.pronunciationText, { color: pronunciationColor }]}>
+          {result.pronunciation}
+        </Text>
+      )}
+      {/* Original divider indicator */}
+      <View style={[bubbleStyles.originalDivider, { backgroundColor: isMe ? "rgba(255,255,255,0.2)" : colors.border }]} />
+      <Text style={[bubbleStyles.originalText, { color: mutedColor }]}>
+        {msg.text}
+      </Text>
+    </View>
+  );
+}
+
+const bubbleStyles = StyleSheet.create({
+  translationBlock: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    gap: 3,
+  },
+  translationText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  pronunciationText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: 0.2,
+  },
+  originalDivider: {
+    height: 1,
+    marginVertical: 4,
+    borderRadius: 1,
+  },
+  originalText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    lineHeight: 16,
+    fontStyle: "italic",
+  },
+});
+
+// ─── Message Bubble wrapper ────────────────────────────────────────────────────
+
+function MessageBubble({
+  msg,
+  translationEnabled,
+  showPronunciation,
+  viewerLang,
+  senderLang,
+}: {
+  msg: Message;
+  translationEnabled: boolean;
+  showPronunciation: boolean;
+  viewerLang: "ko" | "ja";
+  senderLang: "ko" | "ja";
+}) {
   const colors = useColors();
   const isMe = msg.senderId === CURRENT_USER_ID;
-  const [expanded, setExpanded] = useState(false);
 
   return (
     <View style={[styles.bubbleWrap, { alignSelf: isMe ? "flex-end" : "flex-start" }]}>
@@ -39,19 +218,21 @@ function MessageBubble({ msg, showTranslation }: { msg: Message; showTranslation
             borderColor: isMe ? colors.rose : colors.border,
           },
         ]}
-        onPress={() => setExpanded(!expanded)}
+        activeOpacity={0.85}
       >
         <Text style={[styles.bubbleText, { color: isMe ? colors.white : colors.charcoal }]}>
           {msg.text}
         </Text>
-        {showTranslation && msg.textTranslated && (
-          <View style={[styles.translationWrap, { borderTopColor: isMe ? "rgba(255,255,255,0.3)" : colors.border }]}>
-            <Feather name="globe" size={10} color={isMe ? "rgba(255,255,255,0.7)" : colors.charcoalLight} />
-            <Text style={[styles.translationText, { color: isMe ? "rgba(255,255,255,0.85)" : colors.charcoalLight }]}>
-              {msg.textTranslated}
-            </Text>
-          </View>
-        )}
+
+        <BubbleTranslation
+          msg={msg}
+          translationEnabled={translationEnabled}
+          showPronunciation={showPronunciation}
+          viewerLang={viewerLang}
+          senderLang={senderLang}
+          isMe={isMe}
+          colors={colors}
+        />
       </TouchableOpacity>
       <Text style={[styles.timestamp, { color: colors.charcoalLight, alignSelf: isMe ? "flex-end" : "flex-start" }]}>
         {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -60,11 +241,21 @@ function MessageBubble({ msg, showTranslation }: { msg: Message; showTranslation
   );
 }
 
+// ─── Chat Detail Screen ────────────────────────────────────────────────────────
+
 export default function ChatDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { conversations, messages, sendMessage, toggleTranslation, unlockExternalContact } = useApp();
+  const {
+    conversations,
+    messages,
+    profile,
+    sendMessage,
+    toggleTranslation,
+    unlockExternalContact,
+    showPronunciation,
+  } = useApp();
   const [inputText, setInputText] = useState("");
   const [aiSuggesting, setAiSuggesting] = useState(false);
   const flatRef = useRef<FlatList>(null);
@@ -82,42 +273,36 @@ export default function ChatDetailScreen() {
     );
   }
 
+  // My language and the other user's language
+  const viewerLang = profile.language;
+  const senderLang = conversation.user.language;
+
   const handleSend = () => {
     if (!inputText.trim() || !id) return;
     sendMessage(id, inputText.trim());
     setInputText("");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Connect to OpenAI to get AI reply suggestions and translations
   };
 
   const handleAiSuggest = async () => {
     if (aiSuggesting) return;
     setAiSuggesting(true);
     try {
-      // Build the conversation payload — last 10 messages for context
       const recentMessages = convMessages.slice(-10).map((m) => ({
         sender: m.senderId === CURRENT_USER_ID ? "me" : "them",
         text: m.text,
       }));
 
-      // Determine target language from the other user's country
       // TODO: expose language preference per-conversation for finer control
-      const targetLang = conversation.user.country === "jp" ? "ja" : "ko";
+      const targetLang = conversation.user.country === "JP" ? "ja" : "ko";
 
-      // Use EXPO_PUBLIC_DOMAIN to reach the API server through the Replit proxy.
-      // The /api path is routed to the API server by the Replit proxy.
-      const domain = process.env.EXPO_PUBLIC_DOMAIN;
-      const apiBase = domain ? `https://${domain}` : "http://localhost:8080";
-
-      const response = await fetch(`${apiBase}/api/ai/suggest-reply`, {
+      const response = await fetch(`${API_BASE}/api/ai/suggest-reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: recentMessages, targetLang }),
       });
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
 
       const data = (await response.json()) as { suggestion?: string; error?: string };
 
@@ -127,7 +312,7 @@ export default function ChatDetailScreen() {
       } else {
         throw new Error(data.error ?? "No suggestion returned");
       }
-    } catch (err) {
+    } catch {
       // TODO: Show a more specific error (e.g. network vs. server vs. quota)
       Alert.alert("AI Suggestion", "Could not generate a reply. Please try again.");
     } finally {
@@ -201,7 +386,13 @@ export default function ChatDetailScreen() {
         data={convMessages}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <MessageBubble msg={item} showTranslation={!!conversation.translationEnabled} />
+          <MessageBubble
+            msg={item}
+            translationEnabled={!!conversation.translationEnabled}
+            showPronunciation={showPronunciation}
+            viewerLang={viewerLang}
+            senderLang={senderLang}
+          />
         )}
         contentContainerStyle={[styles.messageList, { paddingBottom: 12 }]}
         showsVerticalScrollIndicator={false}
@@ -317,7 +508,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   bubbleWrap: {
-    maxWidth: "78%",
+    maxWidth: "82%",
     marginBottom: 8,
   },
   bubble: {
@@ -330,20 +521,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 15,
     lineHeight: 22,
-  },
-  translationWrap: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 4,
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-  },
-  translationText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    lineHeight: 18,
-    flex: 1,
   },
   timestamp: {
     fontFamily: "Inter_400Regular",

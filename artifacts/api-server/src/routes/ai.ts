@@ -74,4 +74,91 @@ Rules:
   }
 });
 
+// TODO: Future improvements for translation:
+// - Batch all messages in a conversation in one API call to reduce latency/cost
+// - Cache results server-side (Redis/KV) keyed by (text, sourceLang, viewerLang)
+// - Add per-user rate limiting to prevent abuse
+
+/**
+ * POST /api/ai/translate
+ *
+ * Translates a single message and generates a pronunciation guide.
+ *
+ * Body: {
+ *   text: string           — message text to translate
+ *   sourceLang: "ko"|"ja" — language the sender wrote in
+ *   viewerLang: "ko"|"ja" — language the viewer reads
+ * }
+ * Response: { translation: string, pronunciation: string }
+ */
+router.post("/ai/translate", async (req, res) => {
+  try {
+    const { text, sourceLang, viewerLang } = req.body as {
+      text: string;
+      sourceLang: "ko" | "ja";
+      viewerLang: "ko" | "ja";
+    };
+
+    if (!text || !sourceLang || !viewerLang) {
+      res.status(400).json({ error: "text, sourceLang, and viewerLang are required" });
+      return;
+    }
+
+    // If already in the viewer's language, skip
+    if (sourceLang === viewerLang) {
+      res.json({ translation: text, pronunciation: "" });
+      return;
+    }
+
+    // Determine what each field should be
+    // sourceLang=ja, viewerLang=ko → translate ja→ko, pronunciation in Korean phonetics of Japanese
+    // sourceLang=ko, viewerLang=ja → translate ko→ja, pronunciation in Katakana phonetics of Korean
+
+    const translationDirection =
+      sourceLang === "ja" && viewerLang === "ko"
+        ? "Japanese to Korean"
+        : "Korean to Japanese";
+
+    const pronunciationInstructions =
+      sourceLang === "ja" && viewerLang === "ko"
+        ? "Write the pronunciation of the ORIGINAL Japanese text using Korean phonetic characters (한글 발음 표기). This helps Korean speakers sound out the Japanese."
+        : "Write the pronunciation of the ORIGINAL Korean text using Katakana characters. This helps Japanese speakers sound out the Korean.";
+
+    const systemPrompt = `You are a bilingual translation assistant for a Korean-Japanese dating app.
+Given a message, you must output EXACTLY two lines and nothing else:
+Line 1: The ${translationDirection} translation — natural, warm, casual dating-app style.
+Line 2: ${pronunciationInstructions}
+
+Rules:
+- Output ONLY the two lines, no labels, no explanation, no punctuation changes
+- Keep both lines short and natural
+- Line 2 must be a genuine phonetic guide using the appropriate script`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5.2",
+      max_completion_tokens: 200,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: text },
+      ],
+    });
+
+    const raw = completion.choices[0]?.message?.content?.trim() ?? "";
+    const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
+
+    const translation = lines[0] ?? "";
+    const pronunciation = lines[1] ?? "";
+
+    if (!translation) {
+      res.status(500).json({ error: "No translation generated" });
+      return;
+    }
+
+    res.json({ translation, pronunciation });
+  } catch (err) {
+    console.error("[ai/translate] error:", err);
+    res.status(500).json({ error: "Failed to translate" });
+  }
+});
+
 export default router;

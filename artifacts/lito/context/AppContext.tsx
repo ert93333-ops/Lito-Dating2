@@ -13,6 +13,7 @@ interface AppContextType {
   conversations: Conversation[];
   messages: Record<string, Message[]>;
   activeConversationId: string | null;
+  showPronunciation: boolean;
   completeOnboarding: () => void;
   login: () => void;
   logout: () => void;
@@ -23,6 +24,7 @@ interface AppContextType {
   unlockExternalContact: (conversationId: string) => void;
   setActiveConversation: (id: string | null) => void;
   updateProfile: (updates: Partial<MyProfile>) => void;
+  setShowPronunciation: (val: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -40,6 +42,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     conv3: [],
   });
   const [activeConversationId, setActiveConversation] = useState<string | null>(null);
+  const [showPronunciation, setShowPronunciationState] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem("lito_onboarding").then((val) => {
@@ -48,6 +51,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.getItem("lito_logged_in").then((val) => {
       if (val === "true") setIsLoggedIn(true);
     });
+    AsyncStorage.getItem("lito_pronunciation").then((val) => {
+      if (val === "true") setShowPronunciationState(true);
+    });
+  }, []);
+
+  const setShowPronunciation = useCallback((val: boolean) => {
+    setShowPronunciationState(val);
+    AsyncStorage.setItem("lito_pronunciation", val ? "true" : "false");
   }, []);
 
   const completeOnboarding = useCallback(() => {
@@ -134,6 +145,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         conversations,
         messages,
         activeConversationId,
+        showPronunciation,
         completeOnboarding,
         login,
         logout,
@@ -144,6 +156,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         unlockExternalContact,
         setActiveConversation,
         updateProfile,
+        setShowPronunciation,
       }}
     >
       {children}
