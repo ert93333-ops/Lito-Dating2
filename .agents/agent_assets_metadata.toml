@@ -1,0 +1,50 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "u31TMP3FsIuXRXVtDleqN"
+uri = "file://artifacts/lito/assets/images/icon.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "BkPw1398BykMJKxDZDL81"
+uri = "file://artifacts/lito/assets/images/splash.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "5OeF2hMG98ZZ1GFXuPtOY"
+uri = "file://artifacts/lito/assets/images/profile1.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "y1nKYpy8o_US-SH4QpHXJ"
+uri = "file://artifacts/lito/assets/images/profile2.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "2Gs9w4swSp3hfJgZKcaFi"
+uri = "file://artifacts/lito/assets/images/profile3.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "NhD2ekEa6FjnZXPe-DNZS"
+uri = "file://artifacts/lito/assets/images/profile4.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "314wnNmQcQQW_HO-JoFRS"
+uri = "file://artifacts/lito/assets/images/profile5.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "L885DOOd34AGgtfpbyMBd"
+uri = "file://artifacts/lito/assets/images/profile6.png"
+type = "image"
+title = "generated_image"

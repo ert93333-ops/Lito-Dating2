@@ -1,0 +1,82 @@
+Build a native mobile dating app MVP called Lito for Korean and Japanese users.
+
+Use Expo + React Native + TypeScript.
+Do not connect any real external services yet.
+Use mocked local demo data only so the app runs immediately without API keys.
+
+Design direction:
+- clean, premium, trustworthy
+- white background
+- soft rose/pink accent color
+- dark charcoal text
+- rounded cards and buttons
+- modern mobile-first UI
+- elegant but simple, not childish
+
+Main product concept:
+Lito is a Korean-Japanese dating app focused on AI-assisted matching, translation help, and safe trust-building before users exchange outside contact details.
+
+Build these screens:
+1. Splash screen with Lito logo text
+2. Onboarding screens (3 pages)
+   - AI culture matching
+   - Korean/Japanese translation help
+   - safe external contact unlock
+3. Login screen
+   - Continue with Email
+   - Continue with Kakao (placeholder only)
+   - Continue with LINE (placeholder only)
+4. Profile setup screen
+   - photo placeholders
+   - nickname
+   - age
+   - country
+   - language
+   - short bio
+   - Instagram handle
+5. Discover screen
+   - swipe-like card layout
+   - compatibility reason chips
+   - like / pass actions
+6. Matches screen
+   - recent matches list
+7. Chats screen
+   - conversation list
+8. Chat detail screen
+   - message bubbles
+   - translation toggle
+   - AI reply suggestion button
+   - external contact unlock request button
+9. Profile screen
+   - editable profile sections
+   - AI style summary card placeholder
+10. Settings screen
+   - support email: litosupport@gmail.com
+   - privacy policy placeholder
+   - delete account placeholder
+   - app language toggle
+
+Navigation requirements:
+- bottom tab navigation with Discover, Matches, Chats, Profile
+- onboarding should appear first before login
+- smooth navigation between all screens
+
+Data requirements:
+- create realistic mock data for 6 users
+- create 3 matches
+- create 1 sample chat thread
+- include Korean and Japanese sample text in the UI
+
+Code structure requirements:
+- organize code cleanly into screens, components, data, theme, and types
+- include reusable UI components
+- add clear TODO comments for future Supabase and OpenAI integration
+- make the project easy for a beginner to continue building later
+
+Important:
+- no payments
+- no real auth yet
+- no real backend yet
+- no external API calls
+- app must run locally in preview immediately
+- prioritize polished UI and smooth basic navigation
