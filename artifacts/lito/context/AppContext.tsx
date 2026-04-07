@@ -6,6 +6,7 @@ import { Conversation, Match, Message, MyProfile, User } from "@/types";
 
 interface AppContextType {
   hasCompletedOnboarding: boolean;
+  hasCompletedProfileSetup: boolean;
   isLoggedIn: boolean;
   profile: MyProfile;
   discoverUsers: User[];
@@ -15,6 +16,7 @@ interface AppContextType {
   activeConversationId: string | null;
   showPronunciation: boolean;
   completeOnboarding: () => void;
+  completeProfileSetup: () => void;
   login: () => void;
   logout: () => void;
   likeUser: (userId: string) => void;
@@ -31,6 +33,7 @@ const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [hasCompletedProfileSetup, setHasCompletedProfileSetupState] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [profile, setProfile] = useState<MyProfile>(myProfile);
   const [discoverUsers, setDiscoverUsers] = useState<User[]>(mockUsers);
@@ -49,14 +52,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { profileRef.current = profile; }, [profile]);
 
   useEffect(() => {
-    AsyncStorage.getItem("lito_onboarding").then((val) => {
-      if (val === "done") setHasCompletedOnboarding(true);
-    });
-    AsyncStorage.getItem("lito_logged_in").then((val) => {
-      if (val === "true") setIsLoggedIn(true);
-    });
-    AsyncStorage.getItem("lito_pronunciation").then((val) => {
-      if (val === "true") setShowPronunciationState(true);
+    AsyncStorage.multiGet([
+      "lito_onboarding",
+      "lito_profile_setup",
+      "lito_logged_in",
+      "lito_pronunciation",
+    ]).then((pairs) => {
+      const map = Object.fromEntries(pairs.map(([k, v]) => [k, v]));
+      if (map["lito_onboarding"] === "done") setHasCompletedOnboarding(true);
+      if (map["lito_profile_setup"] === "done") setHasCompletedProfileSetupState(true);
+      if (map["lito_logged_in"] === "true") setIsLoggedIn(true);
+      if (map["lito_pronunciation"] === "true") setShowPronunciationState(true);
     });
   }, []);
 
@@ -70,6 +76,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem("lito_onboarding", "done");
   }, []);
 
+  const completeProfileSetup = useCallback(() => {
+    setHasCompletedProfileSetupState(true);
+    AsyncStorage.setItem("lito_profile_setup", "done");
+  }, []);
+
   const login = useCallback(() => {
     setIsLoggedIn(true);
     AsyncStorage.setItem("lito_logged_in", "true");
@@ -78,8 +89,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     setIsLoggedIn(false);
     setHasCompletedOnboarding(false);
-    AsyncStorage.removeItem("lito_logged_in");
-    AsyncStorage.removeItem("lito_onboarding");
+    setHasCompletedProfileSetupState(false);
+    AsyncStorage.multiRemove([
+      "lito_logged_in",
+      "lito_onboarding",
+      "lito_profile_setup",
+    ]);
   }, []);
 
   const likeUser = useCallback((userId: string) => {
@@ -149,6 +164,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider
       value={{
         hasCompletedOnboarding,
+        hasCompletedProfileSetup,
         isLoggedIn,
         profile,
         discoverUsers,
@@ -158,6 +174,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         activeConversationId,
         showPronunciation,
         completeOnboarding,
+        completeProfileSetup,
         login,
         logout,
         likeUser,

@@ -28,15 +28,19 @@ if (process.env.EXPO_PUBLIC_DOMAIN) {
 const queryClient = new QueryClient();
 
 function RootNavigator() {
-  const { hasCompletedOnboarding, isLoggedIn } = useApp();
+  const { hasCompletedOnboarding, isLoggedIn, hasCompletedProfileSetup } = useApp();
 
   useEffect(() => {
     if (!hasCompletedOnboarding) {
       router.replace("/onboarding");
     } else if (!isLoggedIn) {
       router.replace("/login");
+    } else if (!hasCompletedProfileSetup) {
+      router.replace("/profile-setup");
+    } else {
+      router.replace("/(tabs)/discover");
     }
-  }, [hasCompletedOnboarding, isLoggedIn]);
+  }, [hasCompletedOnboarding, isLoggedIn, hasCompletedProfileSetup]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

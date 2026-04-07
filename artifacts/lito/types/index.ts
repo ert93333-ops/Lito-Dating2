@@ -48,7 +48,9 @@ export interface MyProfile {
   age: number;
   country: "KR" | "JP";
   language: "ko" | "ja";
+  intro?: string;
   bio: string;
+  interests?: string[];
   instagramHandle?: string;
   photos: string[];
   aiStyleSummary: string;

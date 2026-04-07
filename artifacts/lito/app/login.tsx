@@ -33,14 +33,15 @@ export default function LoginScreen() {
     // TODO: Integrate with Supabase Auth
     await new Promise((r) => setTimeout(r, 800));
     login();
-    router.replace("/(tabs)/discover");
+    // Navigation is handled by RootNavigator in _layout.tsx
+    // → routes to /profile-setup on first login, /(tabs)/discover on return
     setLoading(false);
   };
 
   const handleSocialLogin = (provider: "kakao" | "line") => {
     // TODO: Integrate with Kakao / LINE OAuth
     login();
-    router.replace("/(tabs)/discover");
+    // Navigation is handled by RootNavigator in _layout.tsx
   };
 
   const emailReady = email.trim().length > 0;

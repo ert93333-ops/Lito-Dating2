@@ -89,50 +89,49 @@ function MessageBubble({
   senderLang: "ko" | "ja";
 }) {
   const colors = useColors();
-  // Read showPronunciation directly from context so FlatList items don't
-  // unmount/remount when this setting changes
+  // showPronunciation is read from context — not passed as prop.
+  // This means FlatList items won't remount when this setting changes.
   const { showPronunciation } = useApp();
   const isMe = msg.senderId === CURRENT_USER_ID;
 
   const shouldTranslate = translationEnabled && !isMe && senderLang !== viewerLang;
 
-  // Lazy-init from module-level cache so there is never a blank flash when
-  // the component is remounted (e.g. after a FlatList re-render)
-  const [result, setResult] = useState<TranslationResult | null>(() => {
-    if (!shouldTranslate) return null;
-    return translationCache.get(`${msg.id}:${viewerLang}`) ?? null;
-  });
-  const [loading, setLoading] = useState(false);
+  // ── KEY FIX: result is read synchronously from the module-level cache map,
+  // NOT stored in React state. This means:
+  // - It survives component remounts (state resets, map doesn't)
+  // - Toggling showPronunciation never clears it
+  // - Only `translating` (loading indicator) is React state
+  const cacheKey = shouldTranslate ? `${msg.id}:${viewerLang}` : null;
+  const result = cacheKey ? translationCache.get(cacheKey) : undefined;
+
+  // `translating` drives the loading spinner only. When it flips to false
+  // after a fetch, this component re-renders and reads the fresh cache entry.
+  const [translating, setTranslating] = useState(false);
 
   useEffect(() => {
-    if (!shouldTranslate) return;
-    // Already loaded (either from lazy init or a previous render)
-    if (result) return;
-
-    const cacheKey = `${msg.id}:${viewerLang}`;
-    const cached = translationCache.get(cacheKey);
-    if (cached) { setResult(cached); return; }
+    if (!cacheKey) return;
+    if (translationCache.has(cacheKey)) return; // already in cache, skip fetch
 
     let cancelled = false;
-    setLoading(true);
+    setTranslating(true);
 
+    // fetchTranslation already stores the result in translationCache.
+    // When the promise resolves, we just flip `translating` to false,
+    // which triggers a re-render that reads the fresh cache entry.
     fetchTranslation(msg.id, msg.text, senderLang, viewerLang)
-      .then((data) => { if (!cancelled) setResult(data); })
-      .catch(() => { /* TODO: show subtle inline retry indicator */ })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .then(() => { if (!cancelled) setTranslating(false); })
+      .catch(() => { if (!cancelled) setTranslating(false); });
 
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [msg.id, msg.text, shouldTranslate, senderLang, viewerLang]);
+  }, [cacheKey]); // only cacheKey; never depends on showPronunciation
 
   // ── colour tokens ──────────────────────────────────────────────────────────
-  const originalColor  = isMe ? "rgba(255,255,255,0.90)" : colors.charcoal;
-  const translColor    = isMe ? colors.white             : colors.charcoal;
-  const dimColor       = isMe ? "rgba(255,255,255,0.55)" : colors.charcoalLight;
-  const pronunciColor  = isMe ? "rgba(255,255,255,0.42)" : "#ABABAB";
-  const sepColor       = isMe ? "rgba(255,255,255,0.20)" : colors.border;
+  const originalColor = isMe ? "rgba(255,255,255,0.90)" : colors.charcoal;
+  const translColor   = isMe ? colors.white             : colors.charcoal;
+  const dimColor      = isMe ? "rgba(255,255,255,0.55)" : colors.charcoalLight;
+  const pronunciColor = isMe ? "rgba(255,255,255,0.42)" : "#ABABAB";
+  const sepColor      = isMe ? "rgba(255,255,255,0.20)" : colors.border;
 
-  // ── separator helper ───────────────────────────────────────────────────────
   const Separator = () => (
     <View style={[bubbleStyles.separator, { backgroundColor: sepColor }]} />
   );
@@ -149,26 +148,15 @@ function MessageBubble({
           },
         ]}
       >
-        {/* ── NO translation: just the message ─────────────────────────── */}
+        {/* ── Plain message (own msg, or translation off/same-lang) */}
         {!shouldTranslate && (
-          <Text style={[styles.bubbleText, { color: originalColor }]}>
-            {msg.text}
-          </Text>
+          <Text style={[styles.bubbleText, { color: originalColor }]}>{msg.text}</Text>
         )}
 
-        {/* ── Fallback: shouldTranslate but no result yet (not loading either) */}
-        {shouldTranslate && !loading && !result && (
-          <Text style={[styles.bubbleText, { color: originalColor }]}>
-            {msg.text}
-          </Text>
-        )}
-
-        {/* ── Loading spinner ───────────────────────────────────────────── */}
-        {shouldTranslate && loading && (
+        {/* ── Fetching in progress */}
+        {shouldTranslate && translating && (
           <>
-            <Text style={[styles.bubbleText, { color: originalColor }]}>
-              {msg.text}
-            </Text>
+            <Text style={[styles.bubbleText, { color: originalColor }]}>{msg.text}</Text>
             <Separator />
             <ActivityIndicator
               size="small"
@@ -178,19 +166,19 @@ function MessageBubble({
           </>
         )}
 
-        {/* ── KR viewer reading JP:  original → translation → pronunciation */}
-        {shouldTranslate && !loading && result && viewerLang === "ko" && (
+        {/* ── shouldTranslate but nothing in cache yet (fetch pending) */}
+        {shouldTranslate && !translating && !result && (
+          <Text style={[styles.bubbleText, { color: originalColor }]}>{msg.text}</Text>
+        )}
+
+        {/* ── KR viewer reading JP:  original ── translation [+ pronunciation] */}
+        {shouldTranslate && !translating && result && viewerLang === "ko" && (
           <>
-            {/* ① original Japanese */}
-            <Text style={[styles.bubbleText, { color: originalColor }]}>
-              {msg.text}
-            </Text>
+            <Text style={[styles.bubbleText, { color: originalColor }]}>{msg.text}</Text>
             <Separator />
-            {/* ② Korean translation — primary */}
             <Text style={[bubbleStyles.translText, { color: translColor }]}>
               {result.translation}
             </Text>
-            {/* ③ Korean pronunciation — last, smallest */}
             {showPronunciation && !!result.pronunciation && (
               <Text style={[bubbleStyles.pronText, { color: pronunciColor }]}>
                 {result.pronunciation}
@@ -199,19 +187,14 @@ function MessageBubble({
           </>
         )}
 
-        {/* ── JP viewer reading KR:  translation → original → pronunciation */}
-        {shouldTranslate && !loading && result && viewerLang === "ja" && (
+        {/* ── JP viewer reading KR:  translation ── original [+ pronunciation] */}
+        {shouldTranslate && !translating && result && viewerLang === "ja" && (
           <>
-            {/* ① Japanese translation — primary (shown FIRST) */}
             <Text style={[bubbleStyles.translText, { color: translColor }]}>
               {result.translation}
             </Text>
             <Separator />
-            {/* ② original Korean — dimmed */}
-            <Text style={[bubbleStyles.originalText, { color: dimColor }]}>
-              {msg.text}
-            </Text>
-            {/* ③ Katakana pronunciation — last, smallest */}
+            <Text style={[bubbleStyles.originalText, { color: dimColor }]}>{msg.text}</Text>
             {showPronunciation && !!result.pronunciation && (
               <Text style={[bubbleStyles.pronText, { color: pronunciColor }]}>
                 {result.pronunciation}
