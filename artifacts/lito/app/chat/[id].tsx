@@ -37,13 +37,14 @@ const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
 
 // ── Module-level translation cache ───────────────────────────────────────────
 // Persists across remounts. Key = "<msgId>:<targetLang>"
-interface TranslationResult { translation: string; }
+interface TranslationResult { translation: string; pronunciation: string; }
 const translationCache = new Map<string, TranslationResult>();
 
 // ── Per-message enrichment ────────────────────────────────────────────────────
 // Each entry is keyed by message ID and stores the state for that individual message.
 interface Enrichment {
   translatedText?: string;
+  pronunciationText?: string;  // Layer 3 — independent of translation, toggled separately
   isLoading?: boolean;
   failed?: boolean;
 }
@@ -72,11 +73,13 @@ interface BubbleProps {
   msg: Message;
   enrichment: Enrichment | undefined;
   viewerLang: "ko" | "ja";
+  /** Whether the pronunciation Layer 3 is currently toggled on (conversation-level). */
+  showPronunciation: boolean;
   /** Called when the user taps the translate button on this specific message. */
   onTranslate: () => void;
 }
 
-function MessageBubble({ msg, enrichment, viewerLang, onTranslate }: BubbleProps) {
+function MessageBubble({ msg, enrichment, viewerLang, showPronunciation, onTranslate }: BubbleProps) {
   const colors = useColors();
   const isMe = msg.senderId === CURRENT_USER_ID;
 
@@ -160,7 +163,8 @@ function MessageBubble({ msg, enrichment, viewerLang, onTranslate }: BubbleProps
           </>
         )}
 
-        {/* Layer 2 — translated text: primary reading content */}
+        {/* Layer 2 — translated text: primary reading content.
+            Always visible when hasTranslation is true — pronunciation toggle NEVER hides this. */}
         {hasTranslation && !isTranslating && (
           <>
             <View style={[bubble.divider, { backgroundColor: colors.border }]} />
@@ -175,6 +179,15 @@ function MessageBubble({ msg, enrichment, viewerLang, onTranslate }: BubbleProps
               </Text>
             </View>
           </>
+        )}
+
+        {/* Layer 3 — pronunciation: additive layer shown only when toggled ON.
+            Requires Layer 2 (translation) to be present first.
+            Toggling this off NEVER affects Layer 2 visibility. */}
+        {hasTranslation && !isTranslating && showPronunciation && !!enrichment?.pronunciationText && (
+          <Text style={[bubble.textPronunciation, { color: colors.charcoalLight }]}>
+            {enrichment.pronunciationText}
+          </Text>
         )}
 
         {/* Translate button — shown when there is no translation yet and not loading.
@@ -281,6 +294,16 @@ const bubble = StyleSheet.create({
     lineHeight: 23,
     flex: 1,
     flexShrink: 1,
+  },
+
+  // Layer 3 — pronunciation: always below translation, never replaces it
+  textPronunciation: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 5,
+    opacity: 0.65,
+    letterSpacing: 0.2,
   },
 
   textMe: {
@@ -846,6 +869,9 @@ export default function ChatDetailScreen() {
   const [showCoachSheet, setShowCoachSheet] = useState(false);
   const [coachData, setCoachData] = useState<CoachResult | null>(null);
 
+  // Layer 3 pronunciation toggle — conversation-level state, independent of translation.
+  const [showPronunciation, setShowPronunciation] = useState(false);
+
   const [inputText, setInputText] = useState("");
   const sendBtnScale = useRef(new Animated.Value(1)).current;
 
@@ -878,6 +904,11 @@ export default function ChatDetailScreen() {
   const viewerLang: "ko" | "ja" = profile.country === "KR" ? "ko" : "ja";
   const translationEnabled = !!conversation.translationEnabled;
 
+  // Effective pronunciation visibility: both translation AND pronunciation must be ON.
+  // This means toggling translation OFF automatically hides pronunciation without
+  // needing a separate useEffect — pure derivation, zero side effects.
+  const effectiveShowPronunciation = translationEnabled && showPronunciation;
+
   // ── Per-message translate function ───────────────────────────────────────
   // Called when a user taps the translate button on an individual message.
   // Works regardless of the global toggle state.
@@ -898,13 +929,16 @@ export default function ChatDetailScreen() {
 
     const cacheKey = `${msg.id}:${targetLang}`;
 
-    // 1. Module cache hit — no fetch needed
+    // 1. Module cache hit — no fetch needed. Restore both translation AND pronunciation.
     const cached = translationCache.get(cacheKey);
     if (cached) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setEnrichmentMap((prev) => ({
         ...prev,
-        [msg.id]: { translatedText: cached.translation },
+        [msg.id]: {
+          translatedText: cached.translation,
+          pronunciationText: cached.pronunciation || undefined,
+        },
       }));
       return;
     }
@@ -931,12 +965,20 @@ export default function ChatDetailScreen() {
       });
       if (!res.ok) throw new Error(`API ${res.status}`);
       const data = (await res.json()) as TranslationResult;
-      translationCache.set(cacheKey, data);
+      // Normalise: server may return empty string for pronunciation — treat as absent
+      const normalised: TranslationResult = {
+        translation: data.translation,
+        pronunciation: data.pronunciation || "",
+      };
+      translationCache.set(cacheKey, normalised);
       // Haptic reward — translation revealed
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setEnrichmentMap((prev) => ({
         ...prev,
-        [msg.id]: { translatedText: data.translation },
+        [msg.id]: {
+          translatedText: normalised.translation,
+          pronunciationText: normalised.pronunciation || undefined,
+        },
       }));
     } catch {
       // Show retry state — original text stays visible
@@ -971,19 +1013,25 @@ export default function ChatDetailScreen() {
       // Already enriched in local state
       if (enrichmentMap[msg.id]?.translatedText) return;
 
-      // 1. Module cache hit
+      // 1. Module cache hit — restore both translation AND pronunciation
       const cached = translationCache.get(cacheKey);
       if (cached) {
         setEnrichmentMap((prev) => {
           if (prev[msg.id]?.translatedText) return prev;
-          return { ...prev, [msg.id]: { translatedText: cached.translation } };
+          return {
+            ...prev,
+            [msg.id]: {
+              translatedText: cached.translation,
+              pronunciationText: cached.pronunciation || undefined,
+            },
+          };
         });
         return;
       }
 
-      // 2. Pre-set data in message (mock data or DB)
+      // 2. Pre-set data in message (mock data or DB) — no pronunciation available from static data
       if (msg.translatedText) {
-        const result = { translation: msg.translatedText };
+        const result: TranslationResult = { translation: msg.translatedText, pronunciation: "" };
         translationCache.set(cacheKey, result);
         setEnrichmentMap((prev) => {
           if (prev[msg.id]?.translatedText) return prev;
@@ -1010,10 +1058,17 @@ export default function ChatDetailScreen() {
       })
         .then((r) => r.json())
         .then((data: TranslationResult) => {
-          translationCache.set(cacheKey, data);
+          const normalised: TranslationResult = {
+            translation: data.translation,
+            pronunciation: data.pronunciation || "",
+          };
+          translationCache.set(cacheKey, normalised);
           setEnrichmentMap((prev) => ({
             ...prev,
-            [msg.id]: { translatedText: data.translation },
+            [msg.id]: {
+              translatedText: normalised.translation,
+              pronunciationText: normalised.pronunciation || undefined,
+            },
           }));
         })
         .catch(() => {}) // silent; bubble shows translate button for manual retry
@@ -1033,6 +1088,7 @@ export default function ChatDetailScreen() {
             msg={item}
             enrichment={undefined}
             viewerLang={viewerLang}
+            showPronunciation={false}
             onTranslate={() => {}}
           />
         );
@@ -1042,11 +1098,12 @@ export default function ChatDetailScreen() {
           msg={item}
           enrichment={enrichmentMap[item.id]}
           viewerLang={viewerLang}
+          showPronunciation={effectiveShowPronunciation}
           onTranslate={() => handleTranslateMessage(item)}
         />
       );
     },
-    [enrichmentMap, viewerLang, handleTranslateMessage]
+    [enrichmentMap, viewerLang, effectiveShowPronunciation, handleTranslateMessage]
   );
 
   // ── Handlers ─────────────────────────────────────────────────────────────
@@ -1180,6 +1237,31 @@ export default function ChatDetailScreen() {
           </View>
         </TouchableOpacity>
 
+        {/* Pronunciation toggle pill — only shown when translation is ON.
+            Toggling this NEVER hides the translation layer (Layer 2).
+            It only shows/hides the pronunciation text (Layer 3). */}
+        {translationEnabled && (
+          <TouchableOpacity
+            style={[
+              styles.translationToggle,
+              showPronunciation
+                ? { backgroundColor: colors.rose, borderColor: colors.rose }
+                : { backgroundColor: colors.muted, borderColor: colors.border },
+            ]}
+            onPress={() => setShowPronunciation((v) => !v)}
+            activeOpacity={0.75}
+          >
+            <Text
+              style={[
+                styles.translationToggleLabel,
+                { color: showPronunciation ? colors.white : colors.charcoalLight },
+              ]}
+            >
+              {showPronunciation ? "발/発 ON" : "발/発"}
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {/* Translation toggle pill — batch mode */}
         <TouchableOpacity
           style={[
@@ -1244,7 +1326,7 @@ export default function ChatDetailScreen() {
         data={convMessages}
         keyExtractor={(item) => item.id}
         renderItem={renderMessage}
-        extraData={enrichmentMap}
+        extraData={[enrichmentMap, effectiveShowPronunciation]}
         contentContainerStyle={[styles.messageList, { paddingBottom: 20 }]}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })}
