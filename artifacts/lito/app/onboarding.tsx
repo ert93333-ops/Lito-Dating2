@@ -1,15 +1,22 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import * as Haptics from "expo-haptics";
 import React, { useRef, useState } from "react";
 import {
   Dimensions,
   FlatList,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { LitoMark } from "@/components/LitoMark";
@@ -52,6 +59,51 @@ const SLIDES = [
     bodyBi: "준비됐을 때만 연락처를 공유하세요.\n신뢰가 쌓인 후에 앱 밖으로 나갈 수 있어요.",
   },
 ] as const;
+
+// ── CtaButton ─────────────────────────────────────────────────────────────────
+// Animated press-scale CTA for onboarding — spring scale + haptic.
+
+function CtaButton({
+  label,
+  accentColor,
+  onPress,
+}: {
+  label: string;
+  accentColor: string;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.96, { damping: 22, stiffness: 420 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 14, stiffness: 280 });
+  };
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  };
+
+  return (
+    <Animated.View style={[animStyle, { width: "100%" }]}>
+      <Pressable
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={[styles.ctaBtn, { backgroundColor: accentColor }]}
+      >
+        <Text style={styles.ctaBtnText}>{label}</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
 
 // ── OnboardingScreen ──────────────────────────────────────────────────────────
 
@@ -162,18 +214,12 @@ export default function OnboardingScreen() {
           ))}
         </View>
 
-        {/* CTA button */}
-        <TouchableOpacity
-          style={[styles.ctaBtn, { backgroundColor: slide.accentColor }]}
+        {/* CTA button — spring scale on press */}
+        <CtaButton
+          accentColor={slide.accentColor}
           onPress={goNext}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.ctaBtnText}>
-            {currentIndex === SLIDES.length - 1
-              ? "Get Started · 시작하기"
-              : "Next"}
-          </Text>
-        </TouchableOpacity>
+          label={currentIndex === SLIDES.length - 1 ? "Get Started · 시작하기" : "Next"}
+        />
 
         {/* Trust cue on last slide */}
         {currentIndex === SLIDES.length - 1 && (

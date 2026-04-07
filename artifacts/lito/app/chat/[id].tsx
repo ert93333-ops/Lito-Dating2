@@ -5,8 +5,10 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -61,6 +63,32 @@ interface BubbleProps {
 function MessageBubble({ msg, enrichment, viewerLang, onTranslate }: BubbleProps) {
   const colors = useColors();
   const isMe = msg.senderId === CURRENT_USER_ID;
+
+  // Translate button press scale — physical tactile feedback
+  const translateScale = useRef(new Animated.Value(1)).current;
+
+  const handleTranslatePressIn = () => {
+    Animated.spring(translateScale, {
+      toValue: 0.9,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 0,
+    }).start();
+  };
+
+  const handleTranslatePressOut = () => {
+    Animated.spring(translateScale, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 18,
+      bounciness: 4,
+    }).start();
+  };
+
+  const handleTranslatePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onTranslate();
+  };
 
   const hasTranslation = !!enrichment?.translatedText;
   const isTranslating = !!enrichment?.isLoading;
@@ -138,30 +166,36 @@ function MessageBubble({ msg, enrichment, viewerLang, onTranslate }: BubbleProps
             Korean message → "日本語に翻訳" (translate to Japanese)
             Japanese message → "한국어로 번역" (translate to Korean) */}
         {!hasTranslation && !isTranslating && !hasFailed && (
-          <TouchableOpacity
-            style={[bubble.translateBtn, { borderColor: colors.roseSoft }]}
-            onPress={onTranslate}
-            activeOpacity={0.7}
-          >
-            <Feather name="globe" size={11} color={colors.rose} />
-            <Text style={[bubble.translateBtnText, { color: colors.rose }]}>
-              {msg.originalLanguage === "ko" ? "日本語に翻訳" : "한국어로 번역"}
-            </Text>
-          </TouchableOpacity>
+          <Animated.View style={{ transform: [{ scale: translateScale }], alignSelf: "flex-start" }}>
+            <Pressable
+              style={[bubble.translateBtn, { borderColor: colors.roseSoft }]}
+              onPress={handleTranslatePress}
+              onPressIn={handleTranslatePressIn}
+              onPressOut={handleTranslatePressOut}
+            >
+              <Feather name="globe" size={11} color={colors.rose} />
+              <Text style={[bubble.translateBtnText, { color: colors.rose }]}>
+                {msg.originalLanguage === "ko" ? "日本語に翻訳" : "한국어로 번역"}
+              </Text>
+            </Pressable>
+          </Animated.View>
         )}
 
         {/* Error / retry state */}
         {hasFailed && !hasTranslation && !isTranslating && (
-          <TouchableOpacity
-            style={[bubble.translateBtn, { borderColor: colors.border }]}
-            onPress={onTranslate}
-            activeOpacity={0.7}
-          >
-            <Feather name="refresh-cw" size={11} color={colors.charcoalLight} />
-            <Text style={[bubble.translateBtnText, { color: colors.charcoalLight }]}>
-              {msg.originalLanguage === "ko" ? "再試行" : "다시 시도"}
-            </Text>
-          </TouchableOpacity>
+          <Animated.View style={{ transform: [{ scale: translateScale }], alignSelf: "flex-start" }}>
+            <Pressable
+              style={[bubble.translateBtn, { borderColor: colors.border }]}
+              onPress={handleTranslatePress}
+              onPressIn={handleTranslatePressIn}
+              onPressOut={handleTranslatePressOut}
+            >
+              <Feather name="refresh-cw" size={11} color={colors.charcoalLight} />
+              <Text style={[bubble.translateBtnText, { color: colors.charcoalLight }]}>
+                {msg.originalLanguage === "ko" ? "再試行" : "다시 시도"}
+              </Text>
+            </Pressable>
+          </Animated.View>
         )}
       </View>
 
@@ -286,6 +320,15 @@ export default function ChatDetailScreen() {
   } = useApp();
 
   const [inputText, setInputText] = useState("");
+  const sendBtnScale = useRef(new Animated.Value(1)).current;
+
+  const handleSendPressIn = () => {
+    Animated.spring(sendBtnScale, { toValue: 0.88, useNativeDriver: true, speed: 30, bounciness: 0 }).start();
+  };
+  const handleSendPressOut = () => {
+    Animated.spring(sendBtnScale, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 5 }).start();
+  };
+
   const [aiSuggesting, setAiSuggesting] = useState(false);
   const [enrichmentMap, setEnrichmentMap] = useState<Record<string, Enrichment>>({});
   const inflight = useRef<Set<string>>(new Set());
@@ -331,6 +374,7 @@ export default function ChatDetailScreen() {
     // 1. Module cache hit — no fetch needed
     const cached = translationCache.get(cacheKey);
     if (cached) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setEnrichmentMap((prev) => ({
         ...prev,
         [msg.id]: { translatedText: cached.translation },
@@ -361,6 +405,8 @@ export default function ChatDetailScreen() {
       if (!res.ok) throw new Error(`API ${res.status}`);
       const data = (await res.json()) as TranslationResult;
       translationCache.set(cacheKey, data);
+      // Haptic reward — translation revealed
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setEnrichmentMap((prev) => ({
         ...prev,
         [msg.id]: { translatedText: data.translation },
@@ -689,25 +735,28 @@ export default function ChatDetailScreen() {
             maxLength={500}
           />
 
-          {/* Send button */}
-          <TouchableOpacity
-            style={[
-              styles.sendBtn,
-              {
-                backgroundColor: inputText.trim() ? colors.rose : colors.muted,
-                borderColor: inputText.trim() ? colors.rose : colors.border,
-              },
-            ]}
-            onPress={handleSend}
-            disabled={!inputText.trim()}
-            activeOpacity={0.8}
-          >
-            <Feather
-              name="send"
-              size={16}
-              color={inputText.trim() ? colors.white : colors.charcoalFaint}
-            />
-          </TouchableOpacity>
+          {/* Send button — scale spring + haptic on press */}
+          <Animated.View style={{ transform: [{ scale: sendBtnScale }] }}>
+            <Pressable
+              style={[
+                styles.sendBtn,
+                {
+                  backgroundColor: inputText.trim() ? colors.rose : colors.muted,
+                  borderColor: inputText.trim() ? colors.rose : colors.border,
+                },
+              ]}
+              onPress={handleSend}
+              onPressIn={handleSendPressIn}
+              onPressOut={handleSendPressOut}
+              disabled={!inputText.trim()}
+            >
+              <Feather
+                name="send"
+                size={16}
+                color={inputText.trim() ? colors.white : colors.charcoalFaint}
+              />
+            </Pressable>
+          </Animated.View>
         </View>
       </KeyboardAvoidingView>
     </View>

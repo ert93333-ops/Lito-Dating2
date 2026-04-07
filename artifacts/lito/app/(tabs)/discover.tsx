@@ -18,6 +18,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
@@ -448,6 +449,56 @@ const cardStyles = StyleSheet.create({
   },
 });
 
+// ─── ActionButton ─────────────────────────────────────────────────────────────
+// Reusable action button with spring scale feedback and optional haptic.
+// All three action buttons (pass / like / star) use this for consistent feel.
+
+interface ActionBtnProps {
+  onPress: () => void;
+  hapticStyle?: "light" | "medium";
+  style?: object;
+  children: React.ReactNode;
+}
+
+function ActionButton({ onPress, hapticStyle = "light", style, children }: ActionBtnProps) {
+  const scale = useSharedValue(1);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.88, { damping: 18, stiffness: 480 });
+  };
+
+  const handlePressOut = () => {
+    // Spring back with a gentle overshoot — satisfying physical feel
+    scale.value = withSpring(1, { damping: 12, stiffness: 280, mass: 0.85 });
+  };
+
+  const handlePress = () => {
+    if (hapticStyle === "medium") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    onPress();
+  };
+
+  return (
+    <Animated.View style={[animStyle, style]}>
+      <TouchableOpacity
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={1}
+      >
+        {children}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 // ─── DiscoverScreen ───────────────────────────────────────────────────────────
 
 export default function DiscoverScreen() {
@@ -558,37 +609,44 @@ export default function DiscoverScreen() {
       {/* ── Action buttons ──────────────────────────────────────────────── */}
       <View style={[styles.actionRow, { bottom: bottomPad + 26 }]}>
 
-        {/* Pass */}
-        <TouchableOpacity
-          style={[
-            styles.actionBtn,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
+        {/* Pass — Light haptic, small scale */}
+        <ActionButton
           onPress={() => discoverUsers[0] && handlePass(discoverUsers[0].id)}
-          activeOpacity={0.75}
+          hapticStyle="light"
         >
-          <Feather name="x" size={24} color={colors.charcoalMid} />
-        </TouchableOpacity>
+          <View
+            style={[
+              styles.actionBtn,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <Feather name="x" size={24} color={colors.charcoalMid} />
+          </View>
+        </ActionButton>
 
-        {/* Like — primary CTA */}
-        <TouchableOpacity
-          style={[styles.actionBtnMain, { backgroundColor: colors.rose, shadowColor: colors.rose }]}
+        {/* Like — Medium haptic, deeper scale pop */}
+        <ActionButton
           onPress={() => discoverUsers[0] && handleLike(discoverUsers[0].id)}
-          activeOpacity={0.8}
+          hapticStyle="medium"
         >
-          <Feather name="heart" size={28} color={colors.white} />
-        </TouchableOpacity>
+          <View
+            style={[styles.actionBtnMain, { backgroundColor: colors.rose, shadowColor: colors.rose }]}
+          >
+            <Feather name="heart" size={28} color={colors.white} />
+          </View>
+        </ActionButton>
 
-        {/* Super like */}
-        <TouchableOpacity
-          style={[
-            styles.actionBtn,
-            { backgroundColor: colors.goldLight, borderColor: "transparent" },
-          ]}
-          activeOpacity={0.75}
-        >
-          <Feather name="star" size={20} color={colors.gold} />
-        </TouchableOpacity>
+        {/* Super like — Light haptic */}
+        <ActionButton onPress={() => {}} hapticStyle="light">
+          <View
+            style={[
+              styles.actionBtn,
+              { backgroundColor: colors.goldLight, borderColor: "transparent" },
+            ]}
+          >
+            <Feather name="star" size={20} color={colors.gold} />
+          </View>
+        </ActionButton>
       </View>
     </View>
   );

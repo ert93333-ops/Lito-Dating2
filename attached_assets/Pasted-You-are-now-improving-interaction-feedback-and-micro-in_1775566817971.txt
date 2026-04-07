@@ -1,0 +1,232 @@
+You are now improving interaction feedback and micro-interactions across the app.
+
+Important:
+- Do NOT redesign the entire app
+- Do NOT break chat translation
+- Do NOT reintroduce pronunciation
+- Do NOT change core onboarding logic
+- Do NOT remove existing monetization / AI / referral features
+
+This phase is ONLY about making the app feel more alive, responsive, tactile, and satisfying.
+
+==================================================
+CURRENT PROBLEM
+==================================================
+
+The app feels too dull and lifeless.
+
+When the user performs actions such as:
+- tapping buttons
+- like
+- pass
+- translation
+- send
+- open profile
+- select tabs
+- confirm actions
+
+there is little or no visible feedback.
+As a result, the app feels flat, boring, and low-energy.
+
+Your task is to improve the interaction quality through micro-interactions, motion feedback, state transitions, and tactile response.
+
+==================================================
+1. GOAL
+==================================================
+
+Make the app feel:
+- responsive
+- alive
+- tactile
+- premium
+- polished
+- satisfying to use
+
+But also:
+- not noisy
+- not childish
+- not over-animated
+- not game-like
+- not flashy
+
+The style should remain:
+- premium
+- warm
+- modern
+- elegant
+- Korean/Japanese dating app appropriate
+- Bumble-inspired in clarity, but softer and more refined
+
+==================================================
+2. ADD MICRO-INTERACTIONS TO KEY ACTIONS
+==================================================
+
+Improve interaction feedback for these actions:
+
+A. Button taps
+- primary CTA buttons
+- secondary buttons
+- icon buttons
+- chips/tags
+- bottom nav items
+- tab switches
+
+Behavior:
+- press down state
+- release feedback
+- subtle scale / opacity / elevation response
+- immediate visual acknowledgment
+
+B. Like action
+- more satisfying active feedback
+- icon response
+- subtle burst / ripple / glow / highlight if appropriate
+- elegant, restrained feedback
+- premium feel, not cheesy
+
+C. Pass action
+- clear but subtle reject feedback
+- card movement and dismissal should feel intentional
+- not abrupt and not dead
+
+D. Swipe actions
+- improve the sense of momentum and consequence
+- subtle live response during drag
+- refined snap / completion feedback
+
+E. Translation button
+- when pressed, the user should clearly feel that translation has started
+- loading state should feel intentional
+- translated result appearing should feel smooth and clear
+
+F. Send message
+- send should feel responsive and polished
+- message insertion should have subtle motion polish
+- not stiff, not laggy
+
+G. Match / success moments
+- if there is a match or important success action, add a tasteful celebration moment
+- keep it premium and restrained
+- avoid loud, childish celebration effects
+
+==================================================
+3. FEEDBACK SYSTEM REQUIREMENTS
+==================================================
+
+For important interactions, combine some of the following where appropriate:
+- pressed state
+- hover-like active state if supported
+- scale response
+- opacity shift
+- color transition
+- icon transition
+- subtle shadow/elevation change
+- motion transition
+- haptic feedback if platform supports it
+- loading indicator
+- success confirmation state
+
+Do NOT use the same heavy feedback everywhere.
+The response should depend on action importance.
+
+==================================================
+4. HAPTIC / TACTILE FEEL
+==================================================
+
+If the platform supports haptics, add tasteful haptic feedback for:
+- like
+- pass
+- send
+- successful translation result reveal if appropriate
+- important confirmations
+- match moments
+
+Haptics should be:
+- subtle
+- premium
+- not too frequent
+- not annoying
+
+Use haptics to reinforce important actions, not every small UI change.
+
+==================================================
+5. MOTION STYLE DIRECTION
+==================================================
+
+Motion should feel:
+- premium
+- smooth
+- natural
+- slightly soft
+- physically believable
+- modern mobile-native
+
+Avoid:
+- childish bounce
+- exaggerated wobble
+- game-like effects
+- excessive particles/confetti everywhere
+- cheap flashy interactions
+- laggy or delayed feedback
+
+The motion language should fit a premium Korean-Japanese dating app.
+
+==================================================
+6. VISUAL FEEDBACK DIRECTION
+==================================================
+
+Use the existing sakura-toned premium design direction.
+
+Feedback can include:
+- subtle sakura accent activation
+- warm highlight transitions
+- refined state changes
+- elegant active indicators
+
+Do not make feedback too bright, too saturated, or too candy-like.
+
+==================================================
+7. PRIORITY AREAS
+==================================================
+
+Prioritize interaction polish in this order:
+
+1. Like / Pass / swipe actions
+2. Translation button interaction feedback
+3. Send message interaction
+4. Bottom navigation / tab switching
+5. CTA buttons across onboarding, profile, premium, referral, AI features
+6. Match / success states
+
+==================================================
+8. ENGINEERING RULES
+==================================================
+
+Important:
+- inspect the existing interaction components first
+- improve existing components instead of randomly duplicating new ones
+- keep motion/feedback reusable through shared patterns where possible
+- do not scatter inconsistent animation logic everywhere
+- keep performance smooth
+- avoid unnecessary rerenders
+- respect accessibility and reduced motion preferences if possible
+
+==================================================
+9. REQUIRED OUTPUT FORMAT
+==================================================
+
+When finished, provide:
+
+1. which interactions were improved
+2. what micro-interactions were added
+3. where haptic feedback was added
+4. how like/pass/swipe now feels more satisfying
+5. how translation/send/button interactions now feel more responsive
+6. what motion principles were used
+7. confirmation that:
+   - core app functionality still works
+   - chat translation still works
+   - pronunciation was not reintroduced
+   - the app now feels more alive and less dull
+
+Do not say this phase is complete unless major user actions now have clear, polished feedback.
