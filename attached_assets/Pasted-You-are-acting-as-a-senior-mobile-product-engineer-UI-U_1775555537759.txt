@@ -1,0 +1,376 @@
+You are acting as a senior mobile product engineer, UI/UX designer, and motion designer.
+
+This is NOT a superficial styling task.
+This is a logic bug fix + pronunciation implementation + premium product redesign task for a Korean-Japanese dating app.
+
+Project context:
+- The app is a Korean-Japanese dating / matchmaking app.
+- Cross-language chat is a core feature.
+- The app needs translation and pronunciation support inside chat.
+- Current problems:
+  1) pronunciation is still not properly implemented
+  2) when the top pronunciation button is pressed, the translated text disappears
+  3) the photo swipe interaction feels awkward, cheap, and outdated
+  4) the overall UI/UX feels low-end and not trend-forward enough
+
+Design/product reference direction:
+- Japan-side inspiration: Pairs, with, tapple
+- Korea-side inspiration: Amanda, Noondate, WIPPY, GLAM
+Do NOT clone these apps.
+Extract the useful product patterns:
+- trust-first onboarding and verification cues
+- hobby / value / personality based discovery
+- nearby / context-aware discovery
+- privacy-safe interaction patterns
+- voice-first or conversation-first intimacy cues
+- clean card-based browsing
+- premium but restrained visual design
+
+Core instruction:
+Fix the translation/pronunciation architecture first.
+Then redesign the swipe motion and the UI system.
+Do not just restyle the app without fixing the underlying bug.
+Do not claim the issue is fixed unless you identify the exact broken state/render path and verify the result.
+
+==================================================
+1. DEBUG THE ACTUAL BUG FIRST
+==================================================
+
+Inspect the existing code and identify all of the following before making major UI changes:
+
+1) Which state variable changes when the top pronunciation button is pressed
+2) Which component renders translated text
+3) Which conditional rendering path causes the translated text to disappear
+4) Whether translation and pronunciation are sharing:
+   - one state variable
+   - one render block
+   - one text slot
+   - one async response field
+5) Whether the translation and pronunciation results overwrite each other in the message object
+
+You must explicitly point to the exact buggy logic before saying it is fixed.
+
+==================================================
+2. FIX TRANSLATION + PRONUNCIATION LOGIC PROPERLY
+==================================================
+
+Required behavior must be exactly this:
+
+Default state:
+- show original text
+- show translated text
+- hide pronunciation text
+
+Pronunciation ON:
+- show original text
+- show translated text
+- show pronunciation text
+
+Pronunciation OFF again:
+- show original text
+- show translated text
+- hide pronunciation text
+
+Critical rule:
+The pronunciation toggle must ONLY control pronunciation visibility.
+It must NEVER:
+- hide translated text
+- replace translated text
+- collapse the translation area
+- swap translation and pronunciation
+- reuse the same visibility state for both
+
+Use separate data fields:
+- originalText
+- translatedText
+- pronunciationText
+
+Use separate logic/state:
+- showTranslation (normally true when translatedText exists)
+- showPronunciation (toggle)
+
+Translation visibility must never depend on showPronunciation.
+
+Do NOT use patterns like:
+- showPronunciation ? pronunciationText : translatedText
+- if pronunciation on, hide translation
+- one shared boolean for translation and pronunciation
+- one shared render slot for translation and pronunciation
+
+Correct render structure for each message:
+
+MessageBubble
+- OriginalText
+- TranslatedText   // always visible if translatedText exists
+- PronunciationText // only visible when showPronunciation is ON and pronunciationText exists
+
+If the top button is a global chat-level toggle:
+- it may show/hide pronunciation lines across the chat
+- but it must NEVER affect translation visibility
+
+If the pronunciation button is per-message:
+- it must only affect that message’s pronunciation line
+- it must not affect sibling messages
+
+==================================================
+3. IMPLEMENT PRONUNCIATION AS A REAL FEATURE
+==================================================
+
+Pronunciation is not just a UI label.
+Implement a proper pronunciation pipeline.
+
+Requirements:
+- pronunciationText must be stored separately from translatedText
+- pronunciationText must never be a copy of translatedText
+- if the backend/service already returns pronunciation, wire it correctly
+- if pronunciation is not yet generated, add a separate pronunciation generation step
+- translation and pronunciation may arrive asynchronously, but translation must remain stable even if pronunciation is delayed
+- if pronunciation generation fails, the app must still show original + translation without layout breakage
+
+Acceptable implementation strategy:
+- Use the most reliable pronunciation output available in the current stack
+- For Japanese text, kana and/or romaji is acceptable
+- For Korean text, romanization and/or a Japanese-friendly reading is acceptable if supported reliably
+- Do not fake pronunciation with incorrect placeholder content
+
+Safe fallback behavior:
+- no pronunciationText => original + translation still visible
+- no translatedText => original visible, no crash
+- delayed pronunciation => add only the pronunciation line when ready
+- failed pronunciation => no broken empty gap
+
+==================================================
+4. REDESIGN THE CHAT UI TO FEEL PREMIUM
+==================================================
+
+The chat UI currently feels cheap and messy.
+Redesign it to feel modern, clean, intimate, and trustworthy.
+
+Design goals:
+- premium, trend-forward, but not flashy
+- emotionally warm, but still calm and trustworthy
+- modern Korean/Japanese dating-app sensibility
+- simple hierarchy, less clutter
+- no tacky gradients or overdone effects
+- no childish or overly cute look
+- no generic template feel
+
+Chat screen redesign requirements:
+- clearer hierarchy between original / translation / pronunciation
+- better spacing and typography
+- refined message bubbles
+- polished top bar and input area
+- subtle trust and language context cues
+- better handling of long multilingual text
+- elegant empty, loading, and error states
+
+Suggested chat message hierarchy:
+1. original message text
+2. translated text
+3. pronunciation text (smaller / lighter / helper style)
+
+Styling direction:
+- original text = primary readable line
+- translated text = clearly visible secondary primary content, not hidden
+- pronunciation = helper text / assistive layer, visually distinct but not dominant
+- language tags or subtle labels can be used if helpful
+- pronunciation should feel like an assistive reading aid, not a replacement for translation
+
+Typography:
+- ensure Korean and Japanese both render beautifully
+- use a font stack that handles both languages well
+- prioritize readability, spacing, and premium feel
+- avoid cramped line-height and overly small text
+
+==================================================
+5. REDESIGN THE PHOTO SWIPE INTERACTION
+==================================================
+
+The current swipe movement feels awkward and old-fashioned.
+Redesign the swipe card motion to feel refined and high-end.
+
+Motion goals:
+- natural
+- tactile
+- premium
+- responsive
+- physically believable
+- no clumsy wobble
+- no excessive bounce
+- no laggy or cartoonish overshoot
+
+Required swipe behavior:
+- card should track the finger smoothly
+- subtle rotation based on horizontal drag
+- dynamic shadow/elevation while dragging
+- neighboring cards should react subtly (scale/depth/parallax)
+- release should use a spring-like settle
+- accepted swipe should exit cleanly with momentum
+- rejected partial swipe should snap back smoothly
+- no jittering, no layout reflow glitch, no flickering rerender
+
+Recommended motion style:
+- restrained spring-based motion
+- subtle depth layering
+- slight scale changes
+- subtle opacity / badge feedback
+- optional haptic trigger if supported by the platform
+
+Avoid:
+- harsh bounce
+- too much tilt
+- cheesy fly-away effects
+- overly dramatic like/dislike stamps
+- visibly cheap easing
+- slow or sticky drag response
+
+Performance requirements:
+- maintain smooth frame rate
+- avoid unnecessary rerenders during drag
+- optimize gesture handling
+- support reduced motion / accessibility preferences where possible
+
+==================================================
+6. REDESIGN THE APP’S VISUAL SYSTEM
+==================================================
+
+Upgrade the whole app from “prototype / low-end” to “shipping-quality / premium”.
+
+Visual direction:
+- modern Korean-Japanese dating product
+- confidence and trust first
+- soft warmth, not sugary sweetness
+- elegant and mobile-native
+- premium cards, refined surfaces, better depth
+- balanced feminine/neutral appeal
+- suitable for both Korean and Japanese audiences
+
+Color direction:
+- avoid loud neon palettes
+- avoid muddy gray monotony
+- use a clean premium base
+- subtle warm accent colors are preferred
+- use trust/safety colors carefully for verified states and system actions
+- support dark mode if the app already supports theming
+
+Component direction:
+- profile cards should feel editorial and premium
+- large photos with refined cropping and radius
+- trust badges should be visible but not noisy
+- interest / hobby / value chips should be elegant and useful
+- CTA buttons should feel premium and obvious
+- bottom navigation, sheets, modals, and settings should feel coherent
+
+Recommended information architecture cues:
+- discovery should emphasize photo + trust + values/interests
+- profile should show authenticity, compatibility, and lifestyle clearly
+- chat should emphasize clarity and multilingual comfort
+- privacy / report / block actions should be easy to find but not visually aggressive
+
+Do not blindly imitate Tinder.
+This app should feel closer to a premium East Asian matchmaking product:
+more trust, more context, more sincerity, more polish.
+
+==================================================
+7. CROSS-CULTURAL UX REQUIREMENTS
+==================================================
+
+This is a Korean-Japanese dating app.
+The UI must respect bilingual communication and emotional nuance.
+
+Requirements:
+- Korean and Japanese copy must both feel clean and natural in layout
+- profile and chat design should support mixed-language usage
+- translation/pronunciation should feel native to the chat flow
+- users should clearly understand what is original text, translated text, and pronunciation helper text
+- multilingual UI must not feel like a patched-on feature
+
+Design this so the app feels:
+- polished enough for Korea
+- clear and trustworthy enough for Japan
+- modern, local, and premium in both directions
+
+==================================================
+8. DO NOT OVER-REWRITE THE APP
+==================================================
+
+Important engineering instruction:
+- inspect the actual current codebase first
+- reuse good existing components where possible
+- refactor only what is necessary
+- do not destroy working features
+- do not rewrite unrelated screens without reason
+- do not produce a fake “clean redesign” mock without real implementation
+
+If a component is broken by architecture:
+- refactor it properly
+- separate logic, presentation, and data responsibilities
+- remove bad state coupling
+- stabilize the render tree
+
+==================================================
+9. ACCESSIBILITY + QUALITY
+==================================================
+
+Make the redesign production-grade:
+- readable contrast
+- good tap target sizes
+- spacing around controls
+- reduced motion support where possible
+- resilient layouts for long text
+- proper states for loading, error, empty, and success
+- no broken UI when data is missing
+
+==================================================
+10. REQUIRED OUTPUT FORMAT
+==================================================
+
+When you finish, provide ALL of the following:
+
+1. The exact root cause of the translation/pronunciation bug
+2. The exact state/render/data issue you found
+3. The files/components you changed
+4. The corrected logic for original / translation / pronunciation rendering
+5. The pronunciation implementation approach
+6. The swipe-motion improvements you made
+7. The UI system / color / typography / component upgrades you made
+8. A short summary of how the design now reflects modern Korean/Japanese dating-app UX
+9. A verification checklist showing the following cases passed:
+
+Case A:
+- pronunciation OFF
+- original visible
+- translation visible
+- pronunciation hidden
+
+Case B:
+- pronunciation ON
+- original visible
+- translation visible
+- pronunciation visible
+
+Case C:
+- pronunciation OFF again
+- original visible
+- translation visible
+- pronunciation hidden again
+
+Case D:
+- multiple messages in chat
+- toggling pronunciation never removes translation
+
+Case E:
+- messages without pronunciation
+- original visible
+- translation visible
+- no broken spacing
+
+Case F:
+- delayed async pronunciation response
+- translation remains visible the entire time
+- pronunciation appears later without disrupting layout
+
+Case G:
+- swipe cards feel smooth, modern, and premium instead of awkward
+
+Do not say “fixed” unless all of the above are actually verified.

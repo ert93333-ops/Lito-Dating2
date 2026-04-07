@@ -4,9 +4,9 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
+  Easing,
   PanResponder,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -21,21 +21,19 @@ import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { User } from "@/types";
 
-// ─── Bio translation helpers ───────────────────────────────────────────────────
+// ─── Bio translation ─────────────────────────────────────────────────────────
 
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
   : "http://localhost:8080";
 
-interface TranslationResult { translation: string; pronunciation: string; }
-const bioCache = new Map<string, TranslationResult>();
+interface BioResult { translation: string; pronunciation: string; }
+const bioCache = new Map<string, BioResult>();
 
 async function fetchBioTranslation(
-  userId: string,
-  text: string,
-  sourceLang: "ko" | "ja",
-  viewerLang: "ko" | "ja"
-): Promise<TranslationResult> {
+  userId: string, text: string,
+  sourceLang: "ko" | "ja", viewerLang: "ko" | "ja"
+): Promise<BioResult> {
   const key = `bio_${userId}:${viewerLang}`;
   const cached = bioCache.get(key);
   if (cached) return cached;
@@ -45,7 +43,7 @@ async function fetchBioTranslation(
     body: JSON.stringify({ text, sourceLang, viewerLang }),
   });
   if (!res.ok) throw new Error(`API ${res.status}`);
-  const data = (await res.json()) as TranslationResult;
+  const data = (await res.json()) as BioResult;
   bioCache.set(key, data);
   return data;
 }
@@ -56,7 +54,7 @@ function TranslatedBio({ user, viewerLang }: { user: User; viewerLang: "ko" | "j
   const senderLang = user.language as "ko" | "ja";
   const shouldTranslate = senderLang !== viewerLang;
 
-  const [result, setResult] = useState<TranslationResult | null>(() =>
+  const [result, setResult] = useState<BioResult | null>(() =>
     shouldTranslate ? (bioCache.get(`bio_${user.id}:${viewerLang}`) ?? null) : null
   );
 
@@ -71,122 +69,287 @@ function TranslatedBio({ user, viewerLang }: { user: User; viewerLang: "ko" | "j
 
   if (!shouldTranslate || !result) {
     return (
-      <Text style={[styles.bioPreview, { color: colors.charcoalLight }]} numberOfLines={2}>
+      <Text style={[cardStyles.bio, { color: colors.charcoalLight }]} numberOfLines={2}>
         {originalLine}
       </Text>
     );
   }
 
   return (
-    <View style={styles.bioWrap}>
-      {/* Translated (primary) */}
-      <Text style={[styles.bioPreview, { color: colors.charcoal }]} numberOfLines={2}>
+    <View style={{ gap: 3 }}>
+      <Text style={[cardStyles.bio, { color: colors.charcoal }]} numberOfLines={2}>
         {result.translation.split("\n")[0]}
       </Text>
-      {/* Original (secondary) */}
-      <Text style={[styles.bioOriginal, { color: colors.charcoalLight }]} numberOfLines={1}>
+      <Text style={[cardStyles.bioOriginal, { color: colors.charcoalLight }]} numberOfLines={1}>
         {originalLine}
       </Text>
     </View>
   );
 }
 
+// ─── DiscoverCard ─────────────────────────────────────────────────────────────
+
 const { width, height } = Dimensions.get("window");
-const CARD_WIDTH = width - 48;
+const CARD_WIDTH = width - 40;
+const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.32, height * 0.62);
+const SWIPE_THRESHOLD = 76;
+const ROTATION_RANGE = 5; // degrees max tilt
 
 function DiscoverCard({
   user,
   onLike,
   onPass,
   isTop,
+  stackIndex,
 }: {
   user: User;
   onLike: () => void;
   onPass: () => void;
   isTop: boolean;
+  stackIndex: number;
 }) {
   const colors = useColors();
   const { profile } = useApp();
   const viewerLang: "ko" | "ja" = profile.country === "KR" ? "ko" : "ja";
   const pan = useRef(new Animated.ValueXY()).current;
-  const [likeOpacity] = useState(new Animated.Value(0));
-  const [passOpacity] = useState(new Animated.Value(0));
+  const likeOpacity = useRef(new Animated.Value(0)).current;
+  const passOpacity = useRef(new Animated.Value(0)).current;
+
+  // ── Spring configs ──────────────────────────────────────────────────────
+  // snap-back: tight, crisp, no wobble
+  const snapBack = () => {
+    Animated.parallel([
+      Animated.spring(pan, {
+        toValue: { x: 0, y: 0 },
+        tension: 200,
+        friction: 22,
+        useNativeDriver: true,
+      }),
+      Animated.timing(likeOpacity, { toValue: 0, duration: 100, useNativeDriver: true }),
+      Animated.timing(passOpacity, { toValue: 0, duration: 100, useNativeDriver: true }),
+    ]).start();
+  };
+
+  // exit: momentum-based timing (no spring bounce at the edge)
+  const exitRight = (vy: number) => {
+    Animated.parallel([
+      Animated.timing(pan.x, {
+        toValue: width + 120,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(pan.y, {
+        toValue: vy * 80,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(onLike);
+  };
+
+  const exitLeft = (vy: number) => {
+    Animated.parallel([
+      Animated.timing(pan.x, {
+        toValue: -(width + 120),
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(pan.y, {
+        toValue: vy * 80,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(onPass);
+  };
 
   const panResponder = isTop
     ? PanResponder.create({
         onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
         onPanResponderMove: (_, g) => {
           pan.setValue({ x: g.dx, y: g.dy });
-          likeOpacity.setValue(Math.max(0, g.dx / 80));
-          passOpacity.setValue(Math.max(0, -g.dx / 80));
+          // Fade in like/pass stamp proportionally
+          likeOpacity.setValue(Math.min(1, Math.max(0, g.dx / 100)));
+          passOpacity.setValue(Math.min(1, Math.max(0, -g.dx / 100)));
         },
         onPanResponderRelease: (_, g) => {
-          if (g.dx > 100) {
-            Animated.spring(pan, { toValue: { x: width + 100, y: g.dy }, useNativeDriver: true }).start(onLike);
+          const fastSwipe = Math.abs(g.vx) > 0.6;
+          if (g.dx > SWIPE_THRESHOLD || (g.dx > 40 && fastSwipe && g.vx > 0)) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          } else if (g.dx < -100) {
-            Animated.spring(pan, { toValue: { x: -(width + 100), y: g.dy }, useNativeDriver: true }).start(onPass);
+            exitRight(g.vy);
+          } else if (g.dx < -SWIPE_THRESHOLD || (g.dx < -40 && fastSwipe && g.vx < 0)) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            exitLeft(g.vy);
           } else {
-            Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: true }).start();
-            likeOpacity.setValue(0);
-            passOpacity.setValue(0);
+            snapBack();
           }
         },
+        onPanResponderTerminate: () => { snapBack(); },
       })
     : { panHandlers: {} };
 
-  const rotate = pan.x.interpolate({ inputRange: [-width / 2, 0, width / 2], outputRange: ["-8deg", "0deg", "8deg"] });
+  // Rotation: subtle, proportional to drag distance
+  const rotate = pan.x.interpolate({
+    inputRange: [-width / 2, 0, width / 2],
+    outputRange: [`-${ROTATION_RANGE}deg`, "0deg", `${ROTATION_RANGE}deg`],
+    extrapolate: "clamp",
+  });
 
   return (
     <Animated.View
       {...panResponder.panHandlers}
       style={[
-        styles.card,
+        cardStyles.card,
         {
-          backgroundColor: colors.white,
-          shadowColor: colors.rose,
-          transform: isTop ? [{ translateX: pan.x }, { translateY: pan.y }, { rotate }] : [],
+          backgroundColor: colors.surface,
+          shadowColor: "#1C1C1E",
+          transform: isTop
+            ? [{ translateX: pan.x }, { translateY: pan.y }, { rotate }]
+            : [],
         },
       ]}
     >
-      <ProfileImage photoKey={user.photos[0]} size={CARD_WIDTH} borderRadius={24} style={styles.cardImage} />
+      {/* ── Photo ─────────────────────────────────────────────────────── */}
+      <ProfileImage
+        photoKey={user.photos[0]}
+        size={CARD_WIDTH}
+        borderRadius={0}
+        style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
+      />
 
-      <Animated.View style={[styles.likeStamp, { opacity: likeOpacity }]}>
-        <Text style={styles.stampText}>LIKE 💕</Text>
+      {/* ── Like / Pass stamps ─────────────────────────────────────────── */}
+      <Animated.View style={[cardStyles.stamp, cardStyles.stampLeft, { opacity: likeOpacity }]}>
+        <View style={[cardStyles.stampInner, { borderColor: "#D85870" }]}>
+          <Text style={[cardStyles.stampText, { color: "#D85870" }]}>LIKE</Text>
+        </View>
       </Animated.View>
-      <Animated.View style={[styles.passStamp, { opacity: passOpacity }]}>
-        <Text style={styles.stampText}>PASS</Text>
+      <Animated.View style={[cardStyles.stamp, cardStyles.stampRight, { opacity: passOpacity }]}>
+        <View style={[cardStyles.stampInner, { borderColor: "#8E8E93" }]}>
+          <Text style={[cardStyles.stampText, { color: "#8E8E93" }]}>PASS</Text>
+        </View>
       </Animated.View>
 
-      <View style={[styles.cardInfo, { backgroundColor: colors.white }]}>
-        <View style={styles.nameRow}>
-          <Text style={[styles.userName, { color: colors.charcoal }]}>{user.nickname}</Text>
-          <Text style={[styles.userAge, { color: colors.charcoalLight }]}>, {user.age}</Text>
-          <CountryFlag country={user.country} size={18} />
-          {user.isVerified && (
-            <View style={[styles.verifiedBadge, { backgroundColor: colors.roseLight }]}>
-              <Feather name="check-circle" size={12} color={colors.rose} />
-            </View>
-          )}
+      {/* ── Card info panel ────────────────────────────────────────────── */}
+      <View style={[cardStyles.info, { backgroundColor: colors.surface }]}>
+        {/* Name row */}
+        <View style={cardStyles.nameRow}>
+          <View style={cardStyles.namePart}>
+            <Text style={[cardStyles.name, { color: colors.charcoal }]}>{user.nickname}</Text>
+            <Text style={[cardStyles.age, { color: colors.charcoalMid }]}>{user.age}</Text>
+          </View>
+          <View style={cardStyles.nameMeta}>
+            <CountryFlag country={user.country} size={16} />
+            {user.isVerified && (
+              <View style={[cardStyles.verifiedPill, { backgroundColor: colors.roseLight }]}>
+                <Feather name="check-circle" size={10} color={colors.rose} />
+                <Text style={[cardStyles.verifiedText, { color: colors.rose }]}>Verified</Text>
+              </View>
+            )}
+          </View>
         </View>
 
-        <View style={[styles.scoreBadge, { backgroundColor: colors.roseLight }]}>
-          <Feather name="cpu" size={12} color={colors.rose} />
-          <Text style={[styles.scoreText, { color: colors.rose }]}>{user.compatibilityScore}% match</Text>
+        {/* Match score */}
+        <View style={cardStyles.scoreRow}>
+          <View style={[cardStyles.scorePill, { backgroundColor: colors.roseLight }]}>
+            <Feather name="zap" size={11} color={colors.rose} />
+            <Text style={[cardStyles.scoreText, { color: colors.rose }]}>{user.compatibilityScore}% match</Text>
+          </View>
         </View>
 
-        <View style={styles.chipsRow}>
+        {/* Interest chips */}
+        <View style={cardStyles.chips}>
           {user.compatibilityReasons.slice(0, 3).map((r) => (
             <CompatibilityChip key={r} label={r} />
           ))}
         </View>
 
+        {/* Bio */}
         <TranslatedBio user={user} viewerLang={viewerLang} />
       </View>
     </Animated.View>
   );
 }
+
+const cardStyles = StyleSheet.create({
+  card: {
+    borderRadius: 22,
+    overflow: "hidden",
+    width: CARD_WIDTH,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  stamp: {
+    position: "absolute",
+    top: 40,
+  },
+  stampLeft: { left: 20, transform: [{ rotate: "-12deg" }] },
+  stampRight: { right: 20, transform: [{ rotate: "12deg" }] },
+  stampInner: {
+    borderWidth: 2.5,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  stampText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 16,
+    letterSpacing: 2,
+  },
+  info: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 14,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  namePart: { flexDirection: "row", alignItems: "baseline", gap: 6 },
+  name: { fontFamily: "Inter_700Bold", fontSize: 22 },
+  age: { fontFamily: "Inter_400Regular", fontSize: 18 },
+  nameMeta: { flexDirection: "row", alignItems: "center", gap: 6 },
+  verifiedPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    gap: 3,
+  },
+  verifiedText: { fontFamily: "Inter_500Medium", fontSize: 10 },
+  scoreRow: { marginBottom: 10 },
+  scorePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    gap: 4,
+  },
+  scoreText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
+  chips: { flexDirection: "row", flexWrap: "wrap", marginBottom: 6 },
+  bio: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  bioOriginal: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    lineHeight: 17,
+    fontStyle: "italic",
+  },
+});
+
+// ─── DiscoverScreen ───────────────────────────────────────────────────────────
 
 export default function DiscoverScreen() {
   const colors = useColors();
@@ -195,52 +358,57 @@ export default function DiscoverScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const handleLike = (userId: string) => {
-    setTimeout(() => likeUser(userId), 300);
-  };
-
-  const handlePass = (userId: string) => {
-    setTimeout(() => passUser(userId), 300);
-  };
+  const handleLike = (userId: string) => { setTimeout(() => likeUser(userId), 260); };
+  const handlePass = (userId: string) => { setTimeout(() => passUser(userId), 260); };
 
   if (discoverUsers.length === 0) {
     return (
-      <View style={[styles.empty, { paddingTop: topPad + 20 }]}>
+      <View style={[styles.empty, { paddingTop: topPad + 20, backgroundColor: colors.background }]}>
         <View style={[styles.emptyIcon, { backgroundColor: colors.roseLight }]}>
-          <Feather name="heart" size={36} color={colors.rose} />
+          <Feather name="heart" size={32} color={colors.rose} />
         </View>
-        <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>You're all caught up!</Text>
+        <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>You're all caught up</Text>
         <Text style={[styles.emptySub, { color: colors.charcoalLight }]}>
-          모든 프로필을 확인했어요 · すべてのプロフィールを見ました
+          모든 프로필을 확인했어요{"\n"}すべてのプロフィールを見ました
         </Text>
       </View>
     );
   }
 
+  const CARD_INFOHEIGHT = CARD_HEIGHT + 160; // approx card total height
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: topPad + 12 }]}>
+      {/* ── Header ───────────────────────────────────────────────────────── */}
+      <View style={[styles.header, { paddingTop: topPad + 14 }]}>
         <Text style={[styles.logo, { color: colors.rose }]}>lito</Text>
         <View style={styles.headerRight}>
-          <Text style={[styles.onlineCount, { color: colors.charcoalLight }]}>
-            <Text style={{ color: colors.green }}>● </Text>
-            {discoverUsers.length} nearby
-          </Text>
+          <View style={[styles.onlinePill, { backgroundColor: colors.greenLight }]}>
+            <View style={[styles.onlineDot, { backgroundColor: colors.green }]} />
+            <Text style={[styles.onlineText, { color: colors.green }]}>
+              {discoverUsers.length} nearby
+            </Text>
+          </View>
         </View>
       </View>
 
-      <View style={[styles.stack, { bottom: bottomPad + 110 }]}>
+      {/* ── Card stack ───────────────────────────────────────────────────── */}
+      <View style={[styles.stack, { bottom: bottomPad + 106 }]}>
         {discoverUsers.slice(0, 3).map((user, idx) => {
           const isTop = idx === 0;
+          // Background cards: progressively smaller and further back
+          const scale = 1 - idx * 0.035;
+          const translateY = idx * 12;
+          const opacity = 1 - idx * 0.15;
           return (
             <View
               key={user.id}
               style={[
                 styles.stackItem,
                 {
-                  zIndex: 3 - idx,
-                  transform: [{ scale: 1 - idx * 0.04 }, { translateY: idx * 10 }],
-                  opacity: 1 - idx * 0.2,
+                  zIndex: 10 - idx,
+                  opacity,
+                  transform: isTop ? [] : [{ scale }, { translateY }],
                 },
               ]}
             >
@@ -249,29 +417,36 @@ export default function DiscoverScreen() {
                 onLike={() => handleLike(user.id)}
                 onPass={() => handlePass(user.id)}
                 isTop={isTop}
+                stackIndex={idx}
               />
             </View>
           );
         })}
       </View>
 
-      <View style={[styles.actionRow, { bottom: bottomPad + 30 }]}>
+      {/* ── Action buttons ───────────────────────────────────────────────── */}
+      <View style={[styles.actionRow, { bottom: bottomPad + 28 }]}>
         <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+          style={[styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
           onPress={() => discoverUsers[0] && handlePass(discoverUsers[0].id)}
+          activeOpacity={0.75}
         >
-          <Feather name="x" size={28} color={colors.charcoalLight} />
+          <Feather name="x" size={26} color={colors.charcoalLight} />
         </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.actionBtnMain, { backgroundColor: colors.rose }]}
           onPress={() => discoverUsers[0] && handleLike(discoverUsers[0].id)}
+          activeOpacity={0.8}
         >
-          <Feather name="heart" size={30} color={colors.white} />
+          <Feather name="heart" size={28} color={colors.white} />
         </TouchableOpacity>
+
         <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+          style={[styles.actionBtn, { backgroundColor: colors.goldLight, borderColor: colors.goldLight }]}
+          activeOpacity={0.75}
         >
-          <Feather name="star" size={24} color={colors.gold} />
+          <Feather name="star" size={22} color={colors.gold} />
         </TouchableOpacity>
       </View>
     </View>
@@ -285,23 +460,36 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 24,
-    paddingBottom: 8,
+    paddingBottom: 10,
   },
   logo: {
     fontFamily: "Inter_700Bold",
     fontSize: 26,
-    letterSpacing: -1,
+    letterSpacing: -0.8,
   },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  onlineCount: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
+  onlinePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    gap: 5,
+  },
+  onlineDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  onlineText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
   },
   stack: {
     position: "absolute",
     top: 0,
-    left: 24,
-    right: 24,
+    left: 20,
+    right: 20,
     alignItems: "center",
   },
   stackItem: {
@@ -309,102 +497,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-  },
-  card: {
-    borderRadius: 24,
-    overflow: "hidden",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  cardImage: {
-    width: "100%",
-    height: CARD_WIDTH * 1.1,
-  },
-  cardInfo: {
-    padding: 20,
-    paddingBottom: 16,
-  },
-  nameRow: {
-    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
-    gap: 4,
-  },
-  userName: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 22,
-  },
-  userAge: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 20,
-  },
-  verifiedBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 2,
-  },
-  scoreBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    marginBottom: 12,
-    gap: 5,
-  },
-  scoreText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 13,
-  },
-  chipsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginBottom: 8,
-  },
-  bioWrap: {
-    gap: 3,
-  },
-  bioPreview: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  bioOriginal: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    lineHeight: 17,
-    fontStyle: "italic",
-  },
-  likeStamp: {
-    position: "absolute",
-    top: 40,
-    left: 24,
-    backgroundColor: "#E8607A",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    transform: [{ rotate: "-15deg" }],
-  },
-  passStamp: {
-    position: "absolute",
-    top: 40,
-    right: 24,
-    backgroundColor: "#8E8E93",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    transform: [{ rotate: "15deg" }],
-  },
-  stampText: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 18,
-    color: "#FFFFFF",
   },
   actionRow: {
     position: "absolute",
@@ -413,29 +506,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: 20,
+    gap: 18,
   },
   actionBtn: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
   },
   actionBtnMain: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     alignItems: "center",
     justifyContent: "center",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
     elevation: 8,
   },
   empty: {
@@ -445,16 +538,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 20,
   },
   emptyTitle: {
     fontFamily: "Inter_700Bold",
-    fontSize: 22,
+    fontSize: 20,
     marginBottom: 8,
     textAlign: "center",
   },
