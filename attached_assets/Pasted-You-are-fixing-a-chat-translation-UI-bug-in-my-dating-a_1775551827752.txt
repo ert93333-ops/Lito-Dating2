@@ -1,0 +1,149 @@
+You are fixing a chat translation UI bug in my dating app.
+
+Current bug:
+When I press the top pronunciation button, the translated text disappears.
+This is wrong.
+
+I want you to fix the implementation logic, not just restyle the UI.
+
+## Required behavior
+
+The pronunciation toggle must ONLY control the visibility of the pronunciation line.
+
+It must NEVER:
+- hide the translated text
+- replace the translated text
+- collapse the translation area
+- swap translation and pronunciation
+- reuse the same variable for both translation and pronunciation visibility
+
+Correct behavior must be exactly this:
+
+1. Default state
+- show original text
+- show translated text
+- hide pronunciation text
+
+2. Pronunciation ON
+- show original text
+- show translated text
+- show pronunciation text
+
+3. Pronunciation OFF
+- show original text
+- show translated text
+- hide pronunciation text
+
+## Important implementation rule
+
+Translation visibility and pronunciation visibility must be separated into different states.
+
+Use separate state variables like:
+- showTranslation = true
+- showPronunciation = boolean toggle
+
+But translation should normally always remain visible once a translated message exists.
+
+Do NOT use:
+- one shared state for both translation and pronunciation
+- conditional rendering that replaces translation with pronunciation
+- ternary logic like "if pronunciation show this else translation"
+- a single text area for both translated text and pronunciation
+
+## Correct rendering structure
+
+Each message bubble should render in this order:
+
+1. original message text
+2. translated text (always visible if translation exists)
+3. pronunciation text (visible only when pronunciation toggle is ON and pronunciation exists)
+
+Example structure:
+
+MessageBubble
+- OriginalText
+- TranslatedText
+- PronunciationText (optional only when toggle on)
+
+## Data model requirement
+
+For each translated message, keep these fields separate:
+- originalText
+- translatedText
+- pronunciationText
+
+Do not overwrite one with another.
+
+## Fix the bug thoroughly
+
+Please inspect the current code and fix all places where:
+- pronunciation toggle affects translation rendering
+- translation text is conditionally hidden by pronunciation state
+- translation and pronunciation share the same component slot
+- state updates are wired to the wrong variable
+
+## Add safe fallback logic
+
+If pronunciationText does not exist:
+- still show original text
+- still show translated text
+- do not break layout
+
+If translatedText exists:
+- it must remain visible regardless of pronunciation toggle state
+
+## Add a clear UI label
+
+Under each translated message, the sections should appear clearly separated, for example:
+- original
+- translation
+- pronunciation
+
+You do not need to literally show those labels if the design already looks clean,
+but the internal rendering structure must be separated exactly like that.
+
+## Testing checklist
+
+After fixing, verify these exact test cases:
+
+Test 1:
+- open a translated chat message
+- pronunciation toggle OFF
+Expected:
+- original visible
+- translation visible
+- pronunciation hidden
+
+Test 2:
+- turn pronunciation toggle ON
+Expected:
+- original visible
+- translation still visible
+- pronunciation now visible
+
+Test 3:
+- turn pronunciation toggle OFF again
+Expected:
+- original visible
+- translation still visible
+- pronunciation hidden again
+
+Test 4:
+- switch between multiple messages
+Expected:
+- translation never disappears because of pronunciation toggle
+
+Test 5:
+- messages without pronunciation data
+Expected:
+- original visible
+- translation visible
+- no empty broken area
+
+## Output format
+
+1. Explain the exact cause of the current bug in the code
+2. Show the corrected component logic
+3. Apply the fix directly
+4. Summarize exactly what was changed
+5. Confirm that pronunciation toggle no longer affects translation visibility

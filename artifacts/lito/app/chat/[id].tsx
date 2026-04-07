@@ -190,6 +190,8 @@ export default function ChatDetailScreen() {
     sendMessage,
     toggleTranslation,
     unlockExternalContact,
+    showPronunciation,
+    setShowPronunciation,
   } = useApp();
 
   const [inputText, setInputText] = useState("");
@@ -379,6 +381,27 @@ export default function ChatDetailScreen() {
           </View>
         </TouchableOpacity>
         <View style={styles.headerActions}>
+          {/* ── Pronunciation toggle ──
+              Controls ONLY Layer 3 visibility.
+              Layer 2 (translation) is completely unaffected. */}
+          <TouchableOpacity
+            style={[
+              styles.translateToggle,
+              {
+                backgroundColor: showPronunciation ? colors.rose : colors.muted,
+                borderColor: showPronunciation ? colors.rose : colors.border,
+              },
+            ]}
+            onPress={() => setShowPronunciation(!showPronunciation)}
+          >
+            <Feather
+              name="volume-2"
+              size={14}
+              color={showPronunciation ? colors.white : colors.charcoalLight}
+            />
+          </TouchableOpacity>
+
+          {/* ── Translation toggle ── */}
           <TouchableOpacity
             style={[
               styles.translateToggle,
