@@ -27,6 +27,14 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Theme**: White background, rose/pink (#E8607A) accent, dark charcoal text
 - **TODO**: Supabase auth + database, OpenAI translation + AI reply suggestions, Kakao/LINE OAuth
 
+### Lito Admin — Trust & Safety Dashboard (`artifacts/admin`)
+- **Type**: data-visualization (React + Vite)
+- **Preview Path**: `/admin/`
+- **Stack**: React, Wouter, TanStack Query, Tailwind CSS
+- **Pages**: 개요, 신고 큐, 사용자 조회, 사용자 상세(모더레이터 조치), 신분증 인증 큐, 위험 플래그, 이의 신청
+- **Data**: Mock 데이터 (`src/data/mockData.ts`) — DB 연동 필요 시 API 서버 확장 필요
+- **Features**: 리스크 점수, 안티스캠 플래그 7종, 4티어 모더레이터 권한 설계, 감사 로그 설계
+
 ### API Server (`artifacts/api-server`)
 - **Type**: Express API server
 - **Stack**: Express 5, TypeScript, Drizzle ORM, Pino logging
