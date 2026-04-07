@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import React from "react";
-import { Image, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 
@@ -48,7 +49,8 @@ export function ProfileImage({ photoKey, size = 60, borderRadius, style }: Profi
     <Image
       source={source}
       style={[{ width: size, height: size, borderRadius: radius }, style]}
-      resizeMode="cover"
+      contentFit="cover"
+      transition={180}
     />
   );
 }
