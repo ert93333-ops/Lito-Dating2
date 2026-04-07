@@ -1,0 +1,108 @@
+The current translation behavior is incorrect.
+
+Root problem:
+Translation direction is based on viewer language,
+which causes wrong results when both users share the same language setting.
+
+Example:
+- viewerLang = "ja"
+- message is Korean
+→ system translates Korean → Japanese (WRONG)
+
+==================================================
+FIX GOAL
+==================================================
+
+Translation direction must be determined by the message language,
+NOT by viewer language.
+
+==================================================
+1. FIX TRANSLATION DIRECTION LOGIC
+==================================================
+
+Replace any logic like:
+
+targetLang = viewerLang
+
+WITH:
+
+if (messageLanguage === "ko") {
+    targetLang = "ja"
+} else if (messageLanguage === "ja") {
+    targetLang = "ko"
+}
+
+This must apply to:
+- per-message translation button
+- any manual translation flow
+
+==================================================
+2. MESSAGE LANGUAGE DETECTION
+==================================================
+
+Each message must have a reliable language value:
+
+message.language OR message.originalLanguage
+
+If not reliable:
+- detect language from text
+- fallback safely
+
+==================================================
+3. REMOVE VIEWER-BASED TRANSLATION LOGIC
+==================================================
+
+Do NOT use:
+- viewerLang
+- user country
+- app language
+
+to determine translation direction
+
+Translation must be:
+👉 message-based, not user-based
+
+==================================================
+4. FIX UX EXPECTATION
+==================================================
+
+User expectation:
+
+Korean message → always see Japanese translation
+Japanese message → always see Korean translation
+
+Regardless of:
+- who is viewing
+- what their language is
+
+==================================================
+5. ADD DEBUG LOGGING
+==================================================
+
+Log:
+- message text
+- detected language
+- chosen target language
+
+==================================================
+6. VERIFY
+==================================================
+
+Case 1:
+Korean message → Japanese translation
+
+Case 2:
+Japanese message → Korean translation
+
+Case 3:
+Same user language setup
+→ still works correctly
+
+==================================================
+OUTPUT
+==================================================
+
+1. updated translation direction logic
+2. where message language is determined
+3. confirmation that viewerLang is no longer used
+4. test logs showing correct direction

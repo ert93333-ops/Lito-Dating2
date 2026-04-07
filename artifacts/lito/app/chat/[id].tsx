@@ -66,8 +66,9 @@ function MessageBubble({ msg, enrichment, viewerLang, onTranslate }: BubbleProps
   const isTranslating = !!enrichment?.isLoading;
   const hasFailed = !!enrichment?.failed;
 
-  // What language label to show on the translation chip
-  const translationLangLabel = viewerLang === "ja" ? "JA" : "KO";
+  // What language the translation IS IN — always the opposite of the source message.
+  // Korean message → "JA" chip.  Japanese message → "KO" chip.
+  const translationLangLabel = msg.originalLanguage === "ko" ? "JA" : "KO";
 
   if (isMe) {
     return (
@@ -132,7 +133,10 @@ function MessageBubble({ msg, enrichment, viewerLang, onTranslate }: BubbleProps
           </>
         )}
 
-        {/* Translate button — shown when there is no translation yet and not loading */}
+        {/* Translate button — shown when there is no translation yet and not loading.
+            Label is determined by the MESSAGE language, never the viewer language.
+            Korean message → "日本語に翻訳" (translate to Japanese)
+            Japanese message → "한국어로 번역" (translate to Korean) */}
         {!hasTranslation && !isTranslating && !hasFailed && (
           <TouchableOpacity
             style={[bubble.translateBtn, { borderColor: colors.roseSoft }]}
@@ -141,7 +145,7 @@ function MessageBubble({ msg, enrichment, viewerLang, onTranslate }: BubbleProps
           >
             <Feather name="globe" size={11} color={colors.rose} />
             <Text style={[bubble.translateBtnText, { color: colors.rose }]}>
-              {viewerLang === "ja" ? "日本語に翻訳" : "한국어로 번역"}
+              {msg.originalLanguage === "ko" ? "日本語に翻訳" : "한국어로 번역"}
             </Text>
           </TouchableOpacity>
         )}
@@ -155,7 +159,7 @@ function MessageBubble({ msg, enrichment, viewerLang, onTranslate }: BubbleProps
           >
             <Feather name="refresh-cw" size={11} color={colors.charcoalLight} />
             <Text style={[bubble.translateBtnText, { color: colors.charcoalLight }]}>
-              {viewerLang === "ja" ? "再試行" : "다시 시도"}
+              {msg.originalLanguage === "ko" ? "再試行" : "다시 시도"}
             </Text>
           </TouchableOpacity>
         )}
@@ -307,13 +311,20 @@ export default function ChatDetailScreen() {
   // ── Per-message translate function ───────────────────────────────────────
   // Called when a user taps the translate button on an individual message.
   // Works regardless of the global toggle state.
-  // Target language: viewer's language; if message is already in viewer's language,
-  // translate to the other language (useful for cross-cultural learning).
+  //
+  // Direction rule (message-based, never viewer-based):
+  //   Korean message  → always translate TO Japanese
+  //   Japanese message → always translate TO Korean
   const handleTranslateMessage = useCallback(async (msg: Message) => {
-    const targetLang: "ko" | "ja" =
-      msg.originalLanguage !== viewerLang
-        ? viewerLang                                          // normal case: translate to viewer's lang
-        : viewerLang === "ko" ? "ja" : "ko";                // same-lang: translate to opposite for learning
+    const sourceLang = msg.originalLanguage as "ko" | "ja";
+    const targetLang: "ko" | "ja" = sourceLang === "ko" ? "ja" : "ko";
+
+    console.log("[Lito Translation] per-message request", {
+      msgId: msg.id,
+      text: msg.originalText.slice(0, 60),
+      sourceLang,
+      targetLang,
+    });
 
     const cacheKey = `${msg.id}:${targetLang}`;
 
@@ -363,20 +374,26 @@ export default function ChatDetailScreen() {
     } finally {
       inflight.current.delete(cacheKey);
     }
-  }, [viewerLang]);
+  }, []); // no viewer-language dependency — direction is purely message-based
 
   // ── Batch enrichment effect ───────────────────────────────────────────────
   // When the global translation toggle is ON, automatically pre-fetch translations
-  // for all received foreign-language messages using the three-tier cache:
+  // for all received messages using the three-tier cache:
   //   1. Module cache → 2. Pre-set msg.translatedText → 3. API fetch
+  //
+  // Direction rule (message-based, never viewer-based):
+  //   Korean message  → always translate TO Japanese
+  //   Japanese message → always translate TO Korean
   useEffect(() => {
     if (!translationEnabled) return;
 
     convMessages.forEach((msg) => {
       if (msg.senderId === CURRENT_USER_ID) return;
-      if (msg.originalLanguage === viewerLang) return;
+      // No same-language skip guard — direction is always opposite of source language.
 
-      const cacheKey = `${msg.id}:${viewerLang}`;
+      const sourceLang = msg.originalLanguage as "ko" | "ja";
+      const targetLang: "ko" | "ja" = sourceLang === "ko" ? "ja" : "ko";
+      const cacheKey = `${msg.id}:${targetLang}`;
 
       // Already enriched in local state
       if (enrichmentMap[msg.id]?.translatedText) return;
@@ -406,10 +423,17 @@ export default function ChatDetailScreen() {
       if (inflight.current.has(cacheKey)) return;
       inflight.current.add(cacheKey);
 
+      console.log("[Lito Translation] batch request", {
+        msgId: msg.id,
+        text: msg.originalText.slice(0, 60),
+        sourceLang,
+        targetLang,
+      });
+
       fetch(`${API_BASE}/api/ai/translate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: msg.originalText, sourceLang: msg.originalLanguage, viewerLang }),
+        body: JSON.stringify({ text: msg.originalText, sourceLang, viewerLang: targetLang }),
       })
         .then((r) => r.json())
         .then((data: TranslationResult) => {
@@ -419,11 +443,11 @@ export default function ChatDetailScreen() {
             [msg.id]: { translatedText: data.translation },
           }));
         })
-        .catch(() => {}) // silent; bubble shows without translation
+        .catch(() => {}) // silent; bubble shows translate button for manual retry
         .finally(() => { inflight.current.delete(cacheKey); });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [convMessages, translationEnabled, viewerLang]);
+  }, [convMessages, translationEnabled]); // viewerLang intentionally omitted — direction is message-based
 
   // ── renderItem ───────────────────────────────────────────────────────────
   // Each bubble receives its own enrichment slice and a stable per-message callback.
