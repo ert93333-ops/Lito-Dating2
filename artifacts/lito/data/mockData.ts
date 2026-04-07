@@ -113,6 +113,73 @@ export const mockMatches: Match[] = [
   },
 ];
 
+// ── Japanese conversation messages (conv3 — Hana from Kyoto) ─────────────────
+// All sent by Hana (Japanese). Use these to test KO translation direction.
+export const mockMessagesConv3: Message[] = [
+  {
+    id: "c3msg1",
+    conversationId: "conv3",
+    senderId: "user3",
+    originalText: "こんにちは！プロフィール見て、韓国文化が大好きなんですね 🌸",
+    originalLanguage: "ja",
+    translatedText: "안녕하세요! 프로필 보니 한국 문화를 정말 좋아하시는군요 🌸",
+    translatedLanguage: "ko",
+    createdAt: "2025-01-06T19:00:00Z",
+    isRead: true,
+  },
+  {
+    id: "c3msg2",
+    conversationId: "conv3",
+    senderId: CURRENT_USER_ID,
+    originalText: "はい！韓国のカフェや映画が大好きです。京都出身なんですね？",
+    originalLanguage: "ja",
+    createdAt: "2025-01-06T19:05:00Z",
+    isRead: true,
+  },
+  {
+    id: "c3msg3",
+    conversationId: "conv3",
+    senderId: "user3",
+    originalText: "そうです！京都は本当に美しいですよ。いつか韓国に行ってみたいです ✈️",
+    originalLanguage: "ja",
+    translatedText: "맞아요! 교토는 정말 아름다워요. 언젠가 한국에 가보고 싶어요 ✈️",
+    translatedLanguage: "ko",
+    createdAt: "2025-01-06T19:10:00Z",
+    isRead: true,
+  },
+  {
+    id: "c3msg4",
+    conversationId: "conv3",
+    senderId: "user3",
+    originalText: "韓国語を少し勉強しているんですが、難しいですね 😅 発音が特に…",
+    originalLanguage: "ja",
+    translatedText: "한국어를 조금 공부하고 있는데 어렵네요 😅 특히 발음이…",
+    translatedLanguage: "ko",
+    createdAt: "2025-01-06T19:15:00Z",
+    isRead: true,
+  },
+  {
+    id: "c3msg5",
+    conversationId: "conv3",
+    senderId: CURRENT_USER_ID,
+    originalText: "一緒に練習しましょう！私も韓国語の勉強中です 😊",
+    originalLanguage: "ja",
+    createdAt: "2025-01-06T19:20:00Z",
+    isRead: true,
+  },
+  {
+    id: "c3msg6",
+    conversationId: "conv3",
+    senderId: "user3",
+    originalText: "わあ、嬉しい！おすすめの韓国ドラマはありますか？📺",
+    originalLanguage: "ja",
+    translatedText: "와, 기뻐요! 추천할 만한 한국 드라마가 있나요? 📺",
+    translatedLanguage: "ko",
+    createdAt: "2025-01-06T19:25:00Z",
+    isRead: false,
+  },
+];
+
 export const mockMessages: Message[] = [
   {
     id: "msg1",
@@ -201,8 +268,8 @@ export const mockConversations: Conversation[] = [
     id: "conv3",
     matchId: "match3",
     user: mockUsers[2],
-    lastMessage: undefined,
-    unreadCount: 0,
+    lastMessage: mockMessagesConv3[mockMessagesConv3.length - 1],
+    unreadCount: 1,
     externalUnlocked: false,
     translationEnabled: false,
   },

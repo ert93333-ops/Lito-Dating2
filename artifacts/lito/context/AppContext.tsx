@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
-import { mockConversations, mockMatches, mockMessages, mockUsers, myProfile } from "@/data/mockData";
+import { mockConversations, mockMatches, mockMessages, mockMessagesConv3, mockUsers, myProfile } from "@/data/mockData";
 import { Conversation, Match, Message, MyProfile, User } from "@/types";
 
 interface AppContextType {
@@ -40,7 +40,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<Record<string, Message[]>>({
     conv1: mockMessages,
     conv2: [],
-    conv3: [],
+    conv3: mockMessagesConv3,
   });
   const [activeConversationId, setActiveConversation] = useState<string | null>(null);
 
