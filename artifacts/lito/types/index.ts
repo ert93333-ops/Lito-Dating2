@@ -218,6 +218,7 @@ export interface User {
   age: number;
   country: "KR" | "JP";
   language: "ko" | "ja";
+  city?: string;
   bio: string;
   instagramHandle?: string;
   photos: string[];
@@ -226,6 +227,9 @@ export interface User {
   trustProfile: TrustProfile;
   riskProfile?: RiskProfile;   // Optional — populated by backend; absent = assumed safe
   lastActive: string;
+  studyingLanguage?: boolean;  // true = actively studying the other language (KR↔JP)
+  languageLevel?: "beginner" | "intermediate" | "advanced";
+  interests?: string[];        // Hobbies/interests for cultural matching
 }
 
 export interface Match {
@@ -234,6 +238,7 @@ export interface Match {
   matchedAt: string;
   isNew: boolean;
   user: User;
+  iceBreaker?: string;  // AI-suggested opening line based on shared compatibility
 }
 
 export interface Message {

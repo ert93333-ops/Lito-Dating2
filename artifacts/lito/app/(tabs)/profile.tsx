@@ -209,6 +209,61 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      {/* ── Language Learning Goal ───────────────────────────────────────── */}
+      <View style={[styles.section, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.sectionLabel, { color: colors.charcoalLight }]}>
+          {lang === "ko" ? "문화 연결 목표" : "文化ブリッジ目標"}
+        </Text>
+        <View style={styles.langGoalRow}>
+          {/* Native language */}
+          <View style={[styles.langFlag, { backgroundColor: colors.roseLight, borderColor: colors.roseSoft }]}>
+            <Text style={styles.langFlagEmoji}>{profile.language === "ko" ? "🇰🇷" : "🇯🇵"}</Text>
+            <Text style={[styles.langFlagLabel, { color: colors.rose }]}>
+              {profile.language === "ko" ? "모국어" : "母語"}
+            </Text>
+          </View>
+          {/* Arrow */}
+          <View style={styles.langArrowWrap}>
+            <View style={[styles.langArrowLine, { backgroundColor: "#E8EDF2" }]} />
+            <View style={[styles.langArrowCircle, { backgroundColor: "#E8F4FF", borderColor: "#B8D8F4" }]}>
+              <Feather name="repeat" size={12} color="#3B6FD4" />
+            </View>
+            <View style={[styles.langArrowLine, { backgroundColor: "#E8EDF2" }]} />
+          </View>
+          {/* Target language + level */}
+          <View style={[styles.langFlag, { backgroundColor: "#E8F4FF", borderColor: "#B8D8F4" }]}>
+            <Text style={styles.langFlagEmoji}>{profile.language === "ko" ? "🇯🇵" : "🇰🇷"}</Text>
+            <Text style={[styles.langFlagLabel, { color: "#3B6FD4" }]}>
+              {lang === "ko" ? "목표 언어" : "目標言語"}
+            </Text>
+          </View>
+        </View>
+        {/* Level indicator */}
+        <View style={[styles.levelRow, { borderTopColor: colors.border }]}>
+          {(["beginner", "intermediate", "advanced"] as const).map((level) => {
+            const myLevel = (profile as any).languageLevel ?? "beginner";
+            const levelIdx = ["beginner", "intermediate", "advanced"].indexOf(level);
+            const myIdx = ["beginner", "intermediate", "advanced"].indexOf(myLevel);
+            const isActive = levelIdx <= myIdx;
+            return (
+              <View key={level} style={styles.levelItem}>
+                <View style={[styles.levelDot, {
+                  backgroundColor: isActive ? "#3B6FD4" : "#E0E8F0",
+                  borderColor: isActive ? "#2A5AB8" : "transparent",
+                }]} />
+                <Text style={[styles.levelText, { color: isActive ? "#3B6FD4" : colors.charcoalLight }]}>
+                  {level === "beginner"
+                    ? (lang === "ko" ? "초급" : "初級")
+                    : level === "intermediate"
+                    ? (lang === "ko" ? "중급" : "中級")
+                    : (lang === "ko" ? "고급" : "上級")}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+
       {/* ── Interests ────────────────────────────────────────────────────── */}
       {profile.interests && profile.interests.length > 0 && (
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
@@ -562,6 +617,66 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   badgeText: { fontFamily: "Inter_500Medium", fontSize: 13 },
+
+  // Language goal section
+  langGoalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 0,
+    marginBottom: 14,
+  },
+  langFlag: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 4,
+  },
+  langFlagEmoji: { fontSize: 28 },
+  langFlagLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 11,
+  },
+  langArrowWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    gap: 0,
+  },
+  langArrowLine: {
+    flex: 1,
+    height: 1.5,
+    width: 12,
+  },
+  langArrowCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  levelRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  levelItem: {
+    alignItems: "center",
+    gap: 6,
+  },
+  levelDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1,
+  },
+  levelText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+  },
 
   tagsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   tag: {

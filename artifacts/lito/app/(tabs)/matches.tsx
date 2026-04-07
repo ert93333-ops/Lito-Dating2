@@ -13,15 +13,18 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CountryFlag } from "@/components/CountryFlag";
 import { ProfileImage } from "@/components/ProfileImage";
+import { TrustBadge } from "@/components/TrustBadge";
 import { useApp } from "@/context/AppContext";
 import { useGrowth } from "@/context/GrowthContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
+import { computeTrustScore } from "@/types";
 import { Match } from "@/types";
 
 function MatchCard({ match }: { match: Match }) {
   const colors = useColors();
   const { lang } = useLocale();
+  const trustScore = computeTrustScore(match.user.trustProfile);
 
   const goToChat = () => {
     router.push(`/chat/conv1`);
@@ -31,30 +34,68 @@ function MatchCard({ match }: { match: Match }) {
     <TouchableOpacity
       style={[styles.matchCard, { backgroundColor: colors.white, borderColor: colors.border }]}
       onPress={goToChat}
+      activeOpacity={0.88}
     >
+      {/* Photo + NEW badge */}
       <View style={styles.photoWrap}>
-        <ProfileImage photoKey={match.user.photos[0]} size={72} />
+        <ProfileImage photoKey={match.user.photos[0]} size={70} />
         {match.isNew && (
           <View style={[styles.newBadge, { backgroundColor: colors.rose }]}>
             <Text style={styles.newBadgeText}>NEW</Text>
           </View>
         )}
+        {/* Trust dot overlay */}
+        {trustScore >= 55 && (
+          <View style={[styles.trustDot, { backgroundColor: "#1A7A4A" }]} />
+        )}
       </View>
+
+      {/* Info */}
       <View style={styles.matchInfo}>
+        {/* Name row */}
         <View style={styles.matchNameRow}>
-          <Text style={[styles.matchName, { color: colors.charcoal }]}>{match.user.nickname}</Text>
-          <CountryFlag country={match.user.country} size={16} />
+          <Text style={[styles.matchName, { color: colors.charcoal }]}>{match.user.nickname.split(" ")[0]}</Text>
+          <CountryFlag country={match.user.country} size={14} />
+          {match.user.studyingLanguage && (
+            <View style={[styles.studyBadge, { backgroundColor: "#E8FAF4", borderColor: "#B8EDD8" }]}>
+              <Text style={[styles.studyBadgeText, { color: "#1A7A4A" }]}>
+                {match.user.language === "ja" ? "📚 KR" : "📚 JP"}
+              </Text>
+            </View>
+          )}
         </View>
-        <View style={[styles.scoreRow, { backgroundColor: colors.roseLight }]}>
-          <Feather name="cpu" size={10} color={colors.rose} />
-          <Text style={[styles.scoreLabel, { color: colors.rose }]}>
-            {match.user.compatibilityScore}% {lang === "ko" ? "매칭" : "マッチ"}
+
+        {/* Trust badges (sm pills) */}
+        <View style={styles.trustRow}>
+          <TrustBadge trustProfile={match.user.trustProfile} size="sm" lang={lang} />
+          {trustScore === 0 && (
+            <Text style={[styles.noTrustText, { color: colors.charcoalLight }]}>
+              {lang === "ko" ? "미인증" : "未認証"}
+            </Text>
+          )}
+        </View>
+
+        {/* Ice breaker or bio */}
+        {match.iceBreaker ? (
+          <View style={[styles.iceBreakerRow, { backgroundColor: colors.roseLight, borderColor: "#F2BDCA" }]}>
+            <Feather name="cpu" size={9} color={colors.rose} />
+            <Text style={[styles.iceBreakerText, { color: colors.rose }]} numberOfLines={2}>
+              {match.iceBreaker}
+            </Text>
+          </View>
+        ) : (
+          <Text style={[styles.matchBio, { color: colors.charcoalLight }]} numberOfLines={1}>
+            {match.user.bio.split("\n")[0]}
           </Text>
-        </View>
-        <Text style={[styles.matchBio, { color: colors.charcoalLight }]} numberOfLines={1}>
-          {match.user.bio.split("\n")[0]}
+        )}
+
+        {/* Last active */}
+        <Text style={[styles.lastActiveText, { color: colors.charcoalLight }]}>
+          <Feather name="clock" size={9} color={colors.charcoalLight} />
+          {" "}{match.user.lastActive}
         </Text>
       </View>
+
       <Feather name="message-circle" size={20} color={colors.rose} style={styles.chatIcon} />
     </TouchableOpacity>
   );
@@ -253,8 +294,63 @@ const styles = StyleSheet.create({
   matchBio: {
     fontFamily: "Inter_400Regular",
     fontSize: 13,
+    marginTop: 4,
   },
   chatIcon: { marginLeft: 8 },
+  trustDot: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  trustRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 5,
+    minHeight: 20,
+  },
+  noTrustText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+  },
+  studyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  studyBadgeText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 10,
+  },
+  iceBreakerRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    marginTop: 4,
+  },
+  iceBreakerText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    lineHeight: 16,
+    flex: 1,
+  },
+  lastActiveText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    marginTop: 5,
+  },
   referralNudge: {
     flexDirection: "row",
     alignItems: "center",

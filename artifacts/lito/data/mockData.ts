@@ -74,6 +74,7 @@ export const mockUsers: User[] = [
     age: 26,
     country: "KR",
     language: "ko",
+    city: "서울 · Seoul",
     bio: "서울에서 그래픽 디자이너로 일하고 있어요. 일본 문화와 애니메이션을 좋아하고, 도쿄를 꼭 방문하고 싶어요! ☀️\n\nGraphic designer based in Seoul. I love Japanese culture and anime — Tokyo is definitely on my bucket list!",
     instagramHandle: "@yuna.designs",
     photos: ["profile1"],
@@ -81,6 +82,9 @@ export const mockUsers: User[] = [
     compatibilityReasons: ["Creative souls", "Love for travel", "Bilingual ambition", "K-drama fans"],
     trustProfile: TRUST_TWO_LAYERS,
     lastActive: "2분 전",
+    studyingLanguage: true,
+    languageLevel: "intermediate",
+    interests: ["🎨 그래픽 디자인", "🍜 라멘", "🎌 애니메이션", "✈️ 여행", "📷 필름 사진"],
   },
   {
     id: "user2",
@@ -88,6 +92,7 @@ export const mockUsers: User[] = [
     age: 28,
     country: "JP",
     language: "ja",
+    city: "東京 · Tokyo",
     bio: "東京でソフトウェアエンジニアをしています。韓国語を勉強中で、ソウルに行ってみたいです！音楽と料理が好きです。\n\nSoftware engineer in Tokyo, studying Korean. I want to visit Seoul and love music and cooking.",
     instagramHandle: "@takuya.dev",
     photos: ["profile2"],
@@ -95,6 +100,9 @@ export const mockUsers: User[] = [
     compatibilityReasons: ["Tech minds", "Music lovers", "Language learners", "Food enthusiasts"],
     trustProfile: TRUST_THREE_LAYERS,
     lastActive: "10분 전",
+    studyingLanguage: true,
+    languageLevel: "beginner",
+    interests: ["💻 개발", "🎵 재즈", "🍳 요리", "🏃 달리기", "🎮 게임"],
   },
   {
     id: "user3",
@@ -102,6 +110,7 @@ export const mockUsers: User[] = [
     age: 25,
     country: "JP",
     language: "ja",
+    city: "京都 · Kyoto",
     bio: "京都出身のフリーランスフォトグラファーです。韓国のカフェ文化に憧れています。読書と写真撮影が趣味です。\n\nFreelance photographer from Kyoto. I'm captivated by Korean café culture. I love reading and photography.",
     instagramHandle: "@hana.photo",
     photos: ["profile3"],
@@ -109,6 +118,8 @@ export const mockUsers: User[] = [
     compatibilityReasons: ["Art & photography", "Café culture", "Introspective personalities", "Nature lovers"],
     trustProfile: TRUST_HUMAN_ONLY,
     lastActive: "1시간 전",
+    studyingLanguage: false,
+    interests: ["📷 사진", "☕ 카페", "📚 독서", "🌸 꽃꽂이", "🎋 전통문화"],
   },
   {
     id: "user4",
@@ -116,6 +127,7 @@ export const mockUsers: User[] = [
     age: 29,
     country: "KR",
     language: "ko",
+    city: "부산 · Busan",
     bio: "부산 출신의 요리사입니다. 일본 요리에 관심이 많고, 오사카 맛집 투어를 꿈꾸고 있어요. 음식으로 이어지는 인연!\n\nChef from Busan with a deep love for Japanese cuisine. Dreaming of a food tour in Osaka. Connections over food!",
     instagramHandle: "@jihoon.kitchen",
     photos: ["profile4"],
@@ -123,6 +135,9 @@ export const mockUsers: User[] = [
     compatibilityReasons: ["Foodie spirits", "Coastal hearts", "Cultural curiosity", "Active lifestyle"],
     trustProfile: TRUST_NONE,
     lastActive: "3시간 전",
+    studyingLanguage: true,
+    languageLevel: "beginner",
+    interests: ["🍣 일식", "🏄 서핑", "🔥 바베큐", "🍺 맥주", "⚽ 축구"],
   },
   {
     id: "user5",
@@ -130,6 +145,7 @@ export const mockUsers: User[] = [
     age: 27,
     country: "KR",
     language: "ko",
+    city: "서울 · Seoul",
     bio: "서울대 심리학 박사과정입니다. 마음을 연결하는 것에 관심이 많아요. 일본 문학과 히키 음악을 사랑합니다.\n\nPsychology PhD student at Seoul National University. I care deeply about human connection. Love Japanese literature and city pop music.",
     instagramHandle: "@soojin.reads",
     photos: ["profile5"],
@@ -137,6 +153,9 @@ export const mockUsers: User[] = [
     compatibilityReasons: ["Deep thinkers", "Literature lovers", "City pop fans", "Emotionally intelligent"],
     trustProfile: TRUST_FULL,
     lastActive: "방금 전",
+    studyingLanguage: true,
+    languageLevel: "advanced",
+    interests: ["📖 일본 문학", "🎵 시티팝", "🧘 명상", "🎬 영화", "🖊️ 글쓰기"],
   },
   {
     id: "user6",
@@ -144,6 +163,7 @@ export const mockUsers: User[] = [
     age: 30,
     country: "JP",
     language: "ja",
+    city: "大阪 · Osaka",
     bio: "大阪でジャズミュージシャンをしています。韓国のインディー音楽シーンに刺激を受けています。音楽で国境を越えたい！\n\nJazz musician in Osaka. Inspired by Korea's indie music scene. Music transcends borders!",
     instagramHandle: "@ren.jazz",
     photos: ["profile6"],
@@ -151,6 +171,9 @@ export const mockUsers: User[] = [
     compatibilityReasons: ["Musical souls", "Creative freedom", "Night owls", "Cultural bridges"],
     trustProfile: TRUST_ID_PENDING,
     lastActive: "30분 전",
+    studyingLanguage: true,
+    languageLevel: "intermediate",
+    interests: ["🎷 재즈", "🎸 기타", "🎤 K-인디", "🌙 야경", "🍻 이자카야"],
   },
 ];
 
@@ -161,6 +184,7 @@ export const mockMatches: Match[] = [
     matchedAt: "2025-01-05T10:30:00Z",
     isNew: false,
     user: mockUsers[0],
+    iceBreaker: "둘 다 창의적인 직업이네요! 서로의 작업물을 보여주면 어떨까요? 🎨",
   },
   {
     id: "match2",
@@ -168,6 +192,7 @@ export const mockMatches: Match[] = [
     matchedAt: "2025-01-06T14:20:00Z",
     isNew: true,
     user: mockUsers[4],
+    iceBreaker: "일본 문학을 좋아하신다고요? 최근에 읽은 책이 있으신가요? 📖",
   },
   {
     id: "match3",
@@ -175,6 +200,7 @@ export const mockMatches: Match[] = [
     matchedAt: "2025-01-07T09:10:00Z",
     isNew: true,
     user: mockUsers[2],
+    iceBreaker: "교토 출신 사진작가님! 필름 카메라로 찍은 사진 있으면 보고 싶어요 📷",
   },
 ];
 

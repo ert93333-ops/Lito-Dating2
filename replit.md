@@ -24,7 +24,13 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Stack**: Expo Router, React Native, TypeScript, AsyncStorage
 - **Key screens**: Onboarding (3 slides), Login, Profile Setup, Discover (swipe cards), Matches, Chats, Chat Detail, Profile, Settings
 - **Data**: Mock data only (6 users, 3 matches, 1 sample conversation)
-- **Theme**: White background, rose/pink (#E8607A) accent, dark charcoal text
+- **Theme**: White background, rose/pink (#D85870) accent, dark charcoal text
+- **UX improvements done**:
+  - User type extended: `city?`, `studyingLanguage?`, `languageLevel?`, `interests?`
+  - Match type extended: `iceBreaker?` (AI suggested opening line)
+  - Discover cards: language study badge (📚 pill, green glass), interests + match reason chips
+  - Matches screen: TrustBadge (sm), trust dot overlay, study badge, ice breaker suggestion card, last active
+  - Profile screen: 문화 연결 목표 section (KR↔JP flag bridge, beginner/intermediate/advanced level)
 - **TODO**: Supabase auth + database, OpenAI translation + AI reply suggestions, Kakao/LINE OAuth
 
 ### Lito Admin — Trust & Safety Dashboard (`artifacts/admin`)
