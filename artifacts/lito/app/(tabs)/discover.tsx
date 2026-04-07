@@ -30,6 +30,7 @@ import { TrustBadge } from "@/components/TrustBadge";
 import { useApp } from "@/context/AppContext";
 import { useGrowth } from "@/context/GrowthContext";
 import { useColors } from "@/hooks/useColors";
+import { useLocale } from "@/hooks/useLocale";
 import { User } from "@/types";
 
 // ─── Bio translation ─────────────────────────────────────────────────────────
@@ -112,16 +113,19 @@ function DiscoverCard({
   user,
   onLike,
   onPass,
+  onReport,
   isTop,
 }: {
   user: User;
   onLike: () => void;
   onPass: () => void;
+  onReport?: () => void;
   isTop: boolean;
   stackIndex: number;
 }) {
   const colors = useColors();
   const { profile } = useApp();
+  const { lang } = useLocale();
   const viewerLang: "ko" | "ja" = profile.country === "KR" ? "ko" : "ja";
 
   // ── Reanimated shared values (run on UI thread) ──────────────────────────
@@ -215,6 +219,21 @@ function DiscoverCard({
         borderRadius={0}
         style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
       />
+
+      {/* Report button — top-right corner, only on top card */}
+      {isTop && onReport && (
+        <TouchableOpacity
+          style={cardStyles.reportBtn}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onReport();
+          }}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+        >
+          <Feather name="flag" size={13} color="rgba(255,255,255,0.85)" />
+        </TouchableOpacity>
+      )}
 
       {/* LIKE stamp */}
       <Animated.View style={[cardStyles.stamp, cardStyles.stampLike, likeAnimStyle]}>
@@ -429,6 +448,22 @@ const cardStyles = StyleSheet.create({
     color: "rgba(255,255,255,0.92)",
   },
 
+  // Report button — small translucent flag in top-right corner
+  reportBtn: {
+    position: "absolute",
+    top: 14,
+    right: 14,
+    zIndex: 25,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(0,0,0,0.28)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.22)",
+  },
+
   // Bio text — white on dark, small and quiet
   bioText: {
     fontFamily: "Inter_400Regular",
@@ -596,6 +631,10 @@ export default function DiscoverScreen() {
                 user={user}
                 onLike={() => handleLike(user.id)}
                 onPass={() => handlePass(user.id)}
+                onReport={isTop ? () => router.push({
+                  pathname: "/report-user" as any,
+                  params: { userId: user.id, nickname: user.nickname },
+                }) : undefined}
                 isTop={isTop}
                 stackIndex={idx}
               />

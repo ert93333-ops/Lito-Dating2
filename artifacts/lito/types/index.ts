@@ -70,6 +70,146 @@ export function idNeedsAction(tp: TrustProfile): boolean {
   return s === "not_verified" || s === "rejected" || s === "reverify_required";
 }
 
+// ── Anti-scam / Trust Safety types ───────────────────────────────────────────
+//
+// MVP ARCHITECTURE NOTES:
+//   Phase 1 (now)    — Client-side report flow + data structures
+//   Phase 2 (soon)   — API endpoint to receive reports, persist to DB
+//   Phase 3 (later)  — Automated risk scoring + moderation queue UI
+//   Phase 4 (scale)  — ML image detection, device fingerprinting, real-time monitoring
+//
+// ADMIN DASHBOARD REQUIREMENTS (not yet built):
+//   - Report queue with filter by category / severity / date
+//   - Risk score distribution chart
+//   - One-click account actions (warn / restrict / suspend / ban)
+//   - Appeal review UI
+//   - False-positive rate tracking per flag kind
+//   - Export for law enforcement (GDPR-compliant data request format)
+
+// ── 7 Detection categories (maps to required detection categories) ─────────────
+
+export type RiskFlagKind =
+  | "ai_generated_image"       // Cat 1: Synthetic/AI profile photo (GAN detector, perceptual hash)
+  | "identity_mismatch"        // Cat 2: Face vs ID document discrepancy
+  | "bulk_repetitive_message"  // Cat 3: Same message sent to many users (text similarity hash)
+  | "off_platform_lure"        // Cat 4: Requesting KakaoTalk / LINE / WhatsApp / Telegram
+  | "financial_solicitation"   // Cat 5: Investment / crypto / money transfer language
+  | "multi_account_device"     // Cat 6: Same device fingerprint / IP across accounts
+  | "repeated_reports";        // Cat 7: Threshold of unique reporter count reached
+
+// ── Automation decision matrix ────────────────────────────────────────────────
+//
+//  FLAG KIND                | Auto-detect?       | Auto-action?       | Manual required?
+//  -------------------------|--------------------|--------------------|------------------
+//  ai_generated_image       | YES (hash + API)   | NO — flag only     | YES — severity review
+//  identity_mismatch        | YES (face compare) | NO — flag only     | YES — ID check
+//  bulk_repetitive_message  | YES (hash)         | YES ≥10 in 1h      | YES if borderline
+//  off_platform_lure        | YES (keyword regex)| YES — warn         | YES if appealing
+//  financial_solicitation   | YES (NLP keywords) | YES — restrict     | YES — pattern analysis
+//  multi_account_device     | YES (fingerprint)  | NO — flag only     | YES — verify ID chain
+//  repeated_reports         | YES (≥5 reports)   | YES — restrict     | YES — review reports
+
+export type RiskFlagSeverity = "low" | "medium" | "high" | "critical";
+export type RiskFlagSource = "automated" | "user_report" | "manual_review";
+
+export interface RiskFlag {
+  kind: RiskFlagKind;
+  severity: RiskFlagSeverity;
+  source: RiskFlagSource;
+  detectedAt: string;         // ISO date
+  details?: string;           // Human-readable context for moderators
+  evidenceIds?: string[];     // Message IDs, photo hashes, etc.
+  resolvedAt?: string;        // Set when moderator clears the flag
+  resolvedBy?: string;        // Moderator ID who cleared it
+}
+
+// ── Account action statuses ────────────────────────────────────────────────────
+//
+//  Transition diagram:
+//    active → warned → restricted → shadow_banned → suspended → permanently_banned
+//    (Any state can jump directly to permanently_banned for critical violations)
+//    suspended → active (after suspendedUntil passes + appeal review)
+
+export type AccountActionStatus =
+  | "active"              // Normal — no restrictions
+  | "warned"              // Soft warning issued, DM notification sent
+  | "restricted"          // Cannot initiate new matches; existing chats continue
+  | "shadow_banned"       // Visible only to themselves; matchmaking excluded
+  | "suspended"           // Full access removed until suspendedUntil date
+  | "permanently_banned"; // Irreversible — account deactivated
+
+// ── Moderation review statuses ────────────────────────────────────────────────
+
+export type ModerationStatus =
+  | "clear"           // Reviewed by moderator — no action needed
+  | "pending_review"  // Flagged, waiting for moderator assignment
+  | "under_review"    // Assigned to a moderator, being investigated
+  | "action_taken"    // Moderation action applied (see accountStatus)
+  | "appealing";      // User submitted appeal, pauses further automatic action
+
+export interface RiskProfile {
+  riskScore: number;                // 0–100 (≥60 = high risk; ≥80 = critical)
+                                    // NOT the trust score. Inverted scale to trust.
+  flags: RiskFlag[];
+  accountStatus: AccountActionStatus;
+  moderationStatus: ModerationStatus;
+  reportCount: number;              // Total unique reporters (deduplicated by user ID)
+  lastReviewedAt?: string;
+  suspendedUntil?: string;          // ISO date — only set when accountStatus = "suspended"
+  appealSubmittedAt?: string;
+  appealReason?: string;
+}
+
+// ── User report submitted by another user ─────────────────────────────────────
+//
+//  Report categories map 1:1 to the 7 detection flag kinds, plus additional
+//  social categories (harassment, underage) that have no automated equivalent.
+
+export type UserReportCategory =
+  | "fake_profile"          // Believes profile is fake, bot, or stolen photos
+  | "ai_generated_photos"   // Suspects AI/GAN-generated profile photos
+  | "impersonation"         // Pretending to be a specific real person
+  | "romance_scam"          // Love-bombing pattern leading toward money request
+  | "financial_scam"        // Investment / crypto / money transfer solicitation
+  | "off_platform_contact"  // Pressuring to move to external app (LINE/Kakao/Telegram)
+  | "spam_messages"         // Receiving identical or bulk messages
+  | "harassment"            // Threatening, abusive, or deeply inappropriate behavior
+  | "underage"              // Believes user is under 18
+  | "other";                // Free text, reviewed by moderator
+
+export interface UserReport {
+  id: string;
+  reporterId: string;
+  reportedUserId: string;
+  reportedNickname?: string;
+  category: UserReportCategory;
+  details?: string;            // Optional free text from reporter
+  evidenceMessageIds?: string[]; // Message IDs as evidence (future feature)
+  submittedAt: string;
+  // Backend-assigned after submission:
+  status: "pending" | "reviewed" | "dismissed" | "actioned";
+  // Risk contribution: each report increments the reported user's riskScore
+}
+
+// ── Risk score helpers ─────────────────────────────────────────────────────────
+
+export function getRiskLevel(score: number): "safe" | "low" | "medium" | "high" | "critical" {
+  if (score < 20)  return "safe";
+  if (score < 40)  return "low";
+  if (score < 60)  return "medium";
+  if (score < 80)  return "high";
+  return "critical";
+}
+
+export function isAccountRestricted(rp: RiskProfile): boolean {
+  return (
+    rp.accountStatus === "restricted" ||
+    rp.accountStatus === "shadow_banned" ||
+    rp.accountStatus === "suspended" ||
+    rp.accountStatus === "permanently_banned"
+  );
+}
+
 // ── Core domain types ─────────────────────────────────────────────────────────
 
 export interface User {
@@ -84,6 +224,7 @@ export interface User {
   compatibilityScore: number;
   compatibilityReasons: string[];
   trustProfile: TrustProfile;
+  riskProfile?: RiskProfile;   // Optional — populated by backend; absent = assumed safe
   lastActive: string;
 }
 
