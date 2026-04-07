@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { LitoMark } from "@/components/LitoMark";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
@@ -88,7 +89,10 @@ export default function ProfileSetupScreen() {
   // ── Step header (shared) ──────────────────────────────────────────────────
   const StepHeader = () => (
     <View style={[stepStyles.header, { paddingTop: topPad + 14 }]}>
-      <Text style={[stepStyles.logo, { color: colors.rose }]}>lito</Text>
+      <View style={stepStyles.logoRow}>
+        <LitoMark size={30} />
+        <Text style={[stepStyles.logo, { color: colors.charcoal }]}>lito</Text>
+      </View>
       <View style={stepStyles.stepCounter}>
         <Text style={[stepStyles.stepText, { color: colors.charcoalLight }]}>
           {step} / 3
@@ -417,10 +421,15 @@ const stepStyles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 12,
   },
+  logoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   logo: {
     fontFamily: "Inter_700Bold",
-    fontSize: 22,
-    letterSpacing: -0.8,
+    fontSize: 20,
+    letterSpacing: -0.6,
   },
   stepCounter: {
     paddingHorizontal: 12,

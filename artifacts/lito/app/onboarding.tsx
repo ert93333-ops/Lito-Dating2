@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { LitoMark } from "@/components/LitoMark";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -87,7 +88,10 @@ export default function OnboardingScreen() {
 
       {/* ── Header ───────────────────────────────────────────────────── */}
       <View style={[styles.header, { paddingTop: topPad + 16 }]}>
-        <Text style={[styles.logo, { color: colors.rose }]}>lito</Text>
+        <View style={styles.logoRow}>
+          <LitoMark size={32} />
+          <Text style={[styles.logo, { color: colors.charcoal }]}>lito</Text>
+        </View>
         <TouchableOpacity onPress={skip} style={styles.skipBtn}>
           <Text style={[styles.skip, { color: colors.charcoalLight }]}>Skip</Text>
         </TouchableOpacity>
@@ -193,10 +197,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 8,
   },
+  logoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+  },
   logo: {
     fontFamily: "Inter_700Bold",
-    fontSize: 28,
-    letterSpacing: -1,
+    fontSize: 22,
+    letterSpacing: -0.8,
   },
   skipBtn: { padding: 4 },
   skip: {

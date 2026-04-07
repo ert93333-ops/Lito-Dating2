@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { LitoMark } from "@/components/LitoMark";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -63,8 +64,8 @@ export default function LoginScreen() {
 
         {/* Logo section */}
         <View style={styles.logoSection}>
-          <View style={[styles.logoMark, { backgroundColor: colors.roseLight }]}>
-            <Text style={[styles.logoLetter, { color: colors.rose }]}>L</Text>
+          <View style={{ marginBottom: 20 }}>
+            <LitoMark size={84} />
           </View>
           <Text style={[styles.appName, { color: colors.charcoal }]}>lito</Text>
           <Text style={[styles.tagline, { color: colors.charcoalLight }]}>
@@ -225,19 +226,6 @@ const styles = StyleSheet.create({
   logoSection: {
     alignItems: "center",
     paddingBottom: 8,
-  },
-  logoMark: {
-    width: 80,
-    height: 80,
-    borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-  },
-  logoLetter: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 42,
-    lineHeight: 48,
   },
   appName: {
     fontFamily: "Inter_700Bold",
