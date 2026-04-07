@@ -44,7 +44,7 @@ const translationCache = new Map<string, TranslationResult>();
 // Each entry is keyed by message ID and stores the state for that individual message.
 interface Enrichment {
   translatedText?: string;
-  pronunciationText?: string;  // Layer 3 — independent of translation, toggled separately
+  showTranslation?: boolean;   // Whether translation is currently shown (tap-to-toggle)
   isLoading?: boolean;
   failed?: boolean;
 }
@@ -73,45 +73,17 @@ interface BubbleProps {
   msg: Message;
   enrichment: Enrichment | undefined;
   viewerLang: "ko" | "ja";
-  /** Whether the pronunciation Layer 3 is currently toggled on (conversation-level). */
-  showPronunciation: boolean;
-  /** Called when the user taps the translate button on this specific message. */
-  onTranslate: () => void;
+  /** Called when the user taps the received message bubble — toggles translation. */
+  onToggleTranslation: () => void;
 }
 
-function MessageBubble({ msg, enrichment, viewerLang, showPronunciation, onTranslate }: BubbleProps) {
+function MessageBubble({ msg, enrichment, viewerLang, onToggleTranslation }: BubbleProps) {
   const colors = useColors();
   const isMe = msg.senderId === CURRENT_USER_ID;
 
-  // Translate button press scale — physical tactile feedback
-  const translateScale = useRef(new Animated.Value(1)).current;
-
-  const handleTranslatePressIn = () => {
-    Animated.spring(translateScale, {
-      toValue: 0.9,
-      useNativeDriver: true,
-      speed: 30,
-      bounciness: 0,
-    }).start();
-  };
-
-  const handleTranslatePressOut = () => {
-    Animated.spring(translateScale, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 18,
-      bounciness: 4,
-    }).start();
-  };
-
-  const handleTranslatePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onTranslate();
-  };
-
   const hasTranslation = !!enrichment?.translatedText;
   const isTranslating = !!enrichment?.isLoading;
-  const hasFailed = !!enrichment?.failed;
+  const showTranslation = !!enrichment?.showTranslation;
 
   // What language the translation IS IN — always the opposite of the source message.
   // Korean message → "JA" chip.  Japanese message → "KO" chip.
@@ -132,101 +104,69 @@ function MessageBubble({ msg, enrichment, viewerLang, showPronunciation, onTrans
     );
   }
 
-  // ── Received message ──────────────────────────────────────────────────────
+  // ── Received message — tappable to toggle translation ────────────────────
   return (
     <View style={[bubble.wrap, { alignSelf: "flex-start" }]}>
-      <View
-        style={[
-          bubble.balloonThem,
-          {
-            backgroundColor: colors.bubbleThem,
-            borderColor: colors.border,
-            borderLeftColor: hasTranslation ? colors.roseSoft : colors.border,
-            borderLeftWidth: hasTranslation ? 3 : StyleSheet.hairlineWidth,
-          },
-        ]}
+      <TouchableOpacity
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onToggleTranslation();
+        }}
+        activeOpacity={0.82}
       >
-        {/* Layer 1 — original text: authentic voice */}
-        <Text style={[bubble.textOriginal, { color: colors.charcoalMid }]}>
-          {msg.originalText}
-        </Text>
+        <View
+          style={[
+            bubble.balloonThem,
+            {
+              backgroundColor: colors.bubbleThem,
+              borderColor: colors.border,
+              borderLeftColor: showTranslation ? colors.roseSoft : colors.border,
+              borderLeftWidth: showTranslation ? 3 : StyleSheet.hairlineWidth,
+            },
+          ]}
+        >
+          {/* Layer 1 — original text: authentic voice */}
+          <Text style={[bubble.textOriginal, { color: colors.charcoalMid }]}>
+            {msg.originalText}
+          </Text>
 
-        {/* Translation loading spinner */}
-        {isTranslating && (
-          <>
-            <View style={[bubble.divider, { backgroundColor: colors.border }]} />
-            <ActivityIndicator
-              size="small"
-              color={colors.rose}
-              style={{ alignSelf: "flex-start", marginTop: 2 }}
-            />
-          </>
-        )}
+          {/* Translation loading spinner */}
+          {isTranslating && (
+            <>
+              <View style={[bubble.divider, { backgroundColor: colors.border }]} />
+              <ActivityIndicator
+                size="small"
+                color={colors.rose}
+                style={{ alignSelf: "flex-start", marginTop: 2 }}
+              />
+            </>
+          )}
 
-        {/* Layer 2 — translated text: primary reading content.
-            Always visible when hasTranslation is true — pronunciation toggle NEVER hides this. */}
-        {hasTranslation && !isTranslating && (
-          <>
-            <View style={[bubble.divider, { backgroundColor: colors.border }]} />
-            <View style={bubble.translationRow}>
-              <View style={[bubble.langChip, { backgroundColor: colors.roseLight }]}>
-                <Text style={[bubble.langChipText, { color: colors.rose }]}>
-                  {translationLangLabel}
+          {/* Layer 2 — translated text: shown only when toggled ON */}
+          {hasTranslation && showTranslation && !isTranslating && (
+            <>
+              <View style={[bubble.divider, { backgroundColor: colors.border }]} />
+              <View style={bubble.translationRow}>
+                <View style={[bubble.langChip, { backgroundColor: colors.roseLight }]}>
+                  <Text style={[bubble.langChipText, { color: colors.rose }]}>
+                    {translationLangLabel}
+                  </Text>
+                </View>
+                <Text style={[bubble.textTranslation, { color: colors.charcoal }]}>
+                  {enrichment!.translatedText}
                 </Text>
               </View>
-              <Text style={[bubble.textTranslation, { color: colors.charcoal }]}>
-                {enrichment!.translatedText}
-              </Text>
+            </>
+          )}
+
+          {/* Subtle globe hint — only when no translation loaded yet */}
+          {!hasTranslation && !isTranslating && (
+            <View style={bubble.translateHint}>
+              <Feather name="globe" size={10} color={colors.charcoalLight} style={{ opacity: 0.45 }} />
             </View>
-          </>
-        )}
-
-        {/* Layer 3 — pronunciation: additive layer shown only when toggled ON.
-            Requires Layer 2 (translation) to be present first.
-            Toggling this off NEVER affects Layer 2 visibility. */}
-        {hasTranslation && !isTranslating && showPronunciation && !!enrichment?.pronunciationText && (
-          <Text style={[bubble.textPronunciation, { color: colors.charcoalLight }]}>
-            {enrichment.pronunciationText}
-          </Text>
-        )}
-
-        {/* Translate button — shown when there is no translation yet and not loading.
-            Label is determined by the MESSAGE language, never the viewer language.
-            Korean message → "日本語に翻訳" (translate to Japanese)
-            Japanese message → "한국어로 번역" (translate to Korean) */}
-        {!hasTranslation && !isTranslating && !hasFailed && (
-          <Animated.View style={{ transform: [{ scale: translateScale }], alignSelf: "flex-start" }}>
-            <Pressable
-              style={[bubble.translateBtn, { borderColor: colors.roseSoft }]}
-              onPress={handleTranslatePress}
-              onPressIn={handleTranslatePressIn}
-              onPressOut={handleTranslatePressOut}
-            >
-              <Feather name="globe" size={11} color={colors.rose} />
-              <Text style={[bubble.translateBtnText, { color: colors.rose }]}>
-                {msg.originalLanguage === "ko" ? "日本語に翻訳" : "한국어로 번역"}
-              </Text>
-            </Pressable>
-          </Animated.View>
-        )}
-
-        {/* Error / retry state */}
-        {hasFailed && !hasTranslation && !isTranslating && (
-          <Animated.View style={{ transform: [{ scale: translateScale }], alignSelf: "flex-start" }}>
-            <Pressable
-              style={[bubble.translateBtn, { borderColor: colors.border }]}
-              onPress={handleTranslatePress}
-              onPressIn={handleTranslatePressIn}
-              onPressOut={handleTranslatePressOut}
-            >
-              <Feather name="refresh-cw" size={11} color={colors.charcoalLight} />
-              <Text style={[bubble.translateBtnText, { color: colors.charcoalLight }]}>
-                {msg.originalLanguage === "ko" ? "再試行" : "다시 시도"}
-              </Text>
-            </Pressable>
-          </Animated.View>
-        )}
-      </View>
+          )}
+        </View>
+      </TouchableOpacity>
 
       <Text style={[bubble.time, { color: colors.charcoalLight, alignSelf: "flex-start" }]}>
         {fmtTime(msg.createdAt)}
@@ -296,14 +236,12 @@ const bubble = StyleSheet.create({
     flexShrink: 1,
   },
 
-  // Layer 3 — pronunciation: always below translation, never replaces it
-  textPronunciation: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 5,
-    opacity: 0.65,
-    letterSpacing: 0.2,
+  // Subtle globe hint shown at bottom of untranslated bubble
+  translateHint: {
+    position: "absolute",
+    bottom: 8,
+    right: 10,
+    opacity: 0.4,
   },
 
   textMe: {
@@ -324,22 +262,6 @@ const bubble = StyleSheet.create({
     opacity: 0.5,
   },
 
-  // Per-message translate button
-  translateBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    gap: 5,
-    marginTop: 8,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  translateBtnText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 11.5,
-  },
 });
 
 // ─── AiCoachCreditsModal ──────────────────────────────────────────────────────
@@ -854,7 +776,6 @@ export default function ChatDetailScreen() {
     messages,
     profile,
     sendMessage,
-    toggleTranslation,
     unlockExternalContact,
   } = useApp();
   const {
@@ -868,9 +789,6 @@ export default function ChatDetailScreen() {
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [showCoachSheet, setShowCoachSheet] = useState(false);
   const [coachData, setCoachData] = useState<CoachResult | null>(null);
-
-  // Layer 3 pronunciation toggle — conversation-level state, independent of translation.
-  const [showPronunciation, setShowPronunciation] = useState(false);
 
   const [inputText, setInputText] = useState("");
   const sendBtnScale = useRef(new Animated.Value(1)).current;
@@ -902,16 +820,14 @@ export default function ChatDetailScreen() {
 
   // Viewer's primary language — derived from profile.country
   const viewerLang: "ko" | "ja" = profile.country === "KR" ? "ko" : "ja";
-  const translationEnabled = !!conversation.translationEnabled;
 
-  // Effective pronunciation visibility: both translation AND pronunciation must be ON.
-  // This means toggling translation OFF automatically hides pronunciation without
-  // needing a separate useEffect — pure derivation, zero side effects.
-  const effectiveShowPronunciation = translationEnabled && showPronunciation;
-
-  // ── Per-message translate function ───────────────────────────────────────
-  // Called when a user taps the translate button on an individual message.
-  // Works regardless of the global toggle state.
+  // ── Per-message translation toggle ───────────────────────────────────────
+  // Called when user taps a received message bubble.
+  //
+  // Toggle logic:
+  //   • Translation already fetched + showing  → hide
+  //   • Translation already fetched + hidden   → show
+  //   • Translation not yet fetched            → fetch then show
   //
   // Direction rule (message-based, never viewer-based):
   //   Korean message  → always translate TO Japanese
@@ -919,25 +835,26 @@ export default function ChatDetailScreen() {
   const handleTranslateMessage = useCallback(async (msg: Message) => {
     const sourceLang = msg.originalLanguage as "ko" | "ja";
     const targetLang: "ko" | "ja" = sourceLang === "ko" ? "ja" : "ko";
-
-    console.log("[Lito Translation] per-message request", {
-      msgId: msg.id,
-      text: msg.originalText.slice(0, 60),
-      sourceLang,
-      targetLang,
-    });
-
     const cacheKey = `${msg.id}:${targetLang}`;
 
-    // 1. Module cache hit — no fetch needed. Restore both translation AND pronunciation.
+    // 1. Translation already in state — just toggle visibility
+    const current = enrichmentMap[msg.id];
+    if (current?.translatedText) {
+      setEnrichmentMap((prev) => ({
+        ...prev,
+        [msg.id]: { ...current, showTranslation: !current.showTranslation },
+      }));
+      return;
+    }
+
+    // 2. Module cache hit — no fetch needed
     const cached = translationCache.get(cacheKey);
     if (cached) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setEnrichmentMap((prev) => ({
         ...prev,
         [msg.id]: {
           translatedText: cached.translation,
-          pronunciationText: cached.pronunciation || undefined,
+          showTranslation: true,
         },
       }));
       return;
@@ -977,11 +894,11 @@ export default function ChatDetailScreen() {
         ...prev,
         [msg.id]: {
           translatedText: normalised.translation,
-          pronunciationText: normalised.pronunciation || undefined,
+          showTranslation: true,
         },
       }));
     } catch {
-      // Show retry state — original text stays visible
+      // Show failed state — user can tap again to retry
       setEnrichmentMap((prev) => ({
         ...prev,
         [msg.id]: { failed: true },
@@ -989,93 +906,12 @@ export default function ChatDetailScreen() {
     } finally {
       inflight.current.delete(cacheKey);
     }
-  }, []); // no viewer-language dependency — direction is purely message-based
+  }, [enrichmentMap]); // enrichmentMap needed for toggle-visibility check
 
-  // ── Batch enrichment effect ───────────────────────────────────────────────
-  // When the global translation toggle is ON, automatically pre-fetch translations
-  // for all received messages using the three-tier cache:
-  //   1. Module cache → 2. Pre-set msg.translatedText → 3. API fetch
-  //
-  // Direction rule (message-based, never viewer-based):
-  //   Korean message  → always translate TO Japanese
-  //   Japanese message → always translate TO Korean
-  useEffect(() => {
-    if (!translationEnabled) return;
-
-    convMessages.forEach((msg) => {
-      if (msg.senderId === CURRENT_USER_ID) return;
-      // No same-language skip guard — direction is always opposite of source language.
-
-      const sourceLang = msg.originalLanguage as "ko" | "ja";
-      const targetLang: "ko" | "ja" = sourceLang === "ko" ? "ja" : "ko";
-      const cacheKey = `${msg.id}:${targetLang}`;
-
-      // Already enriched in local state
-      if (enrichmentMap[msg.id]?.translatedText) return;
-
-      // 1. Module cache hit — restore both translation AND pronunciation
-      const cached = translationCache.get(cacheKey);
-      if (cached) {
-        setEnrichmentMap((prev) => {
-          if (prev[msg.id]?.translatedText) return prev;
-          return {
-            ...prev,
-            [msg.id]: {
-              translatedText: cached.translation,
-              pronunciationText: cached.pronunciation || undefined,
-            },
-          };
-        });
-        return;
-      }
-
-      // 2. Pre-set data in message (mock data or DB) — no pronunciation available from static data
-      if (msg.translatedText) {
-        const result: TranslationResult = { translation: msg.translatedText, pronunciation: "" };
-        translationCache.set(cacheKey, result);
-        setEnrichmentMap((prev) => {
-          if (prev[msg.id]?.translatedText) return prev;
-          return { ...prev, [msg.id]: { translatedText: msg.translatedText } };
-        });
-        return;
-      }
-
-      // 3. API fetch (inflight ref prevents duplicate concurrent calls)
-      if (inflight.current.has(cacheKey)) return;
-      inflight.current.add(cacheKey);
-
-      console.log("[Lito Translation] batch request", {
-        msgId: msg.id,
-        text: msg.originalText.slice(0, 60),
-        sourceLang,
-        targetLang,
-      });
-
-      fetch(`${API_BASE}/api/ai/translate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: msg.originalText, sourceLang, viewerLang: targetLang }),
-      })
-        .then((r) => r.json())
-        .then((data: TranslationResult) => {
-          const normalised: TranslationResult = {
-            translation: data.translation,
-            pronunciation: data.pronunciation || "",
-          };
-          translationCache.set(cacheKey, normalised);
-          setEnrichmentMap((prev) => ({
-            ...prev,
-            [msg.id]: {
-              translatedText: normalised.translation,
-              pronunciationText: normalised.pronunciation || undefined,
-            },
-          }));
-        })
-        .catch(() => {}) // silent; bubble shows translate button for manual retry
-        .finally(() => { inflight.current.delete(cacheKey); });
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [convMessages, translationEnabled]); // viewerLang intentionally omitted — direction is message-based
+  // ── NOTE: Batch enrichment effect removed ─────────────────────────────────
+  // Translation is now purely per-message tap-to-toggle.
+  // No global "translation ON/OFF" toggle exists anymore.
+  // Each bubble fetches lazily on first tap, then toggles visibility on subsequent taps.
 
   // ── renderItem ───────────────────────────────────────────────────────────
   // Each bubble receives its own enrichment slice and a stable per-message callback.
@@ -1088,8 +924,7 @@ export default function ChatDetailScreen() {
             msg={item}
             enrichment={undefined}
             viewerLang={viewerLang}
-            showPronunciation={false}
-            onTranslate={() => {}}
+            onToggleTranslation={() => {}}
           />
         );
       }
@@ -1098,12 +933,11 @@ export default function ChatDetailScreen() {
           msg={item}
           enrichment={enrichmentMap[item.id]}
           viewerLang={viewerLang}
-          showPronunciation={effectiveShowPronunciation}
-          onTranslate={() => handleTranslateMessage(item)}
+          onToggleTranslation={() => handleTranslateMessage(item)}
         />
       );
     },
-    [enrichmentMap, viewerLang, effectiveShowPronunciation, handleTranslateMessage]
+    [enrichmentMap, viewerLang, handleTranslateMessage]
   );
 
   // ── Handlers ─────────────────────────────────────────────────────────────
@@ -1237,56 +1071,6 @@ export default function ChatDetailScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* Pronunciation toggle pill — only shown when translation is ON.
-            Toggling this NEVER hides the translation layer (Layer 2).
-            It only shows/hides the pronunciation text (Layer 3). */}
-        {translationEnabled && (
-          <TouchableOpacity
-            style={[
-              styles.translationToggle,
-              showPronunciation
-                ? { backgroundColor: colors.rose, borderColor: colors.rose }
-                : { backgroundColor: colors.muted, borderColor: colors.border },
-            ]}
-            onPress={() => setShowPronunciation((v) => !v)}
-            activeOpacity={0.75}
-          >
-            <Text
-              style={[
-                styles.translationToggleLabel,
-                { color: showPronunciation ? colors.white : colors.charcoalLight },
-              ]}
-            >
-              {showPronunciation ? "발/発 ON" : "발/発"}
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Translation toggle pill — batch mode */}
-        <TouchableOpacity
-          style={[
-            styles.translationToggle,
-            translationEnabled
-              ? { backgroundColor: colors.rose, borderColor: colors.rose }
-              : { backgroundColor: colors.muted, borderColor: colors.border },
-          ]}
-          onPress={() => id && toggleTranslation(id)}
-          activeOpacity={0.75}
-        >
-          <Feather
-            name="globe"
-            size={12}
-            color={translationEnabled ? colors.white : colors.charcoalLight}
-          />
-          <Text
-            style={[
-              styles.translationToggleLabel,
-              { color: translationEnabled ? colors.white : colors.charcoalLight },
-            ]}
-          >
-            {translationEnabled ? "ON" : "OFF"}
-          </Text>
-        </TouchableOpacity>
       </View>
 
       {/* ── Contact unlock banner ───────────────────────────────────────── */}
@@ -1326,7 +1110,7 @@ export default function ChatDetailScreen() {
         data={convMessages}
         keyExtractor={(item) => item.id}
         renderItem={renderMessage}
-        extraData={[enrichmentMap, effectiveShowPronunciation]}
+        extraData={enrichmentMap}
         contentContainerStyle={[styles.messageList, { paddingBottom: 20 }]}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })}
