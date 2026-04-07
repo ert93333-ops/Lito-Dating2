@@ -21,15 +21,32 @@ export interface Match {
   user: User;
 }
 
+/**
+ * Three-layer message model.
+ *
+ * Layer 1 – original:    always exists (originalText + originalLanguage)
+ * Layer 2 – translated:  present when viewer language differs from original
+ * Layer 3 – pronunciation: pre-fetched alongside translation; shown only
+ *                           when the global showPronunciation toggle is ON
+ *
+ * Layers are INDEPENDENT. Translation must never be hidden by pronunciation.
+ */
 export interface Message {
   id: string;
   conversationId: string;
   senderId: string;
-  text: string;
-  textTranslated?: string;
-  timestamp: string;
+
+  originalText: string;
+  originalLanguage: "ko" | "ja";
+
+  translatedText?: string;
+  translatedLanguage?: "ko" | "ja";
+
+  pronunciationText?: string;
+  pronunciationLanguage?: "ko" | "ja";
+
+  createdAt: string;
   isRead: boolean;
-  language: "ko" | "ja" | "en";
 }
 
 export interface Conversation {

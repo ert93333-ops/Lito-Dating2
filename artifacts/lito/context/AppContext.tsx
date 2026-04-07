@@ -112,10 +112,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `msg_${Date.now()}`,
       conversationId,
       senderId: "me",
-      text,
-      timestamp: new Date().toISOString(),
+      originalText: text,
+      originalLanguage: profileRef.current.language as "ko" | "ja",
+      createdAt: new Date().toISOString(),
       isRead: true,
-      language: profileRef.current.language,
     };
     setMessages((prev) => ({
       ...prev,

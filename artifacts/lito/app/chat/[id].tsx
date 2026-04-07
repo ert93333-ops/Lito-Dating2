@@ -20,123 +20,72 @@ import { CountryFlag } from "@/components/CountryFlag";
 import { ProfileImage } from "@/components/ProfileImage";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { useLocale } from "@/hooks/useLocale";
 import { Message } from "@/types";
 
 const CURRENT_USER_ID = "me";
 
-// Build the API base URL from the injected domain env var
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
   : "http://localhost:8080";
 
-interface TranslationResult {
-  translation: string;
-  pronunciation: string;
-}
-
-// Per-session in-memory cache keyed by "<msgId>:<viewerLang>"
+// ── Per-session module-level translation cache ────────────────────────────────
+// Key: "<msgId>:<viewerLang>"
+// Value: { translation, pronunciation }
+// Stored here (not in React state) so it survives any remount.
+interface TranslationResult { translation: string; pronunciation: string; }
 const translationCache = new Map<string, TranslationResult>();
 
-async function fetchTranslation(
-  msgId: string,
-  text: string,
-  sourceLang: "ko" | "ja",
-  viewerLang: "ko" | "ja"
-): Promise<TranslationResult> {
-  const cacheKey = `${msgId}:${viewerLang}`;
-  const cached = translationCache.get(cacheKey);
-  if (cached) return cached;
+// ─── MessageBubble ────────────────────────────────────────────────────────────
+//
+// Renders three INDEPENDENT layers. Layers never replace each other.
+//
+//   Layer 1: msg.originalText         — always visible
+//   Layer 2: translatedText prop      — visible when translation is enabled
+//                                       and the message has been translated
+//   Layer 3: pronunciationText prop   — visible ONLY when showPronunciation
+//                                       toggle is ON  (never hides Layer 2)
+//
+// showPronunciation is read from context, NOT passed as a prop.
+// This means the toggle never causes FlatList items to remount.
 
-  const response = await fetch(`${API_BASE}/api/ai/translate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, sourceLang, viewerLang }),
-  });
-
-  if (!response.ok) throw new Error(`API error: ${response.status}`);
-  const data = (await response.json()) as TranslationResult;
-  translationCache.set(cacheKey, data);
-  return data;
+interface BubbleProps {
+  msg: Message;
+  translatedText: string | undefined;
+  pronunciationText: string | undefined;
+  isTranslating: boolean;
+  translationEnabled: boolean;
+  viewerLang: "ko" | "ja";
 }
-
-// ─── Message Bubble ───────────────────────────────────────────────────────────
-//
-// Layout rules (only applies to received messages when translationEnabled):
-//
-//  KR viewer reading JP message:
-//    ① original Japanese   (msg.text — normal weight)
-//    ── separator ──
-//    ② Korean translation  (medium, clearest)
-//    ③ Korean pronunciation (small, gray — only if showPronunciation)
-//
-//  JP viewer reading KR message:
-//    ① Japanese translation (medium, clearest — shown FIRST)
-//    ── separator ──
-//    ② original Korean     (msg.text — dimmer)
-//    ③ Katakana pronunciation (small, gray — only if showPronunciation)
-//
-//  Own messages / translation off: just msg.text, no layers.
 
 function MessageBubble({
   msg,
+  translatedText,
+  pronunciationText,
+  isTranslating,
   translationEnabled,
   viewerLang,
-  senderLang,
-}: {
-  msg: Message;
-  translationEnabled: boolean;
-  viewerLang: "ko" | "ja";
-  senderLang: "ko" | "ja";
-}) {
+}: BubbleProps) {
   const colors = useColors();
-  // showPronunciation is read from context — not passed as prop.
-  // This means FlatList items won't remount when this setting changes.
+  // showPronunciation from context — toggling it only re-renders this component,
+  // does NOT change any props → FlatList items never remount.
   const { showPronunciation } = useApp();
   const isMe = msg.senderId === CURRENT_USER_ID;
 
-  const shouldTranslate = translationEnabled && !isMe && senderLang !== viewerLang;
+  // Whether this message needs a translation layer
+  const needsTranslation =
+    !isMe && translationEnabled && msg.originalLanguage !== viewerLang;
 
-  // ── KEY FIX: result is read synchronously from the module-level cache map,
-  // NOT stored in React state. This means:
-  // - It survives component remounts (state resets, map doesn't)
-  // - Toggling showPronunciation never clears it
-  // - Only `translating` (loading indicator) is React state
-  const cacheKey = shouldTranslate ? `${msg.id}:${viewerLang}` : null;
-  const result = cacheKey ? translationCache.get(cacheKey) : undefined;
-
-  // `translating` drives the loading spinner only. When it flips to false
-  // after a fetch, this component re-renders and reads the fresh cache entry.
-  const [translating, setTranslating] = useState(false);
-
-  useEffect(() => {
-    if (!cacheKey) return;
-    if (translationCache.has(cacheKey)) return; // already in cache, skip fetch
-
-    let cancelled = false;
-    setTranslating(true);
-
-    // fetchTranslation already stores the result in translationCache.
-    // When the promise resolves, we just flip `translating` to false,
-    // which triggers a re-render that reads the fresh cache entry.
-    fetchTranslation(msg.id, msg.text, senderLang, viewerLang)
-      .then(() => { if (!cancelled) setTranslating(false); })
-      .catch(() => { if (!cancelled) setTranslating(false); });
-
-    return () => { cancelled = true; };
-  }, [cacheKey]); // only cacheKey; never depends on showPronunciation
-
-  // ── colour tokens ──────────────────────────────────────────────────────────
-  const originalColor = isMe ? "rgba(255,255,255,0.90)" : colors.charcoal;
-  const translColor   = isMe ? colors.white             : colors.charcoal;
-  const dimColor      = isMe ? "rgba(255,255,255,0.55)" : colors.charcoalLight;
-  const pronunciColor = isMe ? "rgba(255,255,255,0.42)" : "#ABABAB";
-  const sepColor      = isMe ? "rgba(255,255,255,0.20)" : colors.border;
+  // ── colour tokens ────────────────────────────────────────────────────────
+  const originalColor  = isMe ? "rgba(255,255,255,0.85)" : colors.charcoalMid;
+  const translColor    = isMe ? colors.white              : colors.charcoal;
+  const pronunciColor  = isMe ? "rgba(255,255,255,0.45)" : "#ABABAB";
+  const sepColor       = isMe ? "rgba(255,255,255,0.22)" : colors.border;
 
   const Separator = () => (
     <View style={[bubbleStyles.separator, { backgroundColor: sepColor }]} />
   );
 
-  // ── render ─────────────────────────────────────────────────────────────────
   return (
     <View style={[styles.bubbleWrap, { alignSelf: isMe ? "flex-end" : "flex-start" }]}>
       <View
@@ -148,15 +97,15 @@ function MessageBubble({
           },
         ]}
       >
-        {/* ── Plain message (own msg, or translation off/same-lang) */}
-        {!shouldTranslate && (
-          <Text style={[styles.bubbleText, { color: originalColor }]}>{msg.text}</Text>
-        )}
+        {/* ── LAYER 1: original text — ALWAYS rendered ──────────────── */}
+        <Text style={[styles.bubbleText, { color: originalColor }]}>
+          {msg.originalText}
+        </Text>
 
-        {/* ── Fetching in progress */}
-        {shouldTranslate && translating && (
+        {/* ── LAYER 2: translation — shown whenever available ─────────
+            Translation is NEVER removed by the pronunciation toggle.    */}
+        {needsTranslation && isTranslating && (
           <>
-            <Text style={[styles.bubbleText, { color: originalColor }]}>{msg.text}</Text>
             <Separator />
             <ActivityIndicator
               size="small"
@@ -165,47 +114,35 @@ function MessageBubble({
             />
           </>
         )}
-
-        {/* ── shouldTranslate but nothing in cache yet (fetch pending) */}
-        {shouldTranslate && !translating && !result && (
-          <Text style={[styles.bubbleText, { color: originalColor }]}>{msg.text}</Text>
-        )}
-
-        {/* ── KR viewer reading JP:  original ── translation [+ pronunciation] */}
-        {shouldTranslate && !translating && result && viewerLang === "ko" && (
+        {needsTranslation && !isTranslating && translatedText && (
           <>
-            <Text style={[styles.bubbleText, { color: originalColor }]}>{msg.text}</Text>
             <Separator />
             <Text style={[bubbleStyles.translText, { color: translColor }]}>
-              {result.translation}
+              {translatedText}
             </Text>
-            {showPronunciation && !!result.pronunciation && (
-              <Text style={[bubbleStyles.pronText, { color: pronunciColor }]}>
-                {result.pronunciation}
-              </Text>
-            )}
           </>
         )}
 
-        {/* ── JP viewer reading KR:  translation ── original [+ pronunciation] */}
-        {shouldTranslate && !translating && result && viewerLang === "ja" && (
-          <>
-            <Text style={[bubbleStyles.translText, { color: translColor }]}>
-              {result.translation}
+        {/* ── LAYER 3: pronunciation — ONLY added when toggle is ON ────
+            This layer is additive. It never removes or replaces Layer 2. */}
+        {needsTranslation && !isTranslating && pronunciationText &&
+          showPronunciation && (
+            <Text style={[bubbleStyles.pronText, { color: pronunciColor }]}>
+              {pronunciationText}
             </Text>
-            <Separator />
-            <Text style={[bubbleStyles.originalText, { color: dimColor }]}>{msg.text}</Text>
-            {showPronunciation && !!result.pronunciation && (
-              <Text style={[bubbleStyles.pronText, { color: pronunciColor }]}>
-                {result.pronunciation}
-              </Text>
-            )}
-          </>
-        )}
+          )}
       </View>
 
-      <Text style={[styles.timestamp, { color: colors.charcoalLight, alignSelf: isMe ? "flex-end" : "flex-start" }]}>
-        {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+      <Text
+        style={[
+          styles.timestamp,
+          { color: colors.charcoalLight, alignSelf: isMe ? "flex-end" : "flex-start" },
+        ]}
+      >
+        {new Date(msg.createdAt).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
       </Text>
     </View>
   );
@@ -232,15 +169,19 @@ const bubbleStyles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     letterSpacing: 0.3,
-    marginTop: 2,
+    marginTop: 4,
   },
 });
 
 // ─── Chat Detail Screen ────────────────────────────────────────────────────────
 
+// Enrichment map: per-session cache of translated/pronunciation data per msgId
+interface Enrichment { translatedText?: string; pronunciationText?: string; }
+
 export default function ChatDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useLocale();
   const { id } = useLocalSearchParams<{ id: string }>();
   const {
     conversations,
@@ -250,8 +191,12 @@ export default function ChatDetailScreen() {
     toggleTranslation,
     unlockExternalContact,
   } = useApp();
+
   const [inputText, setInputText] = useState("");
   const [aiSuggesting, setAiSuggesting] = useState(false);
+  // enrichmentMap: msgId → { translatedText, pronunciationText }
+  const [enrichmentMap, setEnrichmentMap] = useState<Record<string, Enrichment>>({});
+  const inflight = useRef<Set<string>>(new Set()); // tracks in-progress API calls
   const flatRef = useRef<FlatList>(null);
 
   const conversation = conversations.find((c) => c.id === id);
@@ -267,23 +212,103 @@ export default function ChatDetailScreen() {
     );
   }
 
-  // Derive viewer language from country (KR→ko, JP→ja) for robustness
+  // Viewer's primary language (determined by country)
   const viewerLang: "ko" | "ja" = profile.country === "KR" ? "ko" : "ja";
-  const senderLang = conversation.user.language;
   const translationEnabled = !!conversation.translationEnabled;
 
+  // ── Enrich messages with translations ──────────────────────────────────────
+  // Runs whenever messages change, translation is toggled, or viewer language
+  // changes. Writes results to enrichmentMap (state) and translationCache (module).
+  // Uses `inflight` ref to prevent duplicate concurrent API calls.
+  useEffect(() => {
+    if (!translationEnabled) return;
+
+    convMessages.forEach((msg) => {
+      const isMe = msg.senderId === CURRENT_USER_ID;
+      if (isMe) return;
+      if (msg.originalLanguage === viewerLang) return; // same language, skip
+
+      const cacheKey = `${msg.id}:${viewerLang}`;
+
+      // 1. Module-level cache hit → populate enrichmentMap immediately
+      const cached = translationCache.get(cacheKey);
+      if (cached) {
+        setEnrichmentMap((prev) => {
+          if (prev[msg.id]?.translatedText) return prev; // already there
+          return {
+            ...prev,
+            [msg.id]: { translatedText: cached.translation, pronunciationText: cached.pronunciation },
+          };
+        });
+        return;
+      }
+
+      // 2. Pre-set data in mock/DB message → store in cache + enrichmentMap
+      if (msg.translatedText) {
+        const result = { translation: msg.translatedText, pronunciation: msg.pronunciationText ?? "" };
+        translationCache.set(cacheKey, result);
+        setEnrichmentMap((prev) => {
+          if (prev[msg.id]?.translatedText) return prev;
+          return {
+            ...prev,
+            [msg.id]: { translatedText: msg.translatedText, pronunciationText: msg.pronunciationText },
+          };
+        });
+        return;
+      }
+
+      // 3. API fetch (avoid duplicate calls with inflight ref)
+      if (inflight.current.has(cacheKey)) return;
+      inflight.current.add(cacheKey);
+
+      fetch(`${API_BASE}/api/ai/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: msg.originalText,
+          sourceLang: msg.originalLanguage,
+          viewerLang,
+        }),
+      })
+        .then((r) => r.json())
+        .then((data: TranslationResult) => {
+          translationCache.set(cacheKey, data);
+          setEnrichmentMap((prev) => ({
+            ...prev,
+            [msg.id]: { translatedText: data.translation, pronunciationText: data.pronunciation },
+          }));
+        })
+        .catch(() => { /* silent: message will show without translation */ })
+        .finally(() => { inflight.current.delete(cacheKey); });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [convMessages, translationEnabled, viewerLang]);
+
+  // ── renderItem — depends on enrichmentMap so bubbles get fresh data ─────────
   const renderMessage = useCallback(
-    ({ item }: { item: Message }) => (
-      <MessageBubble
-        msg={item}
-        translationEnabled={translationEnabled}
-        viewerLang={viewerLang}
-        senderLang={senderLang}
-      />
-    ),
-    // showPronunciation is read directly inside MessageBubble from context,
-    // so it does NOT appear here — FlatList items won't remount on toggle
-    [translationEnabled, viewerLang, senderLang]
+    ({ item }: { item: Message }) => {
+      const enrichment = enrichmentMap[item.id];
+      const isMe = item.senderId === CURRENT_USER_ID;
+      const needsFetch =
+        !isMe &&
+        translationEnabled &&
+        item.originalLanguage !== viewerLang &&
+        !enrichment?.translatedText;
+
+      return (
+        <MessageBubble
+          msg={item}
+          translatedText={enrichment?.translatedText}
+          pronunciationText={enrichment?.pronunciationText}
+          isTranslating={needsFetch}
+          translationEnabled={translationEnabled}
+          viewerLang={viewerLang}
+        />
+      );
+    },
+    // showPronunciation is read inside MessageBubble via useApp() context,
+    // so it is NOT listed here — pronunciation toggle never remounts bubbles.
+    [enrichmentMap, translationEnabled, viewerLang]
   );
 
   const handleSend = () => {
@@ -299,10 +324,9 @@ export default function ChatDetailScreen() {
     try {
       const recentMessages = convMessages.slice(-10).map((m) => ({
         sender: m.senderId === CURRENT_USER_ID ? "me" : "them",
-        text: m.text,
+        text: m.originalText, // ← correct field
       }));
 
-      // TODO: expose language preference per-conversation for finer control
       const targetLang = conversation.user.country === "JP" ? "ja" : "ko";
 
       const response = await fetch(`${API_BASE}/api/ai/suggest-reply`, {
@@ -312,7 +336,6 @@ export default function ChatDetailScreen() {
       });
 
       if (!response.ok) throw new Error(`API error: ${response.status}`);
-
       const data = (await response.json()) as { suggestion?: string; error?: string };
 
       if (data.suggestion) {
@@ -322,7 +345,6 @@ export default function ChatDetailScreen() {
         throw new Error(data.error ?? "No suggestion returned");
       }
     } catch {
-      // TODO: Show a more specific error (e.g. network vs. server vs. quota)
       Alert.alert("AI Suggestion", "Could not generate a reply. Please try again.");
     } finally {
       setAiSuggesting(false);
@@ -337,6 +359,7 @@ export default function ChatDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* ── Header ──────────────────────────────────────────────────────── */}
       <View style={[styles.header, { paddingTop: topPad + 12, borderBottomColor: colors.border, backgroundColor: colors.white }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Feather name="chevron-left" size={24} color={colors.charcoal} />
@@ -345,7 +368,9 @@ export default function ChatDetailScreen() {
           <ProfileImage photoKey={conversation.user.photos[0]} size={38} />
           <View style={styles.headerInfo}>
             <View style={styles.headerNameRow}>
-              <Text style={[styles.headerName, { color: colors.charcoal }]}>{conversation.user.nickname}</Text>
+              <Text style={[styles.headerName, { color: colors.charcoal }]}>
+                {conversation.user.nickname}
+              </Text>
               <CountryFlag country={conversation.user.country} size={13} />
             </View>
             <Text style={[styles.headerStatus, { color: colors.charcoalLight }]}>
@@ -364,11 +389,16 @@ export default function ChatDetailScreen() {
             ]}
             onPress={() => id && toggleTranslation(id)}
           >
-            <Feather name="globe" size={14} color={conversation.translationEnabled ? colors.white : colors.charcoalLight} />
+            <Feather
+              name="globe"
+              size={14}
+              color={conversation.translationEnabled ? colors.white : colors.charcoalLight}
+            />
           </TouchableOpacity>
         </View>
       </View>
 
+      {/* ── Contact unlock banners ──────────────────────────────────────── */}
       {!conversation.externalUnlocked && (
         <TouchableOpacity
           style={[styles.unlockBanner, { backgroundColor: colors.roseLight, borderColor: colors.roseSoft }]}
@@ -376,30 +406,34 @@ export default function ChatDetailScreen() {
         >
           <Feather name="unlock" size={14} color={colors.rose} />
           <Text style={[styles.unlockText, { color: colors.rose }]}>
-            Request external contact unlock · 외부 연락처 잠금 해제
+            {t("chat.unlock")}
           </Text>
         </TouchableOpacity>
       )}
-
       {conversation.externalUnlocked && (
         <View style={[styles.unlockedBanner, { backgroundColor: "#D9FFE6" }]}>
           <Feather name="check-circle" size={14} color="#34C759" />
           <Text style={[styles.unlockText, { color: "#1D8A3A" }]}>
-            External contact unlocked! 인스타그램을 공유해보세요 ✨
+            {t("chat.unlocked")}
           </Text>
         </View>
       )}
 
+      {/* ── Message list ────────────────────────────────────────────────── */}
       <FlatList
         ref={flatRef}
         data={convMessages}
         keyExtractor={(item) => item.id}
         renderItem={renderMessage}
+        // extraData ensures FlatList re-renders visible items when enrichmentMap
+        // updates (e.g. when a translation arrives)
+        extraData={enrichmentMap}
         contentContainerStyle={[styles.messageList, { paddingBottom: 12 }]}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })}
       />
 
+      {/* ── Input area ──────────────────────────────────────────────────── */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={0}
@@ -431,21 +465,31 @@ export default function ChatDetailScreen() {
               <Feather name="zap" size={16} color={colors.rose} />
             )}
           </TouchableOpacity>
+
           <TextInput
-            style={[styles.input, { backgroundColor: colors.muted, borderColor: colors.border, color: colors.charcoal }]}
-            placeholder="Message... 메시지... メッセージ..."
+            style={[
+              styles.input,
+              { backgroundColor: colors.muted, borderColor: colors.border, color: colors.charcoal },
+            ]}
+            // Single-language placeholder — no mixed languages
+            placeholder={t("chat.placeholder")}
             placeholderTextColor={colors.charcoalLight}
             value={inputText}
             onChangeText={setInputText}
             multiline
             maxLength={500}
           />
+
           <TouchableOpacity
             style={[styles.sendBtn, { backgroundColor: inputText.trim() ? colors.rose : colors.muted }]}
             onPress={handleSend}
             disabled={!inputText.trim()}
           >
-            <Feather name="send" size={18} color={inputText.trim() ? colors.white : colors.charcoalLight} />
+            <Feather
+              name="send"
+              size={18}
+              color={inputText.trim() ? colors.white : colors.charcoalLight}
+            />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -466,14 +510,8 @@ const styles = StyleSheet.create({
   headerUser: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 },
   headerInfo: {},
   headerNameRow: { flexDirection: "row", alignItems: "center", gap: 5 },
-  headerName: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 16,
-  },
-  headerStatus: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-  },
+  headerName: { fontFamily: "Inter_600SemiBold", fontSize: 16 },
+  headerStatus: { fontFamily: "Inter_400Regular", fontSize: 12 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   translateToggle: {
     width: 32,

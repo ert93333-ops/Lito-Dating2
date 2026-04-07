@@ -48,14 +48,14 @@ function ConversationRow({ conversation }: { conversation: Conversation }) {
             <CountryFlag country={conversation.user.country} size={14} />
           </View>
           <Text style={[styles.time, { color: colors.charcoalLight }]}>
-            {formatTime(conversation.lastMessage?.timestamp)}
+            {formatTime(conversation.lastMessage?.createdAt)}
           </Text>
         </View>
 
         <View style={styles.bottomRow}>
           <Text style={[styles.lastMsg, { color: colors.charcoalLight }]} numberOfLines={1}>
             {conversation.lastMessage
-              ? conversation.lastMessage.text
+              ? conversation.lastMessage.originalText
               : "Say hi! 안녕하세요! こんにちは！"}
           </Text>
           {conversation.unreadCount > 0 && (
