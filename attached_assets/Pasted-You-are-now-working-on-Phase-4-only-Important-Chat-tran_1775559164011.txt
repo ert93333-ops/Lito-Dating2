@@ -1,0 +1,151 @@
+You are now working on Phase 4 only.
+
+Important:
+- Chat translation is already working. Do NOT break it.
+- Pronunciation must remain removed.
+- Profile UI and swipe UI are already improved. Do NOT redesign them again.
+- This phase is ONLY about onboarding, country selection, and primary language setup.
+
+==================================================
+PHASE 4 GOAL
+==================================================
+
+Redesign the onboarding flow so that:
+- users select their country at signup
+- the app sets the primary language automatically based on that
+- the entire app experience becomes more natural for Korean-Japanese communication
+
+The onboarding must feel smooth, premium, and intentional.
+
+==================================================
+1. FIX THE CURRENT PROBLEM
+==================================================
+
+Current issue:
+- country selection is hidden inside profile settings
+- users enter the app without a defined language context
+- translation feels like a patch instead of a core feature
+
+This must be fixed.
+
+==================================================
+2. NEW ONBOARDING FLOW (REQUIRED)
+==================================================
+
+Redesign the onboarding flow as follows:
+
+Step 1:
+- sign up / login
+
+Step 2:
+- country selection screen (MANDATORY)
+  Example options:
+  - Korea
+  - Japan
+
+Step 3:
+- automatically set primary app language based on selected country
+  - Korea → Korean UI
+  - Japan → Japanese UI
+
+Step 4:
+- basic profile setup
+  - name
+  - age
+  - gender
+  - short introduction
+
+Step 5:
+- interest / personality / preference selection
+  (lightweight, not too long)
+
+Step 6:
+- enter discovery (swipe screen)
+
+==================================================
+3. LANGUAGE SYSTEM LOGIC
+==================================================
+
+Implement a clear language system.
+
+Rules:
+- selected country determines default UI language
+- this should be applied immediately after onboarding
+- chat translation should respect this context
+- users can manually change language later in settings
+
+Do NOT:
+- force users to manually pick language separately during onboarding
+- delay language setup until after entering the app
+- create confusion between UI language and chat translation
+
+==================================================
+4. UX REQUIREMENTS
+==================================================
+
+The onboarding should feel:
+- simple
+- fast
+- premium
+- modern
+- emotionally warm
+- not like a boring form
+
+Design direction:
+- minimal steps
+- clean layout
+- clear progress
+- no clutter
+- visually consistent with the rest of the app
+
+Country selection screen should:
+- feel important but not heavy
+- use clear visual hierarchy
+- possibly use flags or subtle visual cues (not mandatory)
+- be extremely easy to understand
+
+==================================================
+5. INTEGRATION WITH EXISTING SYSTEM
+==================================================
+
+Important:
+- do not break existing chat translation logic
+- do not break profile system
+- do not break swipe/discovery system
+
+Instead:
+- connect onboarding output (country + language)
+- to the existing app state
+- so the rest of the app behaves consistently
+
+==================================================
+6. OPTIONAL (BUT RECOMMENDED)
+==================================================
+
+If possible, improve:
+- first-time user guidance (very light)
+- subtle explanation that cross-language matching is supported
+- confidence/trust cues during onboarding
+
+But do NOT:
+- overload onboarding with explanations
+- add long tutorials
+
+==================================================
+7. REQUIRED OUTPUT FORMAT
+==================================================
+
+When finished, provide:
+
+1. which onboarding screens were added or changed
+2. how country selection is now implemented
+3. how primary language is set automatically
+4. how the onboarding flow connects to the rest of the app
+5. how the UX became more natural for Korean-Japanese users
+6. confirmation that chat translation still works
+7. confirmation that pronunciation is not reintroduced
+
+Do not say the phase is complete unless:
+- country is selected during onboarding
+- language is set automatically
+- onboarding feels smooth and intentional
