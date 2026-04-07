@@ -161,4 +161,82 @@ Rules:
   }
 });
 
+/**
+ * POST /api/ai/coach
+ *
+ * Conversation coaching — analyses the recent chat and returns structured
+ * coaching guidance. Does NOT return a message to insert into the input.
+ *
+ * Body: { messages: Array<{ sender: "me"|"them", text: string }>, targetLang: "ko"|"ja" }
+ * Response: { summary, directions, examples, tips }
+ */
+router.post("/ai/coach", async (req, res) => {
+  try {
+    const { messages, targetLang } = req.body as {
+      messages: Array<{ sender: string; text: string }>;
+      targetLang?: "ko" | "ja";
+    };
+
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      res.status(400).json({ error: "messages array is required" });
+      return;
+    }
+
+    const recent = messages.slice(-8);
+    const conversationText = recent
+      .map((m) => `${m.sender === "me" ? "Me" : "Them"}: ${m.text}`)
+      .join("\n");
+
+    const lang = targetLang === "ko" ? "Korean" : "Japanese";
+
+    const systemPrompt = `You are a warm and friendly conversation coach for a Korean-Japanese dating app.
+Analyse the conversation and return ONLY a valid JSON object — no markdown, no explanation, no code fences.
+
+The JSON must have exactly this structure:
+{
+  "summary": "1-2 sentence plain English explanation of what the other person is expressing or feeling",
+  "directions": ["Direction label 1", "Direction label 2", "Direction label 3"],
+  "examples": ["Example reply in ${lang}", "Example reply in ${lang}", "Example reply in ${lang}"],
+  "tips": ["Short coaching tip", "Short coaching tip"]
+}
+
+Rules:
+- summary: friendly plain English, e.g. "She's excited about practicing Korean together and wants K-drama recommendations."
+- directions: tone labels in English, e.g. "Friendly", "Playful", "Thoughtful" — choose labels that fit this conversation
+- examples: 3 natural ${lang} reply options (reference only — not for auto-inserting), each 1-2 sentences, warm and genuine
+- tips: 2 brief, helpful coaching tips in plain English — practical and human
+- Return ONLY the raw JSON object, nothing else`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5.2",
+      max_completion_tokens: 400,
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: `Recent conversation:\n${conversationText}\n\nReturn the coaching JSON:`,
+        },
+      ],
+    });
+
+    const raw = completion.choices[0]?.message?.content?.trim() ?? "";
+    // Strip markdown code fences if GPT included them
+    const jsonStr = raw.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/i, "").trim();
+
+    let data: unknown;
+    try {
+      data = JSON.parse(jsonStr);
+    } catch {
+      console.error("[ai/coach] JSON parse failed, raw:", raw.slice(0, 200));
+      res.status(500).json({ error: "Failed to parse coaching response" });
+      return;
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error("[ai/coach] error:", err);
+    res.status(500).json({ error: "Failed to generate coaching" });
+  }
+});
+
 export default router;

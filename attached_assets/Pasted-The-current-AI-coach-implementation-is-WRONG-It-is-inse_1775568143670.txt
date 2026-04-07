@@ -1,0 +1,146 @@
+The current AI coach implementation is WRONG.
+
+It is inserting messages directly into the chat input.
+
+This is NOT the intended behavior.
+
+==================================================
+CRITICAL REQUIREMENT
+==================================================
+
+The AI must NOT write messages into the chat input.
+
+The AI must act as a "conversation coach", not a message generator.
+
+==================================================
+REMOVE CURRENT BEHAVIOR
+==================================================
+
+Find and REMOVE any logic that does:
+
+setInput(...)
+setMessage(...)
+autoFillInput(...)
+insertTextToInput(...)
+
+or any equivalent logic that writes AI output into the input field.
+
+This behavior must be completely eliminated.
+
+==================================================
+NEW BEHAVIOR
+==================================================
+
+When user taps the AI button:
+
+DO THIS:
+
+1. DO NOT modify input field
+2. DO NOT insert any text
+3. OPEN a bottom sheet (or popup)
+4. DISPLAY conversation coaching UI
+
+==================================================
+UI STRUCTURE (MANDATORY)
+==================================================
+
+The bottom sheet must contain:
+
+----------------------------------
+1. Conversation summary
+----------------------------------
+
+Explain the last message in simple terms.
+
+Example:
+"The other person is showing interest and suggesting to practice together."
+
+----------------------------------
+2. Suggested response directions
+----------------------------------
+
+Give 2~3 directions:
+
+- Friendly
+- Playful
+- Slightly serious
+
+----------------------------------
+3. Example responses (REFERENCE ONLY)
+----------------------------------
+
+Provide 2~3 examples.
+
+IMPORTANT:
+- DO NOT insert into input automatically
+- only show as reference
+
+If user taps:
+→ optional preview OR copy
+→ NOT auto-send
+
+----------------------------------
+4. Conversation tips
+----------------------------------
+
+Example:
+- "Use light emoji to sound more friendly"
+- "Avoid overly formal tone"
+
+==================================================
+USER CONTROL RULE
+==================================================
+
+User must:
+- read suggestions
+- decide
+- type themselves
+
+AI must NEVER:
+- take control of the message input
+- auto-fill
+- auto-send
+
+==================================================
+UX BEHAVIOR
+==================================================
+
+When AI button is pressed:
+- show bottom sheet animation
+- show loading briefly if needed
+- display coaching content
+- allow closing easily
+
+==================================================
+STYLE REQUIREMENTS
+==================================================
+
+The tone must feel:
+- natural
+- human
+- helpful
+- like a smart friend
+- not robotic
+- not cringe
+
+==================================================
+STRICT RULE
+==================================================
+
+If any code still writes AI output directly into the chat input,
+this task is NOT complete.
+
+==================================================
+OUTPUT
+==================================================
+
+Provide:
+
+1. which input-insertion logic was removed
+2. new AI button behavior
+3. bottom sheet UI implementation
+4. how data is passed to the coach system
+5. confirmation that:
+   - AI no longer auto-fills messages
+   - input field remains untouched
+   - coaching UI appears instead

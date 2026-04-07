@@ -10,6 +10,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -45,6 +46,14 @@ interface Enrichment {
   translatedText?: string;
   isLoading?: boolean;
   failed?: boolean;
+}
+
+// ── AI Coach structured response ─────────────────────────────────────────────
+interface CoachResult {
+  summary: string;
+  directions: string[];
+  examples: string[];
+  tips: string[];
 }
 
 // ─── MessageBubble ────────────────────────────────────────────────────────────
@@ -538,6 +547,281 @@ const creditModal = StyleSheet.create({
   },
 });
 
+// ─── AiCoachSheet ─────────────────────────────────────────────────────────────
+// Conversation coaching bottom sheet — read-only, never touches the input field.
+
+interface AiCoachSheetProps {
+  visible: boolean;
+  data: CoachResult | null;
+  onClose: () => void;
+}
+
+function AiCoachSheet({ visible, data, onClose }: AiCoachSheetProps) {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const [selectedDir, setSelectedDir] = useState(0);
+
+  if (!data) return null;
+
+  const dirColors = ["#D85870", "#6C63FF", "#2BB56E"];
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <Pressable style={coach.backdrop} onPress={onClose} />
+      <View style={[coach.sheet, { backgroundColor: colors.surface, paddingBottom: insets.bottom + 20 }]}>
+        {/* Handle */}
+        <View style={[coach.handle, { backgroundColor: colors.border }]} />
+
+        {/* Header row */}
+        <View style={coach.headerRow}>
+          <View style={coach.headerLeft}>
+            <Text style={[coach.headerIcon]}>⚡</Text>
+            <Text style={[coach.headerTitle, { color: colors.charcoal }]}>Conversation Coach</Text>
+          </View>
+          <TouchableOpacity onPress={onClose} style={coach.closeBtn} hitSlop={12}>
+            <Feather name="x" size={20} color={colors.charcoalLight} />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={coach.scroll}>
+
+          {/* ── Summary ─────────────────────────────────────────────────────── */}
+          <Text style={[coach.sectionLabel, { color: colors.charcoalLight }]}>📌 What they said</Text>
+          <View style={[coach.summaryCard, { backgroundColor: colors.muted }]}>
+            <Text style={[coach.summaryText, { color: colors.charcoal }]}>{data.summary}</Text>
+          </View>
+
+          {/* ── Tone directions ─────────────────────────────────────────────── */}
+          <Text style={[coach.sectionLabel, { color: colors.charcoalLight }]}>💡 Tone directions</Text>
+          <View style={coach.pillRow}>
+            {data.directions.map((dir, i) => (
+              <Pressable
+                key={dir}
+                onPress={() => setSelectedDir(i)}
+                style={[
+                  coach.pill,
+                  {
+                    backgroundColor: selectedDir === i ? dirColors[i % dirColors.length] : colors.muted,
+                    borderColor: selectedDir === i ? "transparent" : colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    coach.pillText,
+                    { color: selectedDir === i ? "#fff" : colors.charcoalLight },
+                  ]}
+                >
+                  {dir}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {/* ── Example replies ─────────────────────────────────────────────── */}
+          <View style={coach.exampleHeader}>
+            <Text style={[coach.sectionLabel, { color: colors.charcoalLight, marginBottom: 0 }]}>
+              ✍️ Example replies
+            </Text>
+            <View style={[coach.refBadge, { backgroundColor: colors.muted }]}>
+              <Text style={[coach.refBadgeText, { color: colors.charcoalLight }]}>reference only</Text>
+            </View>
+          </View>
+          {data.examples.map((ex, i) => (
+            <View
+              key={i}
+              style={[
+                coach.exampleCard,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  borderLeftColor: dirColors[i % dirColors.length],
+                },
+              ]}
+            >
+              <Text style={[coach.exampleText, { color: colors.charcoal }]}>{ex}</Text>
+              <Text style={[coach.exampleHint, { color: colors.charcoalFaint }]}>
+                {data.directions[i] ?? ""}
+              </Text>
+            </View>
+          ))}
+
+          {/* ── Coaching tips ───────────────────────────────────────────────── */}
+          <Text style={[coach.sectionLabel, { color: colors.charcoalLight }]}>🌟 Coaching tips</Text>
+          <View style={[coach.tipsCard, { backgroundColor: colors.muted }]}>
+            {data.tips.map((tip, i) => (
+              <View key={i} style={coach.tipRow}>
+                <Text style={[coach.tipBullet, { color: "#D85870" }]}>•</Text>
+                <Text style={[coach.tipText, { color: colors.charcoal }]}>{tip}</Text>
+              </View>
+            ))}
+          </View>
+
+          <Text style={[coach.footerNote, { color: colors.charcoalFaint }]}>
+            Read the suggestions, decide what feels right, then write in your own words.
+          </Text>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+const coach = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  sheet: {
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    maxHeight: "82%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 24,
+    elevation: 24,
+  },
+  handle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  headerIcon: {
+    fontSize: 20,
+  },
+  headerTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 18,
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  scroll: {
+    paddingBottom: 8,
+  },
+  sectionLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    letterSpacing: 0.2,
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  summaryCard: {
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 20,
+  },
+  summaryText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14.5,
+    lineHeight: 22,
+  },
+  pillRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 20,
+  },
+  pill: {
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  pillText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+  },
+  exampleHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  refBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  refBadgeText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 10,
+    letterSpacing: 0.2,
+  },
+  exampleCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderLeftWidth: 3,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    marginBottom: 10,
+    gap: 4,
+  },
+  exampleText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
+    lineHeight: 23,
+  },
+  exampleHint: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    letterSpacing: 0.2,
+  },
+  tipsCard: {
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 20,
+    gap: 10,
+  },
+  tipRow: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "flex-start",
+  },
+  tipBullet: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  tipText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    lineHeight: 21,
+    flex: 1,
+  },
+  footerNote: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11.5,
+    textAlign: "center",
+    lineHeight: 17,
+    marginBottom: 4,
+  },
+});
+
 // ─── ChatDetailScreen ────────────────────────────────────────────────────────
 
 export default function ChatDetailScreen() {
@@ -562,6 +846,8 @@ export default function ChatDetailScreen() {
   } = useGrowth();
 
   const [showCreditsModal, setShowCreditsModal] = useState(false);
+  const [showCoachSheet, setShowCoachSheet] = useState(false);
+  const [coachData, setCoachData] = useState<CoachResult | null>(null);
 
   const [inputText, setInputText] = useState("");
   const sendBtnScale = useRef(new Animated.Value(1)).current;
@@ -790,19 +1076,19 @@ export default function ChatDetailScreen() {
         text: m.originalText,
       }));
       const targetLang = conversation.user.country === "JP" ? "ja" : "ko";
-      const response = await fetch(`${API_BASE}/api/ai/suggest-reply`, {
+      const response = await fetch(`${API_BASE}/api/ai/coach`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: recentMessages, targetLang }),
       });
       if (!response.ok) throw new Error(`API ${response.status}`);
-      const data = (await response.json()) as { suggestion?: string; error?: string };
-      if (data.suggestion) {
-        setInputText(data.suggestion);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } else throw new Error(data.error ?? "No suggestion");
+      const data = (await response.json()) as CoachResult;
+      // Never touch the input field — open coaching sheet instead
+      setCoachData(data);
+      setShowCoachSheet(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {
-      Alert.alert(t("chat.suggestReply"), "Could not generate a reply. Please try again.");
+      Alert.alert("AI Coach", "Could not load coaching. Please try again.");
     } finally {
       setAiSuggesting(false);
     }
@@ -944,6 +1230,13 @@ export default function ChatDetailScreen() {
           setShowCreditsModal(false);
           router.push("/paywall" as any);
         }}
+      />
+
+      {/* ── AI Conversation Coach sheet ──────────────────────────────────── */}
+      <AiCoachSheet
+        visible={showCoachSheet}
+        data={coachData}
+        onClose={() => setShowCoachSheet(false)}
       />
 
       {/* ── Input area ──────────────────────────────────────────────────── */}
