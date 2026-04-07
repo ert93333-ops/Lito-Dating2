@@ -1,9 +1,11 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
+  Animated,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,362 +20,391 @@ import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 
-// ── Interest tags ─────────────────────────────────────────────────────────────
-const INTERESTS = [
-  "K-Pop", "K-Drama", "Anime", "Travel", "Cooking",
-  "Coffee", "Photography", "Music", "Books", "Fitness",
-  "Gaming", "Nature", "Movies", "Fashion", "Design",
-  "Language Exchange", "Food Tour", "Hiking", "Art", "Tech",
+// ── Interest tags with emoji ──────────────────────────────────────────────────
+const INTERESTS: { tag: string; emoji: string }[] = [
+  { tag: "K-Pop", emoji: "🎵" },
+  { tag: "K-Drama", emoji: "📺" },
+  { tag: "Anime", emoji: "✨" },
+  { tag: "Travel", emoji: "✈️" },
+  { tag: "Cooking", emoji: "🍳" },
+  { tag: "Coffee", emoji: "☕" },
+  { tag: "Photography", emoji: "📸" },
+  { tag: "Music", emoji: "🎶" },
+  { tag: "Books", emoji: "📚" },
+  { tag: "Fitness", emoji: "💪" },
+  { tag: "Gaming", emoji: "🎮" },
+  { tag: "Nature", emoji: "🌿" },
+  { tag: "Movies", emoji: "🎬" },
+  { tag: "Fashion", emoji: "👗" },
+  { tag: "Design", emoji: "🎨" },
+  { tag: "Language Exchange", emoji: "🗣️" },
+  { tag: "Food Tour", emoji: "🍜" },
+  { tag: "Hiking", emoji: "🏔️" },
+  { tag: "Art", emoji: "🖼️" },
+  { tag: "Tech", emoji: "💻" },
 ];
 
-// ── ProfileSetupScreen — 3-step wizard ───────────────────────────────────────
+// ── AnimatedPressable CTA ─────────────────────────────────────────────────────
+
+function PrimaryButton({
+  label,
+  onPress,
+  disabled,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  const colors = useColors();
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const pressIn = () => {
+    if (disabled) return;
+    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 30, bounciness: 0 }).start();
+  };
+  const pressOut = () => {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 4 }).start();
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale }], width: "100%" }}>
+      <Pressable
+        onPress={() => {
+          if (disabled) return;
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onPress();
+        }}
+        onPressIn={pressIn}
+        onPressOut={pressOut}
+        style={[
+          btn.root,
+          { backgroundColor: disabled ? colors.muted : colors.rose },
+        ]}
+      >
+        <Text style={[btn.text, { color: disabled ? colors.charcoalLight : "#fff" }]}>
+          {label}
+        </Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+const btn = StyleSheet.create({
+  root: {
+    borderRadius: 100,
+    paddingVertical: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  text: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 17,
+    letterSpacing: 0.1,
+  },
+});
+
+// ── ProfileSetupScreen — 2-step wizard ───────────────────────────────────────
+// Country is already selected in onboarding, so this wizard starts at identity.
+
 export default function ProfileSetupScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { updateProfile, completeProfileSetup } = useApp();
+  const { profile, updateProfile, completeProfileSetup } = useApp();
   const { t, lang } = useLocale();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  // Wizard state
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [country, setCountry] = useState<"KR" | "JP" | null>(null);
+  // Wizard state — 2 steps
+  const [step, setStep] = useState<1 | 2>(1);
   const [nickname, setNickname] = useState("");
   const [age, setAge] = useState("");
   const [intro, setIntro] = useState("");
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
 
-  // ── Step 1: Country selection ─────────────────────────────────────────────
-  const handleCountrySelect = (c: "KR" | "JP") => {
-    setCountry(c);
-    // Immediately commits to AppContext — profile.language switches right away
-    // useLocale() will now return the correct language for steps 2 and 3
-    updateProfile({ country: c });
+  const step1CanContinue = nickname.trim().length >= 2;
+
+  const handleStep1Continue = () => {
+    if (!step1CanContinue) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Brief delay so the selection feels acknowledged before advancing
-    setTimeout(() => setStep(2), 200);
+    setStep(2);
   };
 
-  // ── Step 2: Name + age + intro ────────────────────────────────────────────
-  const step2CanContinue = nickname.trim().length > 0;
-
-  const handleStep2Continue = () => {
-    if (!step2CanContinue) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setStep(3);
-  };
-
-  // ── Step 3: Interests + finish ────────────────────────────────────────────
   const toggleInterest = (tag: string) => {
     setSelectedInterests((prev) => {
       if (prev.includes(tag)) return prev.filter((t) => t !== tag);
       if (prev.length >= 8) return prev;
       return [...prev, tag];
     });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleFinish = () => {
     updateProfile({
       nickname: nickname.trim() || "User",
       age: parseInt(age) || 25,
-      country: country ?? "JP",
+      country: profile.country,
       language: lang,
       intro: intro.trim() || undefined,
       interests: selectedInterests.length > 0 ? selectedInterests : undefined,
     });
     completeProfileSetup();
-    // _layout.tsx → RootNavigator routes to /(tabs)/discover
   };
 
-  // ── Step header (shared) ──────────────────────────────────────────────────
-  const StepHeader = () => (
-    <View style={[stepStyles.header, { paddingTop: topPad + 14 }]}>
-      <View style={stepStyles.logoRow}>
-        <LitoMark size={30} />
-        <Text style={[stepStyles.logo, { color: colors.charcoal }]}>lito</Text>
+  // ── Shared header ─────────────────────────────────────────────────────────
+  const TOTAL_STEPS = 2;
+
+  const Header = () => (
+    <View style={[shared.header, { paddingTop: topPad + 14 }]}>
+      <View style={shared.logoRow}>
+        <LitoMark size={28} />
+        <Text style={[shared.logo, { color: colors.charcoal }]}>lito</Text>
       </View>
-      <View style={stepStyles.stepCounter}>
-        <Text style={[stepStyles.stepText, { color: colors.charcoalLight }]}>
-          {step} / 3
+      <View style={shared.stepBadge}>
+        <Text style={[shared.stepText, { color: colors.rose }]}>
+          {step}
+        </Text>
+        <Text style={[shared.stepTotal, { color: colors.charcoalLight }]}>
+          /{TOTAL_STEPS}
         </Text>
       </View>
     </View>
   );
 
-  // ── Step progress bar (shared) ────────────────────────────────────────────
   const ProgressBar = () => (
-    <View style={[stepStyles.progressTrack, { backgroundColor: colors.border }]}>
+    <View style={[shared.progressTrack, { backgroundColor: colors.border }]}>
       <LinearGradient
         colors={["#E8607A", "#D85870"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={[stepStyles.progressFill, { width: `${(step / 3) * 100}%` as any }]}
+        style={[shared.progressFill, { width: `${(step / TOTAL_STEPS) * 100}%` as any }]}
       />
     </View>
   );
 
+  // Country context pill — shown in each step as a persistent reminder
+  const CountryPill = () => (
+    <View style={[shared.countryPill, { backgroundColor: colors.roseLight, borderColor: colors.roseSoft }]}>
+      <Text style={shared.countryFlag}>
+        {profile.country === "KR" ? "🇰🇷" : "🇯🇵"}
+      </Text>
+      <Text style={[shared.countryLabel, { color: colors.rose }]}>
+        {profile.country === "KR" ? "한국 · Korean" : "日本 · Japanese"}
+      </Text>
+    </View>
+  );
+
   // ══════════════════════════════════════════════════════════════════════════
-  // STEP 1 — Country selection
+  // STEP 1 — Identity (name / age / intro)
   // ══════════════════════════════════════════════════════════════════════════
   if (step === 1) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.white }]}>
-        <StepHeader />
-        <ProgressBar />
-
-        <View style={styles.step1Content}>
-          {/* Headline — bilingual, since we don't know language yet */}
-          <View style={styles.step1Headline}>
-            <Text style={[styles.step1Title, { color: colors.charcoal }]}>
-              {"Where are you from?"}
-            </Text>
-            <Text style={[styles.step1TitleBi, { color: colors.charcoalMid }]}>
-              {"어느 나라에서 오셨나요?"}
-            </Text>
-            <Text style={[styles.step1TitleBi, { color: colors.charcoalMid }]}>
-              {"どちらの国から来ましたか？"}
-            </Text>
-            <Text style={[styles.step1Hint, { color: colors.charcoalLight }]}>
-              This sets your app language and translation direction.{"\n"}
-              이 선택이 앱 언어 및 번역 방향을 결정합니다.
-            </Text>
-          </View>
-
-          {/* Country cards */}
-          <View style={styles.countryRow}>
-            {(["KR", "JP"] as const).map((c) => {
-              const isSelected = country === c;
-              return (
-                <TouchableOpacity
-                  key={c}
-                  onPress={() => handleCountrySelect(c)}
-                  activeOpacity={0.88}
-                  style={[
-                    styles.countryCard,
-                    {
-                      borderColor: isSelected ? colors.rose : colors.border,
-                      backgroundColor: isSelected ? colors.roseLight : colors.white,
-                    },
-                  ]}
-                >
-                  {isSelected && (
-                    <View style={[styles.countryCheckmark, { backgroundColor: colors.rose }]}>
-                      <Feather name="check" size={11} color={colors.white} />
-                    </View>
-                  )}
-                  <Text style={styles.countryFlag}>
-                    {c === "KR" ? "🇰🇷" : "🇯🇵"}
-                  </Text>
-                  <Text style={[styles.countryNameMain, { color: colors.charcoal }]}>
-                    {c === "KR" ? "한국" : "日本"}
-                  </Text>
-                  <Text style={[styles.countryNameSub, { color: colors.charcoalLight }]}>
-                    {c === "KR" ? "Korea" : "Japan"}
-                  </Text>
-                  <View
-                    style={[
-                      styles.countryLangBadge,
-                      { backgroundColor: isSelected ? colors.roseSoft : colors.muted },
-                    ]}
-                  >
-                    <Text style={[styles.countryLangText, { color: isSelected ? colors.rose : colors.charcoalLight }]}>
-                      {c === "KR" ? "한국어" : "日本語"}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Language set note */}
-          <View style={[styles.langNoteRow, { borderColor: colors.border }]}>
-            <Feather name="globe" size={13} color={colors.charcoalLight} />
-            <Text style={[styles.langNote, { color: colors.charcoalLight }]}>
-              App language is set automatically based on your country
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // STEP 2 — Name / age / intro
-  // ══════════════════════════════════════════════════════════════════════════
-  if (step === 2) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.white }]}>
-        <StepHeader />
+      <View style={[s.container, { backgroundColor: colors.white }]}>
+        <Header />
         <ProgressBar />
 
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad + 120 }]}
+          contentContainerStyle={[s.scroll, { paddingBottom: bottomPad + 130 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Country context chip */}
-          <View style={styles.contextRow}>
-            <View style={[styles.contextChip, { backgroundColor: colors.roseLight, borderColor: colors.roseSoft }]}>
-              <Text style={styles.contextFlag}>{country === "KR" ? "🇰🇷" : "🇯🇵"}</Text>
-              <Text style={[styles.contextChipText, { color: colors.rose }]}>
-                {country === "KR" ? "한국 · Korean" : "日本 · Japanese"}
+          {/* Country context */}
+          <View style={s.pillRow}>
+            <CountryPill />
+          </View>
+
+          {/* Step hero */}
+          <Text style={[s.heroTitle, { color: colors.charcoal }]}>
+            {lang === "ko" ? "안녕하세요 👋" : "はじめまして 👋"}
+          </Text>
+          <Text style={[s.heroSub, { color: colors.charcoalLight }]}>
+            {lang === "ko"
+              ? "상대방에게 보여질 프로필을 만들어봐요"
+              : "相手に見せるプロフィールを作りましょう"}
+          </Text>
+
+          {/* Nickname field */}
+          <View style={s.field}>
+            <Text style={[s.fieldLabel, { color: colors.charcoalMid }]}>
+              {lang === "ko" ? "닉네임" : "ニックネーム"}
+            </Text>
+            <TextInput
+              style={[
+                s.input,
+                s.inputLarge,
+                {
+                  backgroundColor: colors.muted,
+                  borderColor: nickname.length > 0 ? colors.rose : colors.border,
+                  color: colors.charcoal,
+                },
+              ]}
+              value={nickname}
+              onChangeText={setNickname}
+              placeholder={lang === "ko" ? "닉네임을 입력하세요" : "ニックネームを入力"}
+              placeholderTextColor={colors.charcoalFaint}
+              returnKeyType="next"
+              autoFocus
+              maxLength={20}
+            />
+            {nickname.trim().length > 0 && nickname.trim().length < 2 && (
+              <Text style={[s.fieldHint, { color: colors.rose }]}>
+                {lang === "ko" ? "2자 이상 입력해주세요" : "2文字以上入力してください"}
+              </Text>
+            )}
+          </View>
+
+          {/* Age field */}
+          <View style={s.field}>
+            <Text style={[s.fieldLabel, { color: colors.charcoalMid }]}>
+              {lang === "ko" ? "나이" : "年齢"}
+            </Text>
+            <View style={s.ageRow}>
+              <TextInput
+                style={[
+                  s.input,
+                  s.ageInput,
+                  {
+                    backgroundColor: colors.muted,
+                    borderColor: age.length > 0 ? colors.rose : colors.border,
+                    color: colors.charcoal,
+                  },
+                ]}
+                value={age}
+                onChangeText={setAge}
+                placeholder={lang === "ko" ? "나이" : "年齢"}
+                placeholderTextColor={colors.charcoalFaint}
+                keyboardType="numeric"
+                returnKeyType="next"
+                maxLength={2}
+              />
+              <Text style={[s.ageSuffix, { color: colors.charcoalLight }]}>
+                {lang === "ko" ? "세" : "歳"}
               </Text>
             </View>
           </View>
 
-          {/* Headline */}
-          <Text style={[styles.stepTitle, { color: colors.charcoal }]}>
-            {lang === "ko" ? "자신을 소개해주세요" : "自己紹介をしてください"}
-          </Text>
-          <Text style={[styles.stepSub, { color: colors.charcoalLight }]}>
-            {lang === "ko"
-              ? "프로필에 표시될 기본 정보를 입력해주세요"
-              : "プロフィールに表示される基本情報を入力してください"}
-          </Text>
-
-          {/* Nickname */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.charcoalMid }]}>
-              {t("setup.nickname")}
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: colors.muted, borderColor: colors.border, color: colors.charcoal },
-              ]}
-              value={nickname}
-              onChangeText={setNickname}
-              placeholder={t("setup.nicknamePlaceholder")}
-              placeholderTextColor={colors.charcoalLight}
-              returnKeyType="next"
-              autoFocus
-            />
-          </View>
-
-          {/* Age */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.charcoalMid }]}>
-              {t("setup.age")}
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                styles.shortInput,
-                { backgroundColor: colors.muted, borderColor: colors.border, color: colors.charcoal },
-              ]}
-              value={age}
-              onChangeText={setAge}
-              placeholder={t("setup.agePlaceholder")}
-              placeholderTextColor={colors.charcoalLight}
-              keyboardType="numeric"
-              returnKeyType="next"
-              maxLength={2}
-            />
-          </View>
-
-          {/* Short intro */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.charcoalMid }]}>
-              {t("setup.intro")}
-              <Text style={[styles.optionalTag, { color: colors.charcoalLight }]}>
-                {lang === "ko" ? "  (선택)" : "  (任意)"}
+          {/* Intro field */}
+          <View style={s.field}>
+            <View style={s.labelRow}>
+              <Text style={[s.fieldLabel, { color: colors.charcoalMid }]}>
+                {lang === "ko" ? "한 줄 소개" : "一言紹介"}
               </Text>
-            </Text>
+              <Text style={[s.optional, { color: colors.charcoalLight }]}>
+                {lang === "ko" ? "선택" : "任意"}
+              </Text>
+            </View>
             <TextInput
               style={[
-                styles.input,
-                { backgroundColor: colors.muted, borderColor: colors.border, color: colors.charcoal },
+                s.input,
+                s.introInput,
+                {
+                  backgroundColor: colors.muted,
+                  borderColor: intro.length > 0 ? colors.rose : colors.border,
+                  color: colors.charcoal,
+                },
               ]}
               value={intro}
               onChangeText={setIntro}
-              placeholder={t("setup.introPlaceholder")}
-              placeholderTextColor={colors.charcoalLight}
+              placeholder={
+                lang === "ko"
+                  ? "자신을 한 문장으로 소개해주세요"
+                  : "一文で自己紹介してください"
+              }
+              placeholderTextColor={colors.charcoalFaint}
               maxLength={80}
               returnKeyType="done"
             />
+            <Text style={[s.charCount, { color: colors.charcoalFaint }]}>
+              {intro.length}/80
+            </Text>
+          </View>
+
+          {/* Soft tip card */}
+          <View style={[s.tipCard, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+            <Text style={s.tipEmoji}>💡</Text>
+            <Text style={[s.tipText, { color: colors.charcoalMid }]}>
+              {lang === "ko"
+                ? "진솔한 소개가 좋은 인연을 만들어요. 있는 그대로의 나를 보여주세요."
+                : "正直な自己紹介が良い縁を生みます。ありのままの自分を見せてください。"}
+            </Text>
           </View>
         </ScrollView>
 
-        {/* Sticky footer */}
-        <View
-          style={[
-            stepStyles.footer,
-            { paddingBottom: bottomPad + 14, borderTopColor: colors.border },
-          ]}
-        >
-          <TouchableOpacity
-            style={[
-              stepStyles.ctaBtn,
-              { backgroundColor: step2CanContinue ? colors.rose : colors.muted },
-            ]}
-            onPress={handleStep2Continue}
-            disabled={!step2CanContinue}
-            activeOpacity={0.85}
-          >
-            <Text
-              style={[
-                stepStyles.ctaBtnText,
-                { color: step2CanContinue ? colors.white : colors.charcoalLight },
-              ]}
-            >
-              {lang === "ko" ? "다음 →" : "次へ →"}
-            </Text>
-          </TouchableOpacity>
+        {/* Sticky CTA */}
+        <View style={[s.stickyFooter, { paddingBottom: bottomPad + 14, borderTopColor: colors.border, backgroundColor: colors.white }]}>
+          <PrimaryButton
+            label={lang === "ko" ? "다음 →" : "次へ →"}
+            onPress={handleStep1Continue}
+            disabled={!step1CanContinue}
+          />
         </View>
       </View>
     );
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // STEP 3 — Interests
+  // STEP 2 — Interests
   // ══════════════════════════════════════════════════════════════════════════
   return (
-    <View style={[styles.container, { backgroundColor: colors.white }]}>
-      <StepHeader />
+    <View style={[s.container, { backgroundColor: colors.white }]}>
+      <Header />
       <ProgressBar />
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad + 120 }]}
+        contentContainerStyle={[s.scroll, { paddingBottom: bottomPad + 130 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Headline */}
-        <Text style={[styles.stepTitle, { color: colors.charcoal }]}>
-          {lang === "ko" ? "관심사를 선택해주세요" : "趣味を選んでください"}
-        </Text>
-        <Text style={[styles.stepSub, { color: colors.charcoalLight }]}>
-          {lang === "ko"
-            ? `${selectedInterests.length}/8개 선택됨 · 나중에 변경 가능해요`
-            : `${selectedInterests.length}/8個選択中 · 後で変更できます`}
-        </Text>
+        {/* Country context */}
+        <View style={s.pillRow}>
+          <CountryPill />
+        </View>
 
-        {/* Interest grid */}
-        <View style={styles.interestGrid}>
-          {INTERESTS.map((tag) => {
+        {/* Step hero */}
+        <Text style={[s.heroTitle, { color: colors.charcoal }]}>
+          {lang === "ko" ? "관심사를 골라주세요 ✨" : "趣味を選んでください ✨"}
+        </Text>
+        <View style={s.interestMeta}>
+          <Text style={[s.heroSub, { color: colors.charcoalLight, marginBottom: 0 }]}>
+            {lang === "ko"
+              ? "공통 관심사가 대화의 시작이 돼요"
+              : "共通の趣味が会話のきっかけになります"}
+          </Text>
+          <View style={[s.countBadge, { backgroundColor: selectedInterests.length > 0 ? colors.roseLight : colors.muted }]}>
+            <Text style={[s.countBadgeText, { color: selectedInterests.length > 0 ? colors.rose : colors.charcoalLight }]}>
+              {selectedInterests.length}/8
+            </Text>
+          </View>
+        </View>
+
+        {/* Interest tags grid */}
+        <View style={s.interestGrid}>
+          {INTERESTS.map(({ tag, emoji }) => {
             const picked = selectedInterests.includes(tag);
             const atMax = !picked && selectedInterests.length >= 8;
             return (
               <TouchableOpacity
                 key={tag}
                 style={[
-                  styles.interestTag,
+                  s.interestTag,
                   {
                     backgroundColor: picked ? colors.rose : colors.muted,
                     borderColor: picked ? colors.rose : colors.border,
-                    opacity: atMax ? 0.45 : 1,
+                    opacity: atMax ? 0.4 : 1,
                   },
                 ]}
-                onPress={() => {
-                  toggleInterest(tag);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
+                onPress={() => toggleInterest(tag)}
                 disabled={atMax}
-                activeOpacity={0.75}
+                activeOpacity={0.72}
               >
+                <Text style={s.tagEmoji}>{emoji}</Text>
                 <Text
                   style={[
-                    styles.interestTagText,
-                    { color: picked ? colors.white : colors.charcoalMid },
+                    s.tagText,
+                    { color: picked ? "#fff" : colors.charcoalMid },
                   ]}
                 >
                   {tag}
@@ -384,36 +415,26 @@ export default function ProfileSetupScreen() {
         </View>
 
         {/* Skip hint */}
-        <Text style={[styles.skipHint, { color: colors.charcoalLight }]}>
+        <Text style={[s.skipHint, { color: colors.charcoalLight }]}>
           {lang === "ko"
-            ? "관심사를 선택하지 않고 바로 시작할 수도 있어요"
-            : "興味がなければスキップしてもOKです"}
+            ? "관심사는 나중에 프로필에서 추가할 수 있어요"
+            : "趣味は後でプロフィールから追加できます"}
         </Text>
       </ScrollView>
 
-      {/* Sticky footer */}
-      <View
-        style={[
-          stepStyles.footer,
-          { paddingBottom: bottomPad + 14, borderTopColor: colors.border },
-        ]}
-      >
-        <TouchableOpacity
-          style={[stepStyles.ctaBtn, { backgroundColor: colors.rose }]}
+      {/* Sticky CTA */}
+      <View style={[s.stickyFooter, { paddingBottom: bottomPad + 14, borderTopColor: colors.border, backgroundColor: colors.white }]}>
+        <PrimaryButton
+          label={lang === "ko" ? "시작하기 🎉" : "始める 🎉"}
           onPress={handleFinish}
-          activeOpacity={0.85}
-        >
-          <Text style={[stepStyles.ctaBtnText, { color: colors.white }]}>
-            {lang === "ko" ? "시작하기 →" : "始める →"}
-          </Text>
-        </TouchableOpacity>
+        />
       </View>
     </View>
   );
 }
 
 // ── Shared step styles ────────────────────────────────────────────────────────
-const stepStyles = StyleSheet.create({
+const shared = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -431,18 +452,21 @@ const stepStyles = StyleSheet.create({
     fontSize: 20,
     letterSpacing: -0.6,
   },
-  stepCounter: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
+  stepBadge: {
+    flexDirection: "row",
+    alignItems: "baseline",
   },
   stepText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    fontSize: 18,
+    letterSpacing: -0.5,
+  },
+  stepTotal: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
   },
   progressTrack: {
     height: 3,
-    marginHorizontal: 0,
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -450,133 +474,7 @@ const stepStyles = StyleSheet.create({
     height: 3,
     borderRadius: 2,
   },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 24,
-    paddingTop: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    backgroundColor: "#fff",
-  },
-  ctaBtn: {
-    borderRadius: 100,
-    paddingVertical: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  ctaBtnText: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 17,
-  },
-});
-
-// ── Screen styles ─────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-
-  // ── Step 1 ────────────────────────────────────────────────────────────────
-  step1Content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 30,
-  },
-  step1Headline: { marginBottom: 36 },
-  step1Title: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 30,
-    marginBottom: 10,
-    lineHeight: 38,
-  },
-  step1TitleBi: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  step1Hint: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 13,
-    lineHeight: 20,
-    marginTop: 10,
-    opacity: 0.75,
-  },
-
-  countryRow: {
-    flexDirection: "row",
-    gap: 14,
-    marginBottom: 28,
-  },
-  countryCard: {
-    flex: 1,
-    borderRadius: 22,
-    borderWidth: 2,
-    paddingVertical: 28,
-    alignItems: "center",
-    gap: 8,
-    position: "relative",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  countryCheckmark: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  countryFlag: { fontSize: 52 },
-  countryNameMain: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 20,
-  },
-  countryNameSub: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 13,
-  },
-  countryLangBadge: {
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginTop: 4,
-  },
-  countryLangText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 12,
-  },
-
-  langNoteRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  langNote: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12.5,
-    flex: 1,
-    lineHeight: 18,
-  },
-
-  // ── Steps 2 & 3 ───────────────────────────────────────────────────────────
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-  },
-  contextRow: { marginBottom: 22 },
-  contextChip: {
+  countryPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -586,63 +484,159 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
   },
-  contextFlag: { fontSize: 16 },
-  contextChipText: {
+  countryFlag: { fontSize: 16 },
+  countryLabel: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 13,
   },
+});
 
-  stepTitle: {
+// ── Screen styles ─────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  container: { flex: 1 },
+
+  scroll: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+  },
+
+  pillRow: {
+    marginBottom: 24,
+  },
+
+  // Hero
+  heroTitle: {
     fontFamily: "Inter_700Bold",
-    fontSize: 26,
-    marginBottom: 6,
-    lineHeight: 34,
+    fontSize: 30,
+    lineHeight: 40,
+    marginBottom: 8,
   },
-  stepSub: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 28,
-  },
-
-  field: { marginBottom: 22 },
-  label: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 11.5,
-    textTransform: "uppercase",
-    letterSpacing: 0.7,
-    marginBottom: 9,
-  },
-  optionalTag: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 11,
-    textTransform: "none",
-    letterSpacing: 0,
-  },
-  input: {
-    borderRadius: 14,
-    borderWidth: 1.5,
-    paddingHorizontal: 16,
-    paddingVertical: 15,
+  heroSub: {
     fontFamily: "Inter_400Regular",
     fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 32,
+    flex: 1,
   },
-  shortInput: { width: 120 },
+
+  // Fields
+  field: { marginBottom: 24 },
+  fieldLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+    marginBottom: 10,
+    letterSpacing: 0.1,
+  },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
+  optional: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11.5,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: "#F0F0F0",
+  },
+  input: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    fontFamily: "Inter_400Regular",
+    fontSize: 16,
+  },
+  inputLarge: {
+    fontSize: 18,
+    fontFamily: "Inter_500Medium",
+  },
+  introInput: {
+    height: 88,
+    textAlignVertical: "top",
+    paddingTop: 14,
+  },
+  ageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  ageInput: {
+    width: 100,
+    textAlign: "center",
+    fontSize: 18,
+    fontFamily: "Inter_500Medium",
+  },
+  ageSuffix: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 16,
+  },
+  fieldHint: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    marginTop: 6,
+  },
+  charCount: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11.5,
+    textAlign: "right",
+    marginTop: 5,
+  },
+
+  // Tip card
+  tipCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 4,
+  },
+  tipEmoji: { fontSize: 16, marginTop: 1 },
+  tipText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13.5,
+    lineHeight: 21,
+    flex: 1,
+  },
 
   // Interests
+  interestMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 22,
+  },
+  countBadge: {
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  countBadgeText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 13,
+  },
   interestGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   interestTag: {
-    paddingHorizontal: 15,
-    paddingVertical: 9,
-    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 22,
     borderWidth: 1.5,
   },
-  interestTagText: {
+  tagEmoji: { fontSize: 14 },
+  tagText: {
     fontFamily: "Inter_500Medium",
     fontSize: 13.5,
   },
@@ -651,5 +645,16 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     textAlign: "center",
     lineHeight: 18,
+  },
+
+  // Sticky footer
+  stickyFooter: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
 });

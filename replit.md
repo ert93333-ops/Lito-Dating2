@@ -47,9 +47,9 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 artifacts/lito/
   app/
     _layout.tsx          # Root layout: AppProvider → GrowthProvider → GestureHandler → …
-    onboarding.tsx       # 3-slide onboarding screen
+    onboarding.tsx       # 4-phase onboarding: 3 feature slides → country selection (KR/JP)
     login.tsx            # Login screen (Email, Kakao, LINE placeholders)
-    profile-setup.tsx    # Profile setup (3-step wizard: country→basics→interests)
+    profile-setup.tsx    # Profile setup (2-step wizard: basics→interests, country pre-selected in onboarding)
     settings.tsx         # Settings screen
     paywall.tsx          # Subscription upgrade screen (Free / Plus / Premium)
     profile-coach.tsx    # AI Profile Coach: suggestions the user can accept/reject
