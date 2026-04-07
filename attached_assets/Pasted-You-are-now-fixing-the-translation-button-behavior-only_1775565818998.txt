@@ -1,0 +1,180 @@
+You are now fixing the translation button behavior only.
+
+Important:
+- Do NOT redesign the app
+- Do NOT modify swipe UI
+- Do NOT modify onboarding
+- Do NOT reintroduce pronunciation
+- Do NOT remove the current translation system
+- Fix only the translation button wiring and translation execution flow
+
+==================================================
+CURRENT ISSUE
+==================================================
+
+The translation button does not work.
+
+The button may appear in the UI, but pressing it does not correctly perform the translation flow.
+
+Your task is to debug and fix the full interaction path so that tapping the translation button actually translates the message and displays the translated text correctly.
+
+==================================================
+1. DEBUG THE EXACT FAILURE POINT
+==================================================
+
+Inspect the real code path and identify exactly where the translation button is failing.
+
+Check all of these:
+
+1. Is the button press event correctly wired?
+   - onClick / onPress / handler binding
+2. Does the handler actually run?
+3. Does the handler call the translation function/service?
+4. Does the translation request receive a valid input text?
+5. Is the source/target language determined correctly?
+6. Does the translation response come back successfully?
+7. Is the translated result stored in the correct message state or data model?
+8. Is the UI actually rendering translatedText after it is stored?
+9. Is loading/error state blocking the final render?
+10. Is the bug caused by global state instead of per-message state?
+
+You must identify the exact broken point before claiming it is fixed.
+
+==================================================
+2. REQUIRED BEHAVIOR
+==================================================
+
+When the user taps the translation button for a message:
+
+- the tap must trigger correctly
+- the message text must be sent to the translation flow
+- the translated result must be returned and stored
+- the UI must display the translated text under the original text
+- the original text must remain visible
+- the translated text must remain visible after rendering
+- the behavior must work reliably across multiple messages
+
+Final message structure:
+- original text
+- translated text (if translation exists)
+
+==================================================
+3. MESSAGE-LEVEL STATE RULE
+==================================================
+
+Translation must work at the message level.
+
+If the translation button is attached to an individual message:
+- only that message should update
+- translation state must not overwrite other messages
+- clicking one message must not break another message
+
+Avoid:
+- one global translatedText for the whole chat
+- one global loading state that breaks per-message UX
+- replacing all message translations with one result
+
+Use per-message translation state or a message-keyed translation map.
+
+==================================================
+4. LANGUAGE HANDLING
+==================================================
+
+This is a Korean-Japanese dating app.
+
+Make sure translation direction works correctly:
+- Korean → Japanese
+- Japanese → Korean
+
+If language auto-detection exists:
+- verify it is working correctly
+
+If language direction is based on sender/user country/language:
+- verify that mapping is correct
+
+Do not let wrong language mapping silently fail the translation.
+
+==================================================
+5. UI / UX REQUIREMENTS
+==================================================
+
+When translation is triggered:
+- show a clear loading state if needed
+- do not freeze the UI
+- do not remove the original text
+- when translation completes, show translated text below the original text
+- if translation fails, show a graceful retryable error state
+- the translation button should feel responsive
+
+==================================================
+6. SAFE DEBUGGING RULES
+==================================================
+
+Do NOT solve this by hiding the translation button.
+Do NOT remove translation.
+Do NOT fake translated output.
+Do NOT claim success unless the real button interaction works.
+
+Preserve:
+- working chat architecture
+- current onboarding/language structure
+- current profile/discovery system
+- current monetization / AI / referral features
+
+Only fix the translation button behavior and its execution flow.
+
+==================================================
+7. VERIFICATION CASES
+==================================================
+
+After fixing, verify these exact cases:
+
+Case 1:
+Tap translation on a Korean message
+Expected:
+- original text visible
+- Japanese translation appears
+
+Case 2:
+Tap translation on a Japanese message
+Expected:
+- original text visible
+- Korean translation appears
+
+Case 3:
+Translate multiple different messages
+Expected:
+- each message keeps its own translated text
+- no overwriting across messages
+
+Case 4:
+Leave and re-enter the chat or trigger rerender
+Expected:
+- translated text remains stable if the app is designed to persist it
+- at minimum, no broken UI state
+
+Case 5:
+Translation failure
+Expected:
+- original text still visible
+- graceful error or retry state
+- no broken layout
+
+==================================================
+8. REQUIRED OUTPUT
+==================================================
+
+When finished, provide:
+
+1. the exact root cause of why the translation button was not working
+2. which files/components/functions were changed
+3. the corrected button-to-translation execution flow
+4. how translated text is now stored and rendered
+5. how per-message translation state is handled
+6. confirmation that:
+   - the translation button now actually works
+   - original text remains visible
+   - translated text appears correctly
+   - pronunciation was not reintroduced
+
+Do not say the task is complete unless pressing the translation button truly performs translation and shows the result.

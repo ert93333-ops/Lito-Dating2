@@ -30,9 +30,17 @@ const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   : "http://localhost:8080";
 
 // ── Module-level translation cache ───────────────────────────────────────────
-// Persists across remounts. Key = "<msgId>:<viewerLang>"
+// Persists across remounts. Key = "<msgId>:<targetLang>"
 interface TranslationResult { translation: string; }
 const translationCache = new Map<string, TranslationResult>();
+
+// ── Per-message enrichment ────────────────────────────────────────────────────
+// Each entry is keyed by message ID and stores the state for that individual message.
+interface Enrichment {
+  translatedText?: string;
+  isLoading?: boolean;
+  failed?: boolean;
+}
 
 // ─── MessageBubble ────────────────────────────────────────────────────────────
 //
@@ -40,31 +48,25 @@ const translationCache = new Map<string, TranslationResult>();
 //   Layer 1: msg.originalText  — always rendered
 //   Layer 2: translatedText    — rendered when translation is available
 //
-// Translation is always stable and independent of any other toggle.
+// Per-message translate button triggers translation for just that message.
 
 interface BubbleProps {
   msg: Message;
-  translatedText: string | undefined;
-  isTranslating: boolean;
-  translationEnabled: boolean;
+  enrichment: Enrichment | undefined;
   viewerLang: "ko" | "ja";
+  /** Called when the user taps the translate button on this specific message. */
+  onTranslate: () => void;
 }
 
-function MessageBubble({
-  msg,
-  translatedText,
-  isTranslating,
-  translationEnabled,
-  viewerLang,
-}: BubbleProps) {
+function MessageBubble({ msg, enrichment, viewerLang, onTranslate }: BubbleProps) {
   const colors = useColors();
   const isMe = msg.senderId === CURRENT_USER_ID;
 
-  // Whether this message warrants a translation layer at all
-  const needsTranslation =
-    !isMe && translationEnabled && msg.originalLanguage !== viewerLang;
+  const hasTranslation = !!enrichment?.translatedText;
+  const isTranslating = !!enrichment?.isLoading;
+  const hasFailed = !!enrichment?.failed;
 
-  // Language label shown on the translation chip: the viewer's language
+  // What language label to show on the translation chip
   const translationLangLabel = viewerLang === "ja" ? "JA" : "KO";
 
   if (isMe) {
@@ -91,30 +93,30 @@ function MessageBubble({
           {
             backgroundColor: colors.bubbleThem,
             borderColor: colors.border,
-            borderLeftColor: needsTranslation ? colors.roseSoft : colors.border,
-            borderLeftWidth: needsTranslation ? 3 : StyleSheet.hairlineWidth,
+            borderLeftColor: hasTranslation ? colors.roseSoft : colors.border,
+            borderLeftWidth: hasTranslation ? 3 : StyleSheet.hairlineWidth,
           },
         ]}
       >
-        {/* Layer 1 — original text: authentic voice, muted */}
+        {/* Layer 1 — original text: authentic voice */}
         <Text style={[bubble.textOriginal, { color: colors.charcoalMid }]}>
           {msg.originalText}
         </Text>
 
-        {/* Translation loading state */}
-        {needsTranslation && isTranslating && (
+        {/* Translation loading spinner */}
+        {isTranslating && (
           <>
             <View style={[bubble.divider, { backgroundColor: colors.border }]} />
             <ActivityIndicator
               size="small"
-              color={colors.roseSoft}
+              color={colors.rose}
               style={{ alignSelf: "flex-start", marginTop: 2 }}
             />
           </>
         )}
 
         {/* Layer 2 — translated text: primary reading content */}
-        {needsTranslation && !isTranslating && !!translatedText && (
+        {hasTranslation && !isTranslating && (
           <>
             <View style={[bubble.divider, { backgroundColor: colors.border }]} />
             <View style={bubble.translationRow}>
@@ -124,10 +126,38 @@ function MessageBubble({
                 </Text>
               </View>
               <Text style={[bubble.textTranslation, { color: colors.charcoal }]}>
-                {translatedText}
+                {enrichment!.translatedText}
               </Text>
             </View>
           </>
+        )}
+
+        {/* Translate button — shown when there is no translation yet and not loading */}
+        {!hasTranslation && !isTranslating && !hasFailed && (
+          <TouchableOpacity
+            style={[bubble.translateBtn, { borderColor: colors.roseSoft }]}
+            onPress={onTranslate}
+            activeOpacity={0.7}
+          >
+            <Feather name="globe" size={11} color={colors.rose} />
+            <Text style={[bubble.translateBtnText, { color: colors.rose }]}>
+              {viewerLang === "ja" ? "日本語に翻訳" : "한국어로 번역"}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Error / retry state */}
+        {hasFailed && !hasTranslation && !isTranslating && (
+          <TouchableOpacity
+            style={[bubble.translateBtn, { borderColor: colors.border }]}
+            onPress={onTranslate}
+            activeOpacity={0.7}
+          >
+            <Feather name="refresh-cw" size={11} color={colors.charcoalLight} />
+            <Text style={[bubble.translateBtnText, { color: colors.charcoalLight }]}>
+              {viewerLang === "ja" ? "再試行" : "다시 시도"}
+            </Text>
+          </TouchableOpacity>
         )}
       </View>
 
@@ -216,11 +246,24 @@ const bubble = StyleSheet.create({
     marginTop: 5,
     opacity: 0.5,
   },
-});
 
-// ─── Enrichment map ─────────────────────────────────────────────────────────
-// Stores fetched translations per msgId
-interface Enrichment { translatedText?: string; }
+  // Per-message translate button
+  translateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 5,
+    marginTop: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  translateBtnText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 11.5,
+  },
+});
 
 // ─── ChatDetailScreen ────────────────────────────────────────────────────────
 
@@ -257,12 +300,75 @@ export default function ChatDetailScreen() {
     );
   }
 
+  // Viewer's primary language — derived from profile.country
   const viewerLang: "ko" | "ja" = profile.country === "KR" ? "ko" : "ja";
   const translationEnabled = !!conversation.translationEnabled;
 
-  // ── Enrichment effect ────────────────────────────────────────────────────
-  // Fills enrichmentMap with translations for received foreign-language messages.
-  // Priority: module cache → pre-set msg fields → API fetch
+  // ── Per-message translate function ───────────────────────────────────────
+  // Called when a user taps the translate button on an individual message.
+  // Works regardless of the global toggle state.
+  // Target language: viewer's language; if message is already in viewer's language,
+  // translate to the other language (useful for cross-cultural learning).
+  const handleTranslateMessage = useCallback(async (msg: Message) => {
+    const targetLang: "ko" | "ja" =
+      msg.originalLanguage !== viewerLang
+        ? viewerLang                                          // normal case: translate to viewer's lang
+        : viewerLang === "ko" ? "ja" : "ko";                // same-lang: translate to opposite for learning
+
+    const cacheKey = `${msg.id}:${targetLang}`;
+
+    // 1. Module cache hit — no fetch needed
+    const cached = translationCache.get(cacheKey);
+    if (cached) {
+      setEnrichmentMap((prev) => ({
+        ...prev,
+        [msg.id]: { translatedText: cached.translation },
+      }));
+      return;
+    }
+
+    // 2. Already in flight — ignore duplicate tap
+    if (inflight.current.has(cacheKey)) return;
+    inflight.current.add(cacheKey);
+
+    // 3. Set loading state for this specific message
+    setEnrichmentMap((prev) => ({
+      ...prev,
+      [msg.id]: { isLoading: true },
+    }));
+
+    try {
+      const res = await fetch(`${API_BASE}/api/ai/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: msg.originalText,
+          sourceLang: msg.originalLanguage,
+          viewerLang: targetLang,
+        }),
+      });
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      const data = (await res.json()) as TranslationResult;
+      translationCache.set(cacheKey, data);
+      setEnrichmentMap((prev) => ({
+        ...prev,
+        [msg.id]: { translatedText: data.translation },
+      }));
+    } catch {
+      // Show retry state — original text stays visible
+      setEnrichmentMap((prev) => ({
+        ...prev,
+        [msg.id]: { failed: true },
+      }));
+    } finally {
+      inflight.current.delete(cacheKey);
+    }
+  }, [viewerLang]);
+
+  // ── Batch enrichment effect ───────────────────────────────────────────────
+  // When the global translation toggle is ON, automatically pre-fetch translations
+  // for all received foreign-language messages using the three-tier cache:
+  //   1. Module cache → 2. Pre-set msg.translatedText → 3. API fetch
   useEffect(() => {
     if (!translationEnabled) return;
 
@@ -271,6 +377,9 @@ export default function ChatDetailScreen() {
       if (msg.originalLanguage === viewerLang) return;
 
       const cacheKey = `${msg.id}:${viewerLang}`;
+
+      // Already enriched in local state
+      if (enrichmentMap[msg.id]?.translatedText) return;
 
       // 1. Module cache hit
       const cached = translationCache.get(cacheKey);
@@ -317,23 +426,30 @@ export default function ChatDetailScreen() {
   }, [convMessages, translationEnabled, viewerLang]);
 
   // ── renderItem ───────────────────────────────────────────────────────────
-  // Depends on enrichmentMap so FlatList items receive updated translations.
+  // Each bubble receives its own enrichment slice and a stable per-message callback.
+  // FlatList re-renders items when enrichmentMap changes (via extraData).
   const renderMessage = useCallback(
     ({ item }: { item: Message }) => {
-      const enrichment = enrichmentMap[item.id];
-      const isMe = item.senderId === CURRENT_USER_ID;
-      const needsFetch = !isMe && translationEnabled && item.originalLanguage !== viewerLang && !enrichment?.translatedText;
+      if (item.senderId === CURRENT_USER_ID) {
+        return (
+          <MessageBubble
+            msg={item}
+            enrichment={undefined}
+            viewerLang={viewerLang}
+            onTranslate={() => {}}
+          />
+        );
+      }
       return (
         <MessageBubble
           msg={item}
-          translatedText={enrichment?.translatedText}
-          isTranslating={needsFetch}
-          translationEnabled={translationEnabled}
+          enrichment={enrichmentMap[item.id]}
           viewerLang={viewerLang}
+          onTranslate={() => handleTranslateMessage(item)}
         />
       );
     },
-    [enrichmentMap, translationEnabled, viewerLang]
+    [enrichmentMap, viewerLang, handleTranslateMessage]
   );
 
   // ── Handlers ─────────────────────────────────────────────────────────────
@@ -423,7 +539,7 @@ export default function ChatDetailScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* Translation toggle pill */}
+        {/* Translation toggle pill — batch mode */}
         <TouchableOpacity
           style={[
             styles.translationToggle,
@@ -649,30 +765,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
   },
   unlockIconWrap: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
   },
   unlockText: {
     fontFamily: "Inter_500Medium",
-    fontSize: 12.5,
-    flex: 1,
+    fontSize: 13,
   },
 
-  // ── Message list ─────────────────────────────────────────────────────────
+  // ── Message list ──────────────────────────────────────────────────────────
   messageList: {
     paddingHorizontal: 16,
-    paddingTop: 18,
+    paddingTop: 16,
   },
 
-  // ── Input ────────────────────────────────────────────────────────────────
+  // ── Input area ────────────────────────────────────────────────────────────
   inputArea: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -682,14 +797,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   aiBtn: {
-    flexDirection: "row",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
     gap: 3,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    borderRadius: 19,
     borderWidth: 1,
-    minHeight: 38,
+    marginBottom: 4,
   },
   aiBtnLabel: {
     fontFamily: "Inter_700Bold",
@@ -698,22 +814,21 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingTop: 10,
-    paddingBottom: 10,
+    borderRadius: 22,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: Platform.OS === "ios" ? 11 : 8,
     fontFamily: "Inter_400Regular",
     fontSize: 15,
-    lineHeight: 21,
     maxHeight: 120,
-    borderWidth: StyleSheet.hairlineWidth,
   },
   sendBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
+    marginBottom: 4,
   },
 });
