@@ -52,7 +52,6 @@ const colors = {
     bubbleMe: "#D85870",
     bubbleThem: "#FFFFFF",
     translationHint: "#6B6B70",
-    pronunciationHint: "#ABABAB",
   },
 
   radius: 16,

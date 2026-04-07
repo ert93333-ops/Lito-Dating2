@@ -113,15 +113,6 @@ export const mockMatches: Match[] = [
   },
 ];
 
-// ── 3-layer message mock data ─────────────────────────────────────────────────
-// Layer 1: originalText + originalLanguage (always present)
-// Layer 2: translatedText + translatedLanguage (present when langs differ)
-// Layer 3: pronunciationText + pronunciationLanguage (pre-fetched; shown only
-//          when pronunciation toggle is ON — NEVER replaces translatedText)
-//
-// Default viewer: Alex (JP, ja) reading messages from Ji-woo (KR, ko)
-// Translation direction: ko → ja  |  Pronunciation: Katakana reading of Korean
-
 export const mockMessages: Message[] = [
   {
     id: "msg1",
@@ -131,8 +122,6 @@ export const mockMessages: Message[] = [
     originalLanguage: "ko",
     translatedText: "こんにちは！はじめまして 😊 日本文化にとても興味がおありだと聞きました！",
     translatedLanguage: "ja",
-    pronunciationText: "アンニョンハセヨ！バンガウォヨ 😊 イルボン ムノエ グァンシミ マヌシダゴ ドゥロッソヨ！",
-    pronunciationLanguage: "ja",
     createdAt: "2025-01-05T11:00:00Z",
     isRead: true,
   },
@@ -153,8 +142,6 @@ export const mockMessages: Message[] = [
     originalLanguage: "ko",
     translatedText: "わあ、すごいですね！韓国語はお上手ですか？私も日本語を学びたいです。",
     translatedLanguage: "ja",
-    pronunciationText: "ワ、テダネヨ！ハングゴ チャル ハシナヨ？チョド イルボノ ペウゴ シポヨ。",
-    pronunciationLanguage: "ja",
     createdAt: "2025-01-05T11:10:00Z",
     isRead: true,
   },
@@ -175,24 +162,17 @@ export const mockMessages: Message[] = [
     originalLanguage: "ko",
     translatedText: "もちろんです！言語交換パートナーになれたら嬉しいです ✨",
     translatedLanguage: "ja",
-    pronunciationText: "ムルロニジョ！オノ ギョファン パトゥノガ テミョン チョッケッソヨ ✨",
-    pronunciationLanguage: "ja",
     createdAt: "2025-01-05T12:00:00Z",
     isRead: true,
   },
-  // ── DEBUG TEST MESSAGE — all 3 layers pre-populated ──────────────────────
-  // Expected:  pronunciation OFF → show originalText + translatedText
-  //            pronunciation ON  → show all three; translatedText STAYS visible
   {
-    id: "debug_msg",
+    id: "msg6",
     conversationId: "conv1",
     senderId: "user1",
     originalText: "아직 초보자이지만, 같이 연습하지 않으실래요?",
     originalLanguage: "ko",
     translatedText: "まだ初心者ですが、一緒に練習しませんか？",
     translatedLanguage: "ja",
-    pronunciationText: "アジク チョボジャイジマン、カッチ ヨンスプハジ アヌシルレヨ？",
-    pronunciationLanguage: "ja",
     createdAt: "2025-01-05T12:05:00Z",
     isRead: true,
   },

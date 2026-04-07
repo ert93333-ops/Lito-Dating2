@@ -19,7 +19,7 @@ import { useColors } from "@/hooks/useColors";
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { logout, showPronunciation, setShowPronunciation, profile, updateProfile } = useApp();
+  const { logout, profile, updateProfile } = useApp();
   const appLanguage = profile.language;
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -151,19 +151,6 @@ export default function SettingsScreen() {
                     </TouchableOpacity>
                   ))}
                 </View>
-              }
-            />
-            <SettingRow
-              icon="book-open"
-              label="Show Pronunciation"
-              sublabel="발음 표기 · 発音表示"
-              right={
-                <Switch
-                  value={showPronunciation}
-                  onValueChange={setShowPronunciation}
-                  trackColor={{ true: colors.rose }}
-                  thumbColor={colors.white}
-                />
               }
             />
             <SettingRow

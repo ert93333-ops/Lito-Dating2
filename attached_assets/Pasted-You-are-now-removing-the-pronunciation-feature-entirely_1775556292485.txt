@@ -1,0 +1,271 @@
+You are now removing the pronunciation feature entirely from the app.
+
+This is a Korean-Japanese dating app.
+The pronunciation feature has repeatedly caused translation bugs and unstable chat behavior.
+Do NOT try to fix or preserve pronunciation anymore.
+
+Your task is:
+
+1. completely remove pronunciation-related logic, UI, state, and rendering
+2. stabilize the translation feature so translated text always appears correctly
+3. redesign the swipe motion and overall UI to feel modern, premium, and trend-forward
+4. reference the UX patterns of modern Korean and Japanese dating apps, but do not clone them
+
+This is not a partial patch.
+Cleanly remove the pronunciation feature from the current architecture.
+
+==================================================
+1. REMOVE PRONUNCIATION FEATURE COMPLETELY
+==================================================
+
+Remove all pronunciation-related functionality from the app, including:
+
+- pronunciation toggle button
+- pronunciation text line
+- pronunciation state variables
+- pronunciation API calls
+- pronunciation parsing logic
+- pronunciation-related conditionals
+- pronunciation-related labels, icons, and placeholders
+- any data fields used only for pronunciation
+- any settings or profile options related to pronunciation
+
+Important:
+Do not hide the feature visually while keeping broken logic underneath.
+Actually remove the connected logic so it can no longer interfere with translation rendering.
+
+After removal:
+- no top pronunciation button should remain
+- no pronunciation row should appear in chat
+- no message rendering should depend on pronunciation state
+- no translation logic should reference pronunciation in any way
+
+==================================================
+2. STABILIZE CHAT TRANSLATION
+==================================================
+
+The translation feature is core and must be stable.
+
+Required chat behavior:
+
+For translated messages:
+- always show original text
+- always show translated text if translation exists
+
+For untranslated messages:
+- show original text only
+- do not break layout
+
+Critical rule:
+Translated text must never disappear because of any other UI action.
+
+Correct message rendering structure:
+
+MessageBubble
+- OriginalText
+- TranslatedText (only if translatedText exists)
+
+Do NOT:
+- replace original text with translation
+- replace translation with anything else
+- make translation visibility dependent on another toggle
+- share the translation render slot with another feature
+
+Use clear and stable data fields:
+- originalText
+- translatedText
+
+If there is old pronunciation-related branching in the message object or UI logic, remove it and simplify the rendering tree.
+
+==================================================
+3. REDESIGN CHAT UI TO FEEL PREMIUM
+==================================================
+
+The current chat UI feels cheap and outdated.
+Redesign it to feel modern, polished, intimate, and premium.
+
+Design goals:
+- refined
+- clean
+- mobile-native
+- premium East Asian dating app sensibility
+- calm and trustworthy
+- no tacky gradients
+- no childish or overly cute feeling
+- no generic template feel
+
+Chat UI requirements:
+- stronger visual hierarchy
+- better typography
+- cleaner message spacing
+- better bubble styling
+- polished top bar
+- improved input field and send area
+- subtle language context cues
+- elegant loading / error / empty states
+
+Message hierarchy:
+1. original text
+2. translated text
+
+Visual styling guidance:
+- original text = primary message
+- translated text = supportive but clearly visible secondary line
+- translated text should feel intentional, not like debug text
+- subtle labels or language chips are okay if they improve clarity
+- long Korean and Japanese text must wrap cleanly
+
+==================================================
+4. IMPROVE PROFILE + DISCOVERY UI
+==================================================
+
+The app should feel closer to a modern Korean/Japanese premium dating app.
+
+Reference direction:
+- trust and sincerity from Korean dating apps
+- clean, preference-based matching patterns from Japanese dating apps
+- premium but restrained aesthetic
+
+Upgrade:
+- profile cards
+- profile detail layout
+- trust/verification indicators
+- interest/value/personality chips
+- CTA hierarchy
+- spacing, typography, and image presentation
+
+Profiles should feel:
+- more attractive
+- more trustworthy
+- more editorial
+- more premium
+- less flat and less template-like
+
+Do not overcrowd the UI.
+Use strong hierarchy and restrained styling.
+
+==================================================
+5. IMPROVE PHOTO SWIPE MOTION
+==================================================
+
+The current photo swipe/card motion feels awkward and low-end.
+Redesign it to feel smooth, tactile, and premium.
+
+Requirements:
+- smooth drag tracking
+- subtle rotation while dragging
+- subtle depth and scale reaction
+- refined spring-back behavior
+- clean swipe-away animation
+- no jitter
+- no clumsy bounce
+- no cheap exaggerated effects
+- no laggy rerenders
+
+Motion direction:
+- premium
+- restrained
+- natural
+- physically believable
+
+Avoid:
+- dramatic tilt
+- cartoon-like bounce
+- cheesy like/dislike overlays
+- floaty or unstable gesture response
+
+==================================================
+6. UPGRADE THE VISUAL SYSTEM
+==================================================
+
+Redesign the visual language of the app to feel trendy in both Korea and Japan.
+
+Visual direction:
+- premium and modern
+- soft warmth
+- trust-first
+- elegant and mobile-native
+- balanced, not too feminine and not too cold
+- trendy without looking noisy
+
+Color direction:
+- avoid loud neon colors
+- avoid dull gray-only palette
+- use a premium neutral base
+- add restrained warm accent colors
+- use verification/safety colors carefully
+- support a modern light theme, and dark theme if already present
+
+Component system:
+- cleaner cards
+- better corner radius
+- better spacing rhythm
+- subtle shadows/elevation
+- improved buttons
+- better chips/tags
+- better modal/sheet styling
+- bottom navigation should feel polished and coherent
+
+Typography:
+- ensure Korean and Japanese both look good
+- use a font stack with strong CJK rendering
+- improve line-height, spacing, and legibility
+- avoid cramped layouts
+
+==================================================
+7. PRODUCT UX DIRECTION
+==================================================
+
+This app is not just a swipe toy.
+It is a Korean-Japanese dating app that must feel trustworthy, premium, and culturally aware.
+
+UX principles:
+- trust first
+- clarity first
+- multilingual comfort
+- premium visual polish
+- easy discovery
+- clean profile comparison
+- smooth chat experience
+
+The multilingual experience should feel integrated, not bolted on.
+
+==================================================
+8. ENGINEERING RULES
+==================================================
+
+Important:
+- inspect the existing codebase first
+- identify all pronunciation-related files, components, variables, and conditions
+- remove them cleanly
+- preserve working translation behavior
+- do not rewrite unrelated systems without reason
+- refactor only where needed to improve stability and polish
+
+If old pronunciation logic is tangled into chat rendering:
+- separate it out
+- remove it completely
+- simplify the rendering structure
+
+==================================================
+9. REQUIRED OUTPUT FORMAT
+==================================================
+
+When done, provide:
+
+1. what pronunciation-related code was removed
+2. which files/components were changed
+3. the final simplified message rendering logic
+4. how translation stability was improved
+5. what swipe-motion improvements were made
+6. what UI/UX design improvements were made
+7. how the redesign now better fits a modern Korean/Japanese dating app
+8. verification that:
+   - pronunciation feature is fully removed
+   - original text still displays
+   - translated text displays correctly
+   - translation no longer disappears
+   - swipe motion feels smoother and more premium
+   - profile and chat UI look more polished
+
+Do not say “done” unless pronunciation is fully removed and translation remains stable.

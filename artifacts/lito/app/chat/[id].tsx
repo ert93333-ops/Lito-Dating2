@@ -31,29 +31,20 @@ const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
 
 // ── Module-level translation cache ───────────────────────────────────────────
 // Persists across remounts. Key = "<msgId>:<viewerLang>"
-interface TranslationResult { translation: string; pronunciation: string; }
+interface TranslationResult { translation: string; }
 const translationCache = new Map<string, TranslationResult>();
 
 // ─── MessageBubble ────────────────────────────────────────────────────────────
 //
-// Three-layer architecture. Each layer is an INDEPENDENT render condition.
-// Layers NEVER affect each other's visibility.
+// Two-layer architecture:
+//   Layer 1: msg.originalText  — always rendered
+//   Layer 2: translatedText    — rendered when translation is available
 //
-//   Layer 1: msg.originalText       — always rendered
-//   Layer 2: translatedText prop    — rendered when translation is available
-//                                     (no dependency on showPronunciation)
-//   Layer 3: pronunciationText prop — rendered ONLY when global showPronunciation
-//                                     is ON (never hides Layer 2)
-//
-// Root cause of the old bug (now fixed):
-//   The old code used a single shared state/render slot for translation and
-//   pronunciation, so setting showPronunciation=true replaced the translation.
-//   Now they are three separate JSX blocks with no shared conditions.
+// Translation is always stable and independent of any other toggle.
 
 interface BubbleProps {
   msg: Message;
   translatedText: string | undefined;
-  pronunciationText: string | undefined;
   isTranslating: boolean;
   translationEnabled: boolean;
   viewerLang: "ko" | "ja";
@@ -62,16 +53,11 @@ interface BubbleProps {
 function MessageBubble({
   msg,
   translatedText,
-  pronunciationText,
   isTranslating,
   translationEnabled,
   viewerLang,
 }: BubbleProps) {
   const colors = useColors();
-  // showPronunciation is read directly from context.
-  // When the user toggles it, only this component re-renders via context subscription.
-  // FlatList items never remount; no props change → translation layer is unaffected.
-  const { showPronunciation } = useApp();
   const isMe = msg.senderId === CURRENT_USER_ID;
 
   // Whether this message warrants a translation layer at all
@@ -114,7 +100,6 @@ function MessageBubble({
           {msg.originalText}
         </Text>
 
-        {/* ── LAYER 2: translation — independent of pronunciation toggle ── */}
         {needsTranslation && isTranslating && (
           <>
             <View style={[bubble.divider, { backgroundColor: colors.border }]} />
@@ -126,7 +111,6 @@ function MessageBubble({
           </>
         )}
 
-        {/* Translation: shown when available. showPronunciation has ZERO effect here. */}
         {needsTranslation && !isTranslating && !!translatedText && (
           <>
             <View style={[bubble.divider, { backgroundColor: colors.border }]} />
@@ -134,15 +118,6 @@ function MessageBubble({
               {translatedText}
             </Text>
           </>
-        )}
-
-        {/* ── LAYER 3: pronunciation — ONLY shown when toggle is ON ──────
-            This block is purely additive. It has its own condition.
-            It does NOT affect Layer 1 or Layer 2 in any way.             */}
-        {needsTranslation && !isTranslating && !!pronunciationText && showPronunciation && (
-          <Text style={[bubble.textPronunciation, { color: colors.pronunciationHint }]}>
-            {pronunciationText}
-          </Text>
         )}
       </View>
 
@@ -179,22 +154,10 @@ const bubble = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
-  // Layer 2 — translation
-  // Primary readable content; full weight, dominant color
   textTranslation: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 15,
     lineHeight: 22,
-  },
-  // Layer 3 — pronunciation helper
-  // Assistive reading aid; small, italic, visually distinct and subordinate
-  textPronunciation: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 11.5,
-    lineHeight: 17,
-    fontStyle: "italic",
-    letterSpacing: 0.4,
-    marginTop: 4,
   },
   textMe: {
     fontFamily: "Inter_400Regular",
@@ -215,7 +178,7 @@ const bubble = StyleSheet.create({
 
 // ─── Enrichment map ─────────────────────────────────────────────────────────
 // Stores fetched translations per msgId
-interface Enrichment { translatedText?: string; pronunciationText?: string; }
+interface Enrichment { translatedText?: string; }
 
 // ─── ChatDetailScreen ────────────────────────────────────────────────────────
 
@@ -231,8 +194,6 @@ export default function ChatDetailScreen() {
     sendMessage,
     toggleTranslation,
     unlockExternalContact,
-    showPronunciation,
-    setShowPronunciation,
   } = useApp();
 
   const [inputText, setInputText] = useState("");
@@ -260,7 +221,6 @@ export default function ChatDetailScreen() {
   // ── Enrichment effect ────────────────────────────────────────────────────
   // Fills enrichmentMap with translations for received foreign-language messages.
   // Priority: module cache → pre-set msg fields → API fetch
-  // showPronunciation toggle does NOT trigger this effect.
   useEffect(() => {
     if (!translationEnabled) return;
 
@@ -275,18 +235,18 @@ export default function ChatDetailScreen() {
       if (cached) {
         setEnrichmentMap((prev) => {
           if (prev[msg.id]?.translatedText) return prev;
-          return { ...prev, [msg.id]: { translatedText: cached.translation, pronunciationText: cached.pronunciation } };
+          return { ...prev, [msg.id]: { translatedText: cached.translation } };
         });
         return;
       }
 
       // 2. Pre-set data in message (mock data or DB)
       if (msg.translatedText) {
-        const result = { translation: msg.translatedText, pronunciation: msg.pronunciationText ?? "" };
+        const result = { translation: msg.translatedText };
         translationCache.set(cacheKey, result);
         setEnrichmentMap((prev) => {
           if (prev[msg.id]?.translatedText) return prev;
-          return { ...prev, [msg.id]: { translatedText: msg.translatedText, pronunciationText: msg.pronunciationText } };
+          return { ...prev, [msg.id]: { translatedText: msg.translatedText } };
         });
         return;
       }
@@ -305,7 +265,7 @@ export default function ChatDetailScreen() {
           translationCache.set(cacheKey, data);
           setEnrichmentMap((prev) => ({
             ...prev,
-            [msg.id]: { translatedText: data.translation, pronunciationText: data.pronunciation },
+            [msg.id]: { translatedText: data.translation },
           }));
         })
         .catch(() => {}) // silent; bubble shows without translation
@@ -316,7 +276,6 @@ export default function ChatDetailScreen() {
 
   // ── renderItem ───────────────────────────────────────────────────────────
   // Depends on enrichmentMap so FlatList items receive updated translations.
-  // Does NOT depend on showPronunciation — bubbles subscribe to that via context.
   const renderMessage = useCallback(
     ({ item }: { item: Message }) => {
       const enrichment = enrichmentMap[item.id];
@@ -326,7 +285,6 @@ export default function ChatDetailScreen() {
         <MessageBubble
           msg={item}
           translatedText={enrichment?.translatedText}
-          pronunciationText={enrichment?.pronunciationText}
           isTranslating={needsFetch}
           translationEnabled={translationEnabled}
           viewerLang={viewerLang}
@@ -407,44 +365,22 @@ export default function ChatDetailScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* ── Toggles ─────────────────────────────────────────────────── */}
-        <View style={styles.toggles}>
-          {/* Pronunciation toggle — controls ONLY Layer 3 visibility */}
-          <TouchableOpacity
-            style={[
-              styles.toggle,
-              showPronunciation
-                ? { backgroundColor: colors.rose, borderColor: colors.rose }
-                : { backgroundColor: colors.muted, borderColor: colors.border },
-            ]}
-            onPress={() => setShowPronunciation(!showPronunciation)}
-            activeOpacity={0.75}
-          >
-            <Feather
-              name="volume-2"
-              size={13}
-              color={showPronunciation ? colors.white : colors.charcoalLight}
-            />
-          </TouchableOpacity>
-
-          {/* Translation toggle */}
-          <TouchableOpacity
-            style={[
-              styles.toggle,
-              translationEnabled
-                ? { backgroundColor: colors.rose, borderColor: colors.rose }
-                : { backgroundColor: colors.muted, borderColor: colors.border },
-            ]}
-            onPress={() => id && toggleTranslation(id)}
-            activeOpacity={0.75}
-          >
-            <Feather
-              name="globe"
-              size={13}
-              color={translationEnabled ? colors.white : colors.charcoalLight}
-            />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[
+            styles.toggle,
+            translationEnabled
+              ? { backgroundColor: colors.rose, borderColor: colors.rose }
+              : { backgroundColor: colors.muted, borderColor: colors.border },
+          ]}
+          onPress={() => id && toggleTranslation(id)}
+          activeOpacity={0.75}
+        >
+          <Feather
+            name="globe"
+            size={13}
+            color={translationEnabled ? colors.white : colors.charcoalLight}
+          />
+        </TouchableOpacity>
       </View>
 
       {/* ── Contact unlock banner ───────────────────────────────────────── */}
@@ -473,7 +409,6 @@ export default function ChatDetailScreen() {
         keyExtractor={(item) => item.id}
         renderItem={renderMessage}
         // extraData triggers re-render when enrichments arrive;
-        // showPronunciation updates happen via context, not extraData
         extraData={enrichmentMap}
         contentContainerStyle={[styles.messageList, { paddingBottom: 16 }]}
         showsVerticalScrollIndicator={false}

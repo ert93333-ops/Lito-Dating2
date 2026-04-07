@@ -14,7 +14,6 @@ interface AppContextType {
   conversations: Conversation[];
   messages: Record<string, Message[]>;
   activeConversationId: string | null;
-  showPronunciation: boolean;
   completeOnboarding: () => void;
   completeProfileSetup: () => void;
   login: () => void;
@@ -26,7 +25,6 @@ interface AppContextType {
   unlockExternalContact: (conversationId: string) => void;
   setActiveConversation: (id: string | null) => void;
   updateProfile: (updates: Partial<MyProfile>) => void;
-  setShowPronunciation: (val: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -45,7 +43,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     conv3: [],
   });
   const [activeConversationId, setActiveConversation] = useState<string | null>(null);
-  const [showPronunciation, setShowPronunciationState] = useState(false);
 
   // Keep a ref to profile so callbacks don't go stale
   const profileRef = useRef(profile);
@@ -56,19 +53,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       "lito_onboarding",
       "lito_profile_setup",
       "lito_logged_in",
-      "lito_pronunciation",
     ]).then((pairs) => {
       const map = Object.fromEntries(pairs.map(([k, v]) => [k, v]));
       if (map["lito_onboarding"] === "done") setHasCompletedOnboarding(true);
       if (map["lito_profile_setup"] === "done") setHasCompletedProfileSetupState(true);
       if (map["lito_logged_in"] === "true") setIsLoggedIn(true);
-      if (map["lito_pronunciation"] === "true") setShowPronunciationState(true);
     });
-  }, []);
-
-  const setShowPronunciation = useCallback((val: boolean) => {
-    setShowPronunciationState(val);
-    AsyncStorage.setItem("lito_pronunciation", val ? "true" : "false");
   }, []);
 
   const completeOnboarding = useCallback(() => {
@@ -172,7 +162,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         conversations,
         messages,
         activeConversationId,
-        showPronunciation,
         completeOnboarding,
         completeProfileSetup,
         login,
@@ -184,7 +173,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         unlockExternalContact,
         setActiveConversation,
         updateProfile,
-        setShowPronunciation,
       }}
     >
       {children}

@@ -27,7 +27,7 @@ const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
   : "http://localhost:8080";
 
-interface BioResult { translation: string; pronunciation: string; }
+interface BioResult { translation: string; }
 const bioCache = new Map<string, BioResult>();
 
 async function fetchBioTranslation(
