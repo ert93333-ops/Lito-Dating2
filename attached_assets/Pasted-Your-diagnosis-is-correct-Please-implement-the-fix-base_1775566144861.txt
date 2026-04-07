@@ -1,0 +1,192 @@
+Your diagnosis is correct.
+
+Please implement the fix based on this root cause:
+
+Root cause:
+- The global translation enrichment pipeline skips messages where msg.originalLanguage === viewerLang
+- For Korean users viewing Korean messages, the global header translation toggle produces no visible change
+- There is currently no per-message translate button, so users feel like translation is broken
+
+Do NOT redesign unrelated parts of the app.
+Do NOT touch onboarding logic.
+Do NOT reintroduce pronunciation.
+Do NOT break working chat translation for cross-language messages.
+
+==================================================
+FIX GOAL
+==================================================
+
+Add per-message translation controls so the user can translate individual messages on demand.
+
+This should work independently from the global translation toggle.
+
+Final UX goal:
+- each received message can be translated individually
+- pressing translate on one message affects only that message
+- translated output appears under the original text
+- loading/error state is handled per message
+- the feature feels responsive and clear
+
+==================================================
+1. KEEP THE ROOT CAUSE IN MIND
+==================================================
+
+The current issue is not that the button handler is fully broken.
+The issue is that the current global enrichment logic silently skips many messages,
+especially when originalLanguage === viewerLang.
+
+So users see no visible change and think translation is broken.
+
+Do not rely only on the global toggle anymore.
+Add per-message translation controls.
+
+==================================================
+2. ADD PER-MESSAGE TRANSLATE BUTTONS
+==================================================
+
+For every received message bubble, add a translate action/button.
+
+Requirements:
+- it should be visible and easy to understand
+- it should not clutter the bubble
+- it should fit the premium chat UI style
+- it should affect only that message
+- it should work whether or not the global translation toggle is enabled
+
+Do not add translation buttons to the user's own outgoing messages unless there is a strong reason.
+Prioritize received messages first.
+
+==================================================
+3. PER-MESSAGE TRANSLATION FLOW
+==================================================
+
+When the user taps translate on a message:
+
+1. identify the message ID
+2. get the original message text
+3. determine source language correctly
+4. determine target language correctly
+5. call the translation logic for that message only
+6. store the result in enrichmentMap[messageId] or equivalent message-keyed state
+7. render the translated text below the original text
+8. preserve the original text
+9. do not overwrite other messages
+
+==================================================
+4. PER-MESSAGE STATE REQUIREMENTS
+==================================================
+
+Each message should support its own:
+- translation result
+- loading state
+- error state
+
+Use per-message keyed state, for example:
+- translationByMessageId
+- loadingByMessageId
+- errorByMessageId
+
+Avoid:
+- one global translatedText
+- one global loading state for all messages
+- one global error state for all messages
+- overwriting translations across different messages
+
+==================================================
+5. GLOBAL TOGGLE RULE
+==================================================
+
+Do not remove the existing global translation toggle unless necessary.
+
+But update the UX so that:
+- global toggle can still control bulk/automatic translation behavior if desired
+- per-message translation always remains available
+- users are never left with “nothing happened” feedback again
+
+If the global toggle stays:
+- make sure it does not create confusion
+- make sure users can still manually translate individual messages
+
+==================================================
+6. HANDLE SAME-LANGUAGE CASES BETTER
+==================================================
+
+If originalLanguage === viewerLang, do not make the feature feel broken.
+
+Possible acceptable behaviors:
+- still allow manual translation to the paired language if this app wants to support bilingual viewing
+- or clearly suppress translation only when truly unnecessary, but do not make the user think the button is broken
+
+Since this is a Korean-Japanese dating app, it is acceptable and useful to support manual translation even when the viewer language matches the original language, if the user wants to see the paired language version.
+
+Implement the UX so the result is clear and useful.
+
+==================================================
+7. UI / UX REQUIREMENTS
+==================================================
+
+The per-message translate button should feel polished.
+
+When pressed:
+- show immediate visual feedback
+- show loading state for that message only
+- keep the original message visible
+- show translated text smoothly when ready
+- if translation fails, show a retryable error state for that message only
+
+Make the control feel integrated into the chat UI, not bolted on.
+
+==================================================
+8. VERIFICATION CASES
+==================================================
+
+After implementing, verify these exact cases:
+
+Case 1:
+Korean user viewing Korean message
+- per-message translate button visible
+- tap it
+- translation appears for that message only
+
+Case 2:
+Japanese user viewing Japanese message
+- same behavior works correctly
+
+Case 3:
+Cross-language message
+- translation still works correctly
+- original text remains visible
+
+Case 4:
+Translate multiple messages
+- each message keeps its own result
+- no overwriting
+
+Case 5:
+One message fails translation
+- only that message shows error state
+- others remain normal
+
+Case 6:
+Global translation toggle still exists
+- it does not conflict with per-message translation
+- users are not confused by invisible no-op behavior
+
+==================================================
+9. REQUIRED OUTPUT
+==================================================
+
+When finished, provide:
+
+1. which files/components were changed
+2. how per-message translate buttons were added
+3. how per-message loading/error/result state is handled
+4. how the same-language silent-skip issue was resolved
+5. how the global toggle and per-message translation now coexist
+6. confirmation that:
+   - translation now feels responsive
+   - users always get visible feedback
+   - original text remains visible
+   - pronunciation was not reintroduced
+
+Do not say the task is complete unless users can translate individual messages directly from the chat bubbles.
