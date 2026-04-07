@@ -64,8 +64,10 @@ function MessageBubble({
   const needsTranslation =
     !isMe && translationEnabled && msg.originalLanguage !== viewerLang;
 
+  // Language label shown on the translation chip: the viewer's language
+  const translationLangLabel = viewerLang === "ja" ? "JA" : "KO";
+
   if (isMe) {
-    // ── Sent message: clean, minimal ──────────────────────────────────────
     return (
       <View style={[bubble.wrap, { alignSelf: "flex-end" }]}>
         <View style={[bubble.balloonMe, { backgroundColor: colors.bubbleMe }]}>
@@ -80,7 +82,7 @@ function MessageBubble({
     );
   }
 
-  // ── Received message: 3-layer hierarchy ──────────────────────────────────
+  // ── Received message ──────────────────────────────────────────────────────
   return (
     <View style={[bubble.wrap, { alignSelf: "flex-start" }]}>
       <View
@@ -89,17 +91,17 @@ function MessageBubble({
           {
             backgroundColor: colors.bubbleThem,
             borderColor: colors.border,
-            // Accent left border shows this is a translated message
             borderLeftColor: needsTranslation ? colors.roseSoft : colors.border,
-            borderLeftWidth: needsTranslation ? 3 : 1,
+            borderLeftWidth: needsTranslation ? 3 : StyleSheet.hairlineWidth,
           },
         ]}
       >
-        {/* ── LAYER 1: original text — ALWAYS visible ──────────────────── */}
+        {/* Layer 1 — original text: authentic voice, muted */}
         <Text style={[bubble.textOriginal, { color: colors.charcoalMid }]}>
           {msg.originalText}
         </Text>
 
+        {/* Translation loading state */}
         {needsTranslation && isTranslating && (
           <>
             <View style={[bubble.divider, { backgroundColor: colors.border }]} />
@@ -111,12 +113,20 @@ function MessageBubble({
           </>
         )}
 
+        {/* Layer 2 — translated text: primary reading content */}
         {needsTranslation && !isTranslating && !!translatedText && (
           <>
             <View style={[bubble.divider, { backgroundColor: colors.border }]} />
-            <Text style={[bubble.textTranslation, { color: colors.charcoal }]}>
-              {translatedText}
-            </Text>
+            <View style={bubble.translationRow}>
+              <View style={[bubble.langChip, { backgroundColor: colors.roseLight }]}>
+                <Text style={[bubble.langChipText, { color: colors.rose }]}>
+                  {translationLangLabel}
+                </Text>
+              </View>
+              <Text style={[bubble.textTranslation, { color: colors.charcoal }]}>
+                {translatedText}
+              </Text>
+            </View>
           </>
         )}
       </View>
@@ -133,46 +143,78 @@ function fmtTime(iso: string) {
 }
 
 const bubble = StyleSheet.create({
-  wrap: { maxWidth: "84%", marginBottom: 10 },
+  wrap: { maxWidth: "80%", marginBottom: 14 },
+
   balloonMe: {
-    borderRadius: 18,
-    borderBottomRightRadius: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderRadius: 20,
+    borderBottomRightRadius: 5,
+    paddingHorizontal: 15,
+    paddingVertical: 11,
   },
+
   balloonThem: {
-    borderRadius: 18,
-    borderBottomLeftRadius: 4,
+    borderRadius: 20,
+    borderBottomLeftRadius: 5,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
+    paddingVertical: 11,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  // Layer 1 — original text
-  // Slightly muted to de-emphasize; still legible, shows authentic voice
+
+  // Layer 1 — original: the raw authentic voice
   textOriginal: {
     fontFamily: "Inter_400Regular",
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14.5,
+    lineHeight: 21,
+    letterSpacing: 0.1,
   },
-  textTranslation: {
+
+  // Layer 2 — translation row wraps chip + text
+  translationRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 7,
+    flexWrap: "wrap",
+  },
+
+  // Small language label chip
+  langChip: {
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    marginTop: 2,
+    alignSelf: "flex-start",
+  },
+  langChipText: {
     fontFamily: "Inter_600SemiBold",
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 9,
+    letterSpacing: 0.8,
   },
+
+  // Layer 2 — translated text: primary readable content
+  textTranslation: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 15.5,
+    lineHeight: 23,
+    flex: 1,
+    flexShrink: 1,
+  },
+
   textMe: {
     fontFamily: "Inter_400Regular",
     fontSize: 15,
     lineHeight: 22,
   },
+
   divider: {
     height: StyleSheet.hairlineWidth,
-    marginVertical: 7,
+    marginVertical: 9,
   },
+
   time: {
     fontFamily: "Inter_400Regular",
     fontSize: 11,
-    marginTop: 4,
-    opacity: 0.55,
+    marginTop: 5,
+    opacity: 0.5,
   },
 });
 
@@ -343,21 +385,37 @@ export default function ChatDetailScreen() {
       <View
         style={[
           styles.header,
-          { paddingTop: topPad + 10, borderBottomColor: colors.border, backgroundColor: colors.surface },
+          {
+            paddingTop: topPad + 8,
+            borderBottomColor: colors.border,
+            backgroundColor: colors.surface,
+          },
         ]}
       >
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-          <Feather name="chevron-left" size={24} color={colors.charcoal} />
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Feather name="arrow-left" size={22} color={colors.charcoal} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.headerUser}>
-          <ProfileImage photoKey={conversation.user.photos[0]} size={36} />
-          <View>
+        <TouchableOpacity style={styles.headerUser} activeOpacity={0.7}>
+          <View style={styles.avatarWrap}>
+            <ProfileImage photoKey={conversation.user.photos[0]} size={40} />
+            <View
+              style={[
+                styles.onlineDot,
+                { backgroundColor: colors.green, borderColor: colors.surface },
+              ]}
+            />
+          </View>
+          <View style={styles.headerInfo}>
             <View style={styles.headerNameRow}>
               <Text style={[styles.headerName, { color: colors.charcoal }]}>
                 {conversation.user.nickname}
               </Text>
-              <CountryFlag country={conversation.user.country} size={12} />
+              <CountryFlag country={conversation.user.country} size={13} />
             </View>
             <Text style={[styles.headerStatus, { color: colors.charcoalLight }]}>
               {conversation.user.lastActive}
@@ -365,9 +423,10 @@ export default function ChatDetailScreen() {
           </View>
         </TouchableOpacity>
 
+        {/* Translation toggle pill */}
         <TouchableOpacity
           style={[
-            styles.toggle,
+            styles.translationToggle,
             translationEnabled
               ? { backgroundColor: colors.rose, borderColor: colors.rose }
               : { backgroundColor: colors.muted, borderColor: colors.border },
@@ -377,27 +436,47 @@ export default function ChatDetailScreen() {
         >
           <Feather
             name="globe"
-            size={13}
+            size={12}
             color={translationEnabled ? colors.white : colors.charcoalLight}
           />
+          <Text
+            style={[
+              styles.translationToggleLabel,
+              { color: translationEnabled ? colors.white : colors.charcoalLight },
+            ]}
+          >
+            {translationEnabled ? "ON" : "OFF"}
+          </Text>
         </TouchableOpacity>
       </View>
 
       {/* ── Contact unlock banner ───────────────────────────────────────── */}
       {!conversation.externalUnlocked && (
         <TouchableOpacity
-          style={[styles.unlockBanner, { backgroundColor: colors.roseLight, borderBottomColor: colors.roseSoft }]}
+          style={[
+            styles.unlockBanner,
+            { backgroundColor: colors.roseLight, borderBottomColor: colors.roseSoft },
+          ]}
           onPress={handleUnlock}
           activeOpacity={0.8}
         >
-          <Feather name="unlock" size={13} color={colors.rose} />
+          <View style={[styles.unlockIconWrap, { backgroundColor: colors.roseSoft }]}>
+            <Feather name="unlock" size={11} color={colors.rose} />
+          </View>
           <Text style={[styles.unlockText, { color: colors.rose }]}>{t("chat.unlock")}</Text>
-          <Feather name="chevron-right" size={13} color={colors.roseSoft} style={{ marginLeft: "auto" }} />
+          <Feather name="chevron-right" size={13} color={colors.roseMid} style={{ marginLeft: "auto" }} />
         </TouchableOpacity>
       )}
       {conversation.externalUnlocked && (
-        <View style={[styles.unlockBanner, { backgroundColor: colors.greenLight, borderBottomColor: "#B2F2C9" }]}>
-          <Feather name="check-circle" size={13} color={colors.green} />
+        <View
+          style={[
+            styles.unlockBanner,
+            { backgroundColor: colors.greenLight, borderBottomColor: "#B2F2C9" },
+          ]}
+        >
+          <View style={[styles.unlockIconWrap, { backgroundColor: "#B2F2C9" }]}>
+            <Feather name="check-circle" size={11} color={colors.green} />
+          </View>
           <Text style={[styles.unlockText, { color: colors.green }]}>{t("chat.unlocked")}</Text>
         </View>
       )}
@@ -408,9 +487,8 @@ export default function ChatDetailScreen() {
         data={convMessages}
         keyExtractor={(item) => item.id}
         renderItem={renderMessage}
-        // extraData triggers re-render when enrichments arrive;
         extraData={enrichmentMap}
-        contentContainerStyle={[styles.messageList, { paddingBottom: 16 }]}
+        contentContainerStyle={[styles.messageList, { paddingBottom: 20 }]}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })}
       />
@@ -426,7 +504,7 @@ export default function ChatDetailScreen() {
             {
               backgroundColor: colors.surface,
               borderTopColor: colors.border,
-              paddingBottom: bottomPad + 10,
+              paddingBottom: bottomPad + 12,
             },
           ]}
         >
@@ -434,7 +512,10 @@ export default function ChatDetailScreen() {
           <TouchableOpacity
             style={[
               styles.aiBtn,
-              { backgroundColor: aiSuggesting ? colors.roseSoft : colors.roseLight },
+              {
+                backgroundColor: aiSuggesting ? colors.roseSoft : colors.roseLight,
+                borderColor: colors.roseSoft,
+              },
             ]}
             onPress={handleAiSuggest}
             disabled={aiSuggesting}
@@ -443,7 +524,10 @@ export default function ChatDetailScreen() {
             {aiSuggesting ? (
               <ActivityIndicator size="small" color={colors.rose} />
             ) : (
-              <Feather name="zap" size={15} color={colors.rose} />
+              <>
+                <Feather name="zap" size={13} color={colors.rose} />
+                <Text style={[styles.aiBtnLabel, { color: colors.rose }]}>AI</Text>
+              </>
             )}
           </TouchableOpacity>
 
@@ -469,7 +553,10 @@ export default function ChatDetailScreen() {
           <TouchableOpacity
             style={[
               styles.sendBtn,
-              { backgroundColor: inputText.trim() ? colors.rose : colors.muted },
+              {
+                backgroundColor: inputText.trim() ? colors.rose : colors.muted,
+                borderColor: inputText.trim() ? colors.rose : colors.border,
+              },
             ]}
             onPress={handleSend}
             disabled={!inputText.trim()}
@@ -477,8 +564,8 @@ export default function ChatDetailScreen() {
           >
             <Feather
               name="send"
-              size={17}
-              color={inputText.trim() ? colors.white : colors.charcoalLight}
+              size={16}
+              color={inputText.trim() ? colors.white : colors.charcoalFaint}
             />
           </TouchableOpacity>
         </View>
@@ -495,23 +582,66 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
-    paddingBottom: 10,
+    paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 8,
+    gap: 10,
   },
-  backBtn: { padding: 4 },
-  headerUser: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 },
-  headerNameRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 1 },
-  headerName: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
-  headerStatus: { fontFamily: "Inter_400Regular", fontSize: 11 },
-  toggles: { flexDirection: "row", alignItems: "center", gap: 6 },
-  toggle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+  backBtn: {
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
+  },
+  avatarWrap: {
+    position: "relative",
+  },
+  onlineDot: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+  },
+  headerUser: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  headerInfo: {
+    flex: 1,
+  },
+  headerNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 2,
+  },
+  headerName: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 16,
+  },
+  headerStatus: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11.5,
+  },
+
+  // Translation toggle — wider pill with label
+  translationToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
     borderWidth: 1,
+  },
+  translationToggleLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 10,
+    letterSpacing: 0.5,
   },
 
   // ── Banners ──────────────────────────────────────────────────────────────
@@ -519,20 +649,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 9,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  unlockIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
   unlockText: {
     fontFamily: "Inter_500Medium",
-    fontSize: 12,
+    fontSize: 12.5,
     flex: 1,
   },
 
   // ── Message list ─────────────────────────────────────────────────────────
   messageList: {
     paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingTop: 18,
   },
 
   // ── Input ────────────────────────────────────────────────────────────────
@@ -545,22 +682,31 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   aiBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: 19,
+    borderWidth: 1,
+    minHeight: 38,
+  },
+  aiBtnLabel: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 10,
+    letterSpacing: 0.3,
   },
   input: {
     flex: 1,
-    borderRadius: 19,
-    paddingHorizontal: 14,
-    paddingTop: 9,
-    paddingBottom: 9,
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingTop: 10,
+    paddingBottom: 10,
     fontFamily: "Inter_400Regular",
     fontSize: 15,
-    maxHeight: 100,
-    borderWidth: 1,
+    lineHeight: 21,
+    maxHeight: 120,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   sendBtn: {
     width: 38,
@@ -568,5 +714,6 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
   },
 });

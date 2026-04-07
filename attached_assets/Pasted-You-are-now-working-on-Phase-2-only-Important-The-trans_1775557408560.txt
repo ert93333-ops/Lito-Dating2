@@ -1,0 +1,172 @@
+You are now working on Phase 2 only.
+
+Important:
+- The translation feature is already working again.
+- Do NOT break it.
+- Do NOT rework the translation pipeline unless absolutely necessary.
+- Do NOT reintroduce pronunciation.
+- This phase is only for chat UI/UX improvement.
+
+==================================================
+PHASE 2 GOAL
+==================================================
+
+Upgrade the chat screen so it feels premium, modern, polished, and trend-forward for a Korean-Japanese dating app.
+
+The app should feel closer to a high-quality East Asian dating product:
+- clean
+- intimate
+- trustworthy
+- elegant
+- mobile-native
+- refined, not flashy
+
+This phase is about presentation, readability, hierarchy, spacing, and component polish.
+
+==================================================
+1. DO NOT TOUCH CORE TRANSLATION BEHAVIOR
+==================================================
+
+Preserve the current working translation behavior exactly.
+
+Each translated message should continue to show:
+- original text
+- translated text
+
+Do not:
+- remove translation
+- hide translation
+- change translation conditions
+- add pronunciation back
+- restructure the translation pipeline unless required for UI rendering stability
+
+==================================================
+2. IMPROVE MESSAGE BUBBLE HIERARCHY
+==================================================
+
+Redesign each message bubble so the hierarchy is more premium and readable.
+
+Required message structure:
+1. original text
+2. translated text
+
+UI goals:
+- original text should feel like the main spoken message
+- translated text should feel intentional and polished, not like debug/helper text
+- translated text should be clearly visible but visually secondary
+- spacing between original and translated text should feel refined
+- line breaks and long multilingual text should wrap cleanly
+- Korean and Japanese should both look good in the same layout
+
+Improve:
+- bubble padding
+- line-height
+- font sizing balance
+- spacing between messages
+- spacing between original and translated text
+- corner radius
+- subtle depth/surface polish
+
+==================================================
+3. IMPROVE CHAT SCREEN COMPONENTS
+==================================================
+
+Upgrade the overall chat screen, including:
+- top navigation bar
+- chat header
+- message list spacing
+- input bar
+- send button
+- attachment / utility icon area if present
+- empty state
+- loading state
+- error state
+
+Design direction:
+- premium Korean/Japanese dating app
+- calm and trustworthy
+- modern and trendy
+- no tacky gradients
+- no overly playful/cute styling
+- no generic bootstrapped template look
+
+==================================================
+4. IMPROVE LANGUAGE CONTEXT UX
+==================================================
+
+Because this is a Korean-Japanese dating app, bilingual communication should feel intentional.
+
+Improve the UI so users can easily understand:
+- which line is the original text
+- which line is the translated text
+
+This can be done subtly through:
+- typography hierarchy
+- spacing
+- tone difference
+- light labels or language chips if appropriate
+
+Do not make the UI noisy.
+Do not clutter every message with heavy labels unless necessary.
+
+==================================================
+5. VISUAL SYSTEM DIRECTION
+==================================================
+
+Use a modern premium visual language appropriate for both Korea and Japan.
+
+Color direction:
+- premium neutral base
+- restrained warm accent
+- clean and soft
+- not neon
+- not muddy
+- not too cold
+- not too pink or childish
+
+Typography direction:
+- prioritize Korean and Japanese readability
+- improve line-height and spacing
+- avoid cramped text
+- use a clean, premium CJK-friendly font stack if the project allows
+
+Component direction:
+- refined surfaces
+- elegant message bubbles
+- coherent spacing rhythm
+- subtle shadows/elevation only if needed
+- polished buttons and icons
+- premium mobile-native feel
+
+==================================================
+6. KEEP CHANGES SCOPED
+==================================================
+
+This phase should only improve the chat UI/UX.
+
+Do not:
+- redesign profile cards yet
+- redesign swipe/discovery yet
+- redesign onboarding yet
+- add new major features
+- reintroduce pronunciation
+- destabilize working translation
+
+Reuse existing working logic where possible.
+Focus on visual refinement and UX polish.
+
+==================================================
+7. REQUIRED OUTPUT FORMAT
+==================================================
+
+When finished, provide:
+
+1. which chat UI components were changed
+2. how message hierarchy was improved
+3. how original text and translated text were visually differentiated
+4. what spacing/typography/bubble improvements were made
+5. what top bar / input bar / chat layout improvements were made
+6. confirmation that translation behavior was preserved
+7. confirmation that pronunciation was not reintroduced
+
+Do not say the phase is complete unless the chat looks more premium and translation still works.
