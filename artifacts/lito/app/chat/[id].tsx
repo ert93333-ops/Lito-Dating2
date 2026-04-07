@@ -7,6 +7,7 @@ import {
   Alert,
   Animated,
   FlatList,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -21,8 +22,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CountryFlag } from "@/components/CountryFlag";
 import { ProfileImage } from "@/components/ProfileImage";
 import { useApp } from "@/context/AppContext";
+import { useGrowth } from "@/context/GrowthContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
+import { AI_COACH_PACKS } from "@/services/monetization";
 import { Message } from "@/types";
 
 const CURRENT_USER_ID = "me";
@@ -303,6 +306,238 @@ const bubble = StyleSheet.create({
   },
 });
 
+// ─── AiCoachCreditsModal ──────────────────────────────────────────────────────
+// Bottom-sheet style modal shown when AI coach credits are exhausted.
+// Offers credit packs (mocked) and plan upgrade without blocking the chat.
+
+interface AiCoachCreditsModalProps {
+  visible: boolean;
+  planId: string;
+  onClose: () => void;
+  onBuyPack: (count: number) => void;
+  onUpgrade: () => void;
+}
+
+function AiCoachCreditsModal({
+  visible,
+  planId,
+  onClose,
+  onBuyPack,
+  onUpgrade,
+}: AiCoachCreditsModalProps) {
+  const colors = useColors();
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
+      <Pressable style={creditModal.backdrop} onPress={onClose} />
+      <View style={[creditModal.sheet, { backgroundColor: colors.surface }]}>
+        {/* Handle */}
+        <View style={[creditModal.handle, { backgroundColor: colors.border }]} />
+
+        {/* Header */}
+        <View style={creditModal.header}>
+          <View style={[creditModal.iconWrap, { backgroundColor: "#FFF0F3" }]}>
+            <Feather name="zap" size={20} color="#D85870" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[creditModal.title, { color: colors.charcoal }]}>
+              AI Coach Credits
+            </Text>
+            <Text style={[creditModal.subtitle, { color: colors.charcoalLight }]}>
+              {planId === "free"
+                ? "You've used your 5 free daily credits"
+                : "You've used your 20 daily credits"}
+            </Text>
+          </View>
+        </View>
+
+        {/* Divider */}
+        <View style={[creditModal.divider, { backgroundColor: colors.border }]} />
+
+        {/* Credit packs */}
+        <Text style={[creditModal.sectionLabel, { color: colors.charcoalLight }]}>
+          Buy extra credits · resets every day
+        </Text>
+
+        {AI_COACH_PACKS.map((pack) => (
+          <Pressable
+            key={pack.count}
+            style={[
+              creditModal.packRow,
+              {
+                backgroundColor: pack.popular ? "#FFF0F3" : colors.background,
+                borderColor: pack.popular ? "#F2BDCA" : colors.border,
+              },
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onBuyPack(pack.count);
+            }}
+          >
+            <View style={creditModal.packLeft}>
+              {pack.popular && (
+                <View style={[creditModal.popularBadge, { backgroundColor: "#D85870" }]}>
+                  <Text style={creditModal.popularText}>Popular</Text>
+                </View>
+              )}
+              <Text style={[creditModal.packLabel, { color: colors.charcoal }]}>
+                {pack.label}
+              </Text>
+              <Text style={[creditModal.packDesc, { color: colors.charcoalLight }]}>
+                one-time purchase
+              </Text>
+            </View>
+            <View style={[creditModal.packPricePill, { backgroundColor: pack.popular ? "#D85870" : colors.muted }]}>
+              <Text style={[creditModal.packPrice, { color: pack.popular ? "#fff" : colors.charcoal }]}>
+                {pack.priceUSD}
+              </Text>
+            </View>
+          </Pressable>
+        ))}
+
+        {/* Upgrade to Premium */}
+        <Pressable
+          style={[creditModal.upgradeBtn, { backgroundColor: "#D85870" }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onUpgrade();
+          }}
+        >
+          <Feather name="zap" size={15} color="#fff" />
+          <Text style={creditModal.upgradeBtnText}>Unlimited with Premium · $19.99/mo</Text>
+        </Pressable>
+
+        <Text style={[creditModal.disclaimer, { color: colors.charcoalFaint }]}>
+          Purchases are mocked — no real charge occurs
+        </Text>
+      </View>
+    </Modal>
+  );
+}
+
+const creditModal = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
+  sheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 22,
+    paddingBottom: 36,
+    paddingTop: 14,
+    gap: 0,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  handle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginBottom: 18,
+  },
+  iconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 18,
+    marginBottom: 3,
+  },
+  subtitle: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13.5,
+    lineHeight: 19,
+  },
+  divider: { height: StyleSheet.hairlineWidth, marginBottom: 16 },
+  sectionLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    letterSpacing: 0.3,
+    marginBottom: 10,
+  },
+  packRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    marginBottom: 9,
+  },
+  packLeft: { gap: 3 },
+  popularBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    alignSelf: "flex-start",
+    marginBottom: 2,
+  },
+  popularText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 9,
+    color: "#fff",
+    letterSpacing: 0.4,
+  },
+  packLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+  },
+  packDesc: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+  },
+  packPricePill: {
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  packPrice: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 14,
+  },
+  upgradeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 100,
+    paddingVertical: 16,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  upgradeBtnText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+    color: "#fff",
+  },
+  disclaimer: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    textAlign: "center",
+  },
+});
+
 // ─── ChatDetailScreen ────────────────────────────────────────────────────────
 
 export default function ChatDetailScreen() {
@@ -318,6 +553,15 @@ export default function ChatDetailScreen() {
     toggleTranslation,
     unlockExternalContact,
   } = useApp();
+  const {
+    subscription,
+    getAiCoachCreditsRemaining,
+    consumeAiCoachCredit,
+    buyAiCoachCredits,
+    upgradePlan,
+  } = useGrowth();
+
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
 
   const [inputText, setInputText] = useState("");
   const sendBtnScale = useRef(new Animated.Value(1)).current;
@@ -532,6 +776,13 @@ export default function ChatDetailScreen() {
 
   const handleAiSuggest = async () => {
     if (aiSuggesting) return;
+    // Credit check — deduct before API call
+    const credited = consumeAiCoachCredit();
+    if (!credited) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setShowCreditsModal(true);
+      return;
+    }
     setAiSuggesting(true);
     try {
       const recentMessages = convMessages.slice(-10).map((m) => ({
@@ -679,6 +930,22 @@ export default function ChatDetailScreen() {
         onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })}
       />
 
+      {/* ── AI Coach credits modal ──────────────────────────────────────── */}
+      <AiCoachCreditsModal
+        visible={showCreditsModal}
+        planId={subscription.planId}
+        onClose={() => setShowCreditsModal(false)}
+        onBuyPack={(count) => {
+          buyAiCoachCredits(count);
+          setShowCreditsModal(false);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }}
+        onUpgrade={() => {
+          setShowCreditsModal(false);
+          router.push("/paywall" as any);
+        }}
+      />
+
       {/* ── Input area ──────────────────────────────────────────────────── */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -694,28 +961,62 @@ export default function ChatDetailScreen() {
             },
           ]}
         >
-          {/* AI suggest button */}
-          <TouchableOpacity
-            style={[
-              styles.aiBtn,
-              {
-                backgroundColor: aiSuggesting ? colors.roseSoft : colors.roseLight,
-                borderColor: colors.roseSoft,
-              },
-            ]}
-            onPress={handleAiSuggest}
-            disabled={aiSuggesting}
-            activeOpacity={0.75}
-          >
-            {aiSuggesting ? (
-              <ActivityIndicator size="small" color={colors.rose} />
-            ) : (
-              <>
-                <Feather name="zap" size={13} color={colors.rose} />
-                <Text style={[styles.aiBtnLabel, { color: colors.rose }]}>AI</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {/* AI suggest button — with live credit display */}
+          {(() => {
+            const remaining = getAiCoachCreditsRemaining();
+            const isUnlimited = remaining === Infinity;
+            const isEmpty = !isUnlimited && remaining <= 0;
+            return (
+              <TouchableOpacity
+                style={[
+                  styles.aiBtn,
+                  {
+                    backgroundColor: isEmpty
+                      ? colors.muted
+                      : aiSuggesting
+                      ? colors.roseSoft
+                      : colors.roseLight,
+                    borderColor: isEmpty ? colors.border : colors.roseSoft,
+                  },
+                ]}
+                onPress={handleAiSuggest}
+                disabled={aiSuggesting}
+                activeOpacity={0.75}
+              >
+                {aiSuggesting ? (
+                  <ActivityIndicator size="small" color={colors.rose} />
+                ) : (
+                  <>
+                    <Feather
+                      name={isEmpty ? "lock" : "zap"}
+                      size={13}
+                      color={isEmpty ? colors.charcoalLight : colors.rose}
+                    />
+                    <Text
+                      style={[
+                        styles.aiBtnLabel,
+                        { color: isEmpty ? colors.charcoalLight : colors.rose },
+                      ]}
+                    >
+                      AI
+                    </Text>
+                    {!isUnlimited && (
+                      <View
+                        style={[
+                          styles.aiBtnBadge,
+                          { backgroundColor: isEmpty ? colors.border : "#D85870" },
+                        ]}
+                      >
+                        <Text style={[styles.aiBtnBadgeText, { color: "#fff" }]}>
+                          {remaining}
+                        </Text>
+                      </View>
+                    )}
+                  </>
+                )}
+              </TouchableOpacity>
+            );
+          })()}
 
           {/* Text input */}
           <TextInput
@@ -870,7 +1171,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   aiBtn: {
-    width: 40,
+    minWidth: 44,
     height: 40,
     borderRadius: 20,
     alignItems: "center",
@@ -879,11 +1180,26 @@ const styles = StyleSheet.create({
     gap: 3,
     borderWidth: 1,
     marginBottom: 4,
+    paddingHorizontal: 10,
   },
   aiBtnLabel: {
     fontFamily: "Inter_700Bold",
     fontSize: 10,
     letterSpacing: 0.3,
+  },
+  aiBtnBadge: {
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    marginLeft: 1,
+  },
+  aiBtnBadgeText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 9,
+    letterSpacing: 0.2,
   },
   input: {
     flex: 1,

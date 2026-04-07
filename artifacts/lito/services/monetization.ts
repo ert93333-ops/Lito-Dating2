@@ -91,6 +91,7 @@ export const PLANS: Plan[] = [
       "ai_profile_coach",
       "ai_opener_unlimited",
       "priority_exposure",
+      "ai_coach_unlimited",
     ],
     dailyLikes: null,
     monthlyBoosts: 2,
@@ -129,7 +130,29 @@ export const CONSUMABLES: ConsumableDefinition[] = [
     description: "In-depth AI analysis of your profile with improvement tips",
     priceUSD: "$1.99",
   },
+  {
+    id: "ai_coach_credit",
+    name: "AI Coach Credits",
+    description: "AI conversation coaching uses that stack on top of your daily quota",
+    priceUSD: "$0.99",
+  },
 ];
+
+// ── AI Coach credit limits ────────────────────────────────────────────────────
+
+/** Daily AI coach use limit per plan. null = unlimited (Premium). */
+export function getAiCoachDailyLimit(planId: PlanId): number | null {
+  if (planId === "premium") return null;
+  if (planId === "plus") return 20;
+  return 5; // free
+}
+
+/** Credit pack sizes and their display prices for the purchase UI. */
+export const AI_COACH_PACKS = [
+  { count: 10, label: "10 uses",  priceUSD: "$0.99",  popular: false },
+  { count: 30, label: "30 uses",  priceUSD: "$1.99",  popular: true  },
+  { count: 100, label: "100 uses", priceUSD: "$4.99",  popular: false },
+] as const;
 
 export function getConsumable(id: ConsumableId): ConsumableDefinition | undefined {
   return CONSUMABLES.find((c) => c.id === id);

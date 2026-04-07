@@ -18,9 +18,10 @@ export type EntitlementKey =
   | "ai_profile_coach"       // Premium: unlimited AI coach usage
   | "ai_opener_unlimited"    // Premium: unlimited AI opener suggestions
   | "priority_exposure"      // Premium: ranked higher in discovery
-  | "chemistry_picks_daily"; // All plans: basic picks (Free = 3/day, Plus+ = unlimited)
+  | "chemistry_picks_daily"  // All plans: basic picks (Free = 3/day, Plus+ = unlimited)
+  | "ai_coach_unlimited";   // Premium: unlimited AI conversation coach uses
 
-export type ConsumableId = "boost" | "direct_intro" | "city_pass" | "ai_review";
+export type ConsumableId = "boost" | "direct_intro" | "city_pass" | "ai_review" | "ai_coach_credit";
 
 export interface Plan {
   id: PlanId;

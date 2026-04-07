@@ -25,6 +25,7 @@ import {
 import { trackEvent } from "@/services/analytics";
 import {
   defaultSubscriptionState,
+  getAiCoachDailyLimit,
   getDailyLikeLimit,
   isEntitled,
   mockAddConsumable,
@@ -80,6 +81,11 @@ interface GrowthContextType {
   applyReferralCode: (code: string) => boolean;
   claimReferralReward: (rewardId: string) => void;
   simulateReferralSuccess: () => void;
+
+  // AI Coach credits
+  getAiCoachCreditsRemaining: () => number;
+  consumeAiCoachCredit: () => boolean;
+  buyAiCoachCredits: (count: number) => void;
 
   // Analytics (pass-through so screens don't import service directly)
   track: typeof trackEvent;
@@ -174,6 +180,58 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
     // Mock upgrade — replace with real billing in production
     setSubscription((prev) => mockUpgradeToPlan(prev, planId));
     trackEvent("purchase_completed", { plan: planId });
+  }, []);
+
+  // ── AI Coach credit methods ─────────────────────────────────────────────────
+
+  const getAiCoachCreditsRemaining = useCallback((): number => {
+    const sub = subscriptionRef.current;
+    // Premium users have unlimited access — return a sentinel Infinity
+    if (isEntitled(sub, "ai_coach_unlimited")) return Infinity;
+    const dailyLimit = getAiCoachDailyLimit(sub.planId) ?? 0;
+    const usedToday = sub.featureUsage["ai_coach_uses"] ?? 0;
+    const planLeft = Math.max(0, dailyLimit - usedToday);
+    const packs = sub.consumables["ai_coach_credit"] ?? 0;
+    return planLeft + packs;
+  }, []);
+
+  const consumeAiCoachCredit = useCallback((): boolean => {
+    const sub = subscriptionRef.current;
+    // Premium unlimited — allow without deduction
+    if (isEntitled(sub, "ai_coach_unlimited")) {
+      trackEvent("ai_coach_used" as any);
+      return true;
+    }
+    const dailyLimit = getAiCoachDailyLimit(sub.planId) ?? 0;
+    const usedToday = sub.featureUsage["ai_coach_uses"] ?? 0;
+    const planLeft = Math.max(0, dailyLimit - usedToday);
+    const packs = sub.consumables["ai_coach_credit"] ?? 0;
+
+    if (planLeft > 0) {
+      // Deduct from daily plan quota
+      setSubscription((prev) => ({
+        ...prev,
+        featureUsage: { ...prev.featureUsage, ai_coach_uses: usedToday + 1 },
+      }));
+      trackEvent("ai_coach_used" as any);
+      return true;
+    } else if (packs > 0) {
+      // Deduct from purchased credit pack
+      setSubscription((prev) => ({
+        ...prev,
+        consumables: { ...prev.consumables, ai_coach_credit: packs - 1 },
+      }));
+      trackEvent("ai_coach_used" as any);
+      return true;
+    } else {
+      trackEvent("feature_gate_hit", { feature: "ai_coach", plan: sub.planId });
+      return false;
+    }
+  }, []);
+
+  const buyAiCoachCredits = useCallback((count: number) => {
+    setSubscription((prev) => mockAddConsumable(prev, "ai_coach_credit", count));
+    trackEvent("purchase_completed", { plan: "consumable" } as any);
   }, []);
 
   // ── AI Matching methods ─────────────────────────────────────────────────────
@@ -283,6 +341,9 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
         applyReferralCode,
         claimReferralReward,
         simulateReferralSuccess,
+        getAiCoachCreditsRemaining,
+        consumeAiCoachCredit,
+        buyAiCoachCredits,
         track: trackEvent,
       }}
     >

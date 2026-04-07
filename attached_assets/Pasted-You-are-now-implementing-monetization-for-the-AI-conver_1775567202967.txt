@@ -1,0 +1,120 @@
+You are now implementing monetization for the AI conversation coach feature.
+
+Important:
+- Do NOT break chat translation
+- Do NOT reintroduce pronunciation
+- Do NOT auto-insert messages into chat
+- AI must remain a conversation coach, not a message generator
+
+==================================================
+GOAL
+==================================================
+
+Implement a credit-based monetization system for AI conversation coaching.
+
+The system should:
+- feel natural and fair
+- encourage usage
+- increase conversion to paid users
+- not feel restrictive or annoying
+
+==================================================
+1. CREDIT SYSTEM
+==================================================
+
+Implement a usage-based credit system:
+
+Free users:
+- limited uses (e.g. 3–5 per hour or per day)
+
+Plus users:
+- higher usage limit
+- faster recharge
+
+Premium users:
+- significantly higher usage
+- near-unlimited feel (but not truly unlimited)
+
+==================================================
+2. CREDIT DISPLAY
+==================================================
+
+Always show remaining credits in UI:
+
+- near AI button
+- or above input field
+
+Example:
+"AI ⚡ 3/5"
+
+Update in real-time after each use.
+
+==================================================
+3. USAGE FLOW
+==================================================
+
+When user taps AI coach:
+
+- deduct 1 credit
+- show updated count
+- display coaching UI
+
+If user has no credits:
+
+- show limit reached message
+- show recharge timer
+- offer purchase options
+
+==================================================
+4. PURCHASE FLOW
+==================================================
+
+Implement:
+
+- small credit packs
+- larger discounted packs
+- upgrade to Premium
+
+Example packs:
+- 10 uses
+- 30 uses
+- 100 uses
+
+==================================================
+5. UX REQUIREMENTS
+==================================================
+
+System must feel:
+- rewarding
+- transparent
+- non-frustrating
+
+Do NOT:
+- hide usage limits
+- suddenly block without explanation
+- make it feel like a paywall trap
+
+==================================================
+6. DIFFERENTIATE FREE VS PREMIUM
+==================================================
+
+Premium should provide:
+- more usage
+- better quality suggestions
+- deeper coaching insights
+
+Free should still feel useful.
+
+==================================================
+7. REQUIRED OUTPUT
+==================================================
+
+Provide:
+
+1. credit system implementation
+2. UI display for credits
+3. usage deduction logic
+4. limit reached UX
+5. purchase flow structure
+6. Premium differentiation logic
+7. confirmation that AI coach works with credit system
