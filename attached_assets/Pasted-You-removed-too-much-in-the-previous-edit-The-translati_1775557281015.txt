@@ -1,0 +1,156 @@
+You removed too much in the previous edit.
+
+The translation feature must remain.
+Only the pronunciation feature should be removed.
+
+This is a correction task.
+
+==================================================
+CRITICAL RULE
+==================================================
+
+Do NOT remove, disable, or break translation.
+
+Translation is a core feature and must stay fully working.
+
+You must preserve:
+- translation API calls
+- translation response parsing
+- translatedText data
+- translated text rendering
+- any existing translation pipeline
+
+You must remove ONLY pronunciation-related UI and logic.
+
+==================================================
+GOAL
+==================================================
+
+Fix the previous over-removal.
+
+Final result must be:
+- pronunciation feature removed
+- translation feature preserved
+- each translated message shows:
+  - original text
+  - translated text
+
+==================================================
+1. RESTORE / PRESERVE TRANSLATION
+==================================================
+
+First inspect what was removed or broken.
+
+If translation logic was removed, restore it.
+
+Translation must remain in the chat system, including:
+- translation request logic
+- translatedText storage
+- translatedText rendering
+- any message mapping needed for translation
+- language-based translation flow
+
+Do not simplify the system by deleting translation.
+
+==================================================
+2. REMOVE ONLY PRONUNCIATION-SPECIFIC PARTS
+==================================================
+
+Remove only these pronunciation-specific parts:
+
+- pronunciation toggle button
+- pronunciation line in message bubble
+- pronunciation-only labels/icons
+- pronunciation-only state variables
+- pronunciation-only parsing fields
+- pronunciation-only conditionals
+- pronunciation-only API calls, if separate from translation
+- pronunciation-only settings/options
+
+Important:
+If pronunciation and translation currently share some code path,
+refactor them so translation remains and only pronunciation is removed.
+
+Do NOT delete shared translation infrastructure.
+
+==================================================
+3. REQUIRED MESSAGE RENDERING
+==================================================
+
+Each message bubble must render like this:
+
+MessageBubble
+- OriginalText
+- TranslatedText (if translatedText exists)
+
+There should be no pronunciation row anymore.
+
+Rules:
+- original text always shows
+- translated text shows whenever translation exists
+- translation must not disappear
+- translation must not be removed from the UI
+- no other toggle should affect translation visibility
+
+==================================================
+4. SAFE REFACTOR RULE
+==================================================
+
+Before deleting any code, determine whether it is:
+A) translation-related
+B) pronunciation-related
+C) shared by both
+
+Rules:
+- A: keep
+- B: remove
+- C: refactor carefully, then remove only the pronunciation portion
+
+Do not mass-delete anything that might be part of translation.
+
+==================================================
+5. VERIFICATION
+==================================================
+
+After fixing, verify these exact cases:
+
+Case 1:
+Translated message
+Expected:
+- original text visible
+- translated text visible
+
+Case 2:
+Multiple translated messages
+Expected:
+- all original texts visible
+- all translated texts visible
+
+Case 3:
+No pronunciation UI remains
+Expected:
+- no pronunciation button
+- no pronunciation row
+- no pronunciation label
+
+Case 4:
+Translation pipeline still works
+Expected:
+- translation request/response still functions
+- translated text still renders correctly
+
+==================================================
+6. REQUIRED OUTPUT
+==================================================
+
+When finished, provide:
+
+1. what translation logic was preserved or restored
+2. what pronunciation-only code was removed
+3. which files/components were changed
+4. the final message rendering logic
+5. confirmation that translation remains active
+6. confirmation that pronunciation is fully removed
+
+Do not remove translation again.
+Do not say the task is complete unless translated text is still visible in chat.
