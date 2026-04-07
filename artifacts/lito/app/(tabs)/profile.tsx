@@ -16,8 +16,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CountryFlag } from "@/components/CountryFlag";
 import { ProfileImage } from "@/components/ProfileImage";
 import { useApp } from "@/context/AppContext";
+import { useGrowth } from "@/context/GrowthContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
+import { PLANS } from "@/services/monetization";
 
 const { width } = Dimensions.get("window");
 
@@ -25,7 +27,10 @@ export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { profile, logout } = useApp();
+  const { subscription, track } = useGrowth();
   const { t, lang } = useLocale();
+
+  const currentPlan = PLANS.find((p) => p.id === subscription.planId) ?? PLANS[0];
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -237,6 +242,89 @@ export default function ProfileScreen() {
           </Text>
         </View>
       ) : null}
+
+      {/* ── Growth section ────────────────────────────────────────────────── */}
+      <View style={[styles.section, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.sectionLabel, { color: colors.charcoalLight }]}>
+          {lang === "ko" ? "멤버십 & AI" : "メンバーシップ & AI"}
+        </Text>
+
+        {/* Plan badge */}
+        <View style={[styles.planRow, { borderColor: colors.border }]}>
+          <View style={[styles.planBadgeIcon, { backgroundColor: subscription.planId === "free" ? colors.roseLight : "#FFF4F7" }]}>
+            <Feather
+              name={subscription.planId === "premium" ? "star" : subscription.planId === "plus" ? "zap" : "user"}
+              size={14}
+              color={subscription.planId === "free" ? colors.charcoalMid : "#B83058"}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.planName, { color: colors.charcoal }]}>
+              {currentPlan.name} {lang === "ko" ? "멤버" : "メンバー"}
+            </Text>
+            <Text style={[styles.planTagline, { color: colors.charcoalLight }]}>
+              {currentPlan.tagline}
+            </Text>
+          </View>
+          {subscription.planId === "free" && (
+            <TouchableOpacity
+              style={[styles.upgradeChip, { backgroundColor: "#B83058" }]}
+              onPress={() => {
+                track("paywall_viewed", { entry: "profile" });
+                router.push("/paywall" as any);
+              }}
+            >
+              <Text style={styles.upgradeChipText}>
+                {lang === "ko" ? "업그레이드" : "アップグレード"}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* AI Coach */}
+        <TouchableOpacity
+          style={[styles.growthBtn, { borderColor: colors.border }]}
+          onPress={() => {
+            track("profile_coach_opened");
+            router.push("/profile-coach" as any);
+          }}
+        >
+          <View style={[styles.growthBtnIcon, { backgroundColor: colors.roseLight }]}>
+            <Feather name="cpu" size={15} color={colors.rose} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.growthBtnLabel, { color: colors.charcoal }]}>
+              {lang === "ko" ? "AI 프로필 코치" : "AI プロフィールコーチ"}
+            </Text>
+            <Text style={[styles.growthBtnSub, { color: colors.charcoalLight }]}>
+              {lang === "ko" ? "프로필 개선 제안 받기" : "プロフィール改善提案を見る"}
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={15} color={colors.charcoalLight} />
+        </TouchableOpacity>
+
+        {/* Referral */}
+        <TouchableOpacity
+          style={[styles.growthBtn, { borderColor: colors.border }]}
+          onPress={() => {
+            track("invite_link_created");
+            router.push("/referral" as any);
+          }}
+        >
+          <View style={[styles.growthBtnIcon, { backgroundColor: colors.roseLight }]}>
+            <Feather name="gift" size={15} color={colors.rose} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.growthBtnLabel, { color: colors.charcoal }]}>
+              {lang === "ko" ? "친구 초대" : "友達招待"}
+            </Text>
+            <Text style={[styles.growthBtnSub, { color: colors.charcoalLight }]}>
+              {lang === "ko" ? "초대하면 둘 다 보상을 받아요" : "招待するとお互いに特典があります"}
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={15} color={colors.charcoalLight} />
+        </TouchableOpacity>
+      </View>
 
       {/* ── Actions ──────────────────────────────────────────────────────── */}
       <View
@@ -478,6 +566,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
   },
+
+  // ── Growth section ────────────────────────────────────────────────────────
+  planRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginBottom: 6,
+  },
+  planBadgeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  planName: { fontFamily: "Inter_600SemiBold", fontSize: 15, marginBottom: 1 },
+  planTagline: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  upgradeChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  upgradeChipText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    color: "#fff",
+  },
+  growthBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  growthBtnIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  growthBtnLabel: { fontFamily: "Inter_500Medium", fontSize: 15, marginBottom: 1 },
+  growthBtnSub: { fontFamily: "Inter_400Regular", fontSize: 12 },
 
   // ── Actions ───────────────────────────────────────────────────────────────
   actionsCard: {

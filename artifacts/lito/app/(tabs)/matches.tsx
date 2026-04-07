@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CountryFlag } from "@/components/CountryFlag";
 import { ProfileImage } from "@/components/ProfileImage";
 import { useApp } from "@/context/AppContext";
+import { useGrowth } from "@/context/GrowthContext";
 import { useColors } from "@/hooks/useColors";
 import { Match } from "@/types";
 
@@ -61,6 +62,7 @@ export default function MatchesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { matches } = useApp();
+  const { referral, track } = useGrowth();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
@@ -122,6 +124,29 @@ export default function MatchesScreen() {
           </Text>
         </View>
       )}
+
+      {/* ── Referral nudge ──────────────────────────────────────────────── */}
+      <View style={[styles.referralNudge, { backgroundColor: "#FFF0F3", borderColor: "#F2BDCA" }]}>
+        <View style={styles.referralNudgeLeft}>
+          <Text style={[styles.referralNudgeTitle, { color: colors.charcoal }]}>
+            친구에게 Lito를 소개해요 🎁
+          </Text>
+          <Text style={[styles.referralNudgeSub, { color: colors.charcoalLight }]}>
+            {referral.successfulReferrals > 0
+              ? `${referral.successfulReferrals}명 초대 완료 · 보상 확인하기`
+              : "초대하면 부스트 크레딧을 받아요"}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.referralNudgeBtn, { backgroundColor: colors.rose }]}
+          onPress={() => {
+            track("invite_link_created");
+            router.push("/referral" as any);
+          }}
+        >
+          <Feather name="gift" size={14} color="#fff" />
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
@@ -219,6 +244,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   chatIcon: { marginLeft: 8 },
+  referralNudge: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 24,
+    marginTop: 20,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    gap: 12,
+  },
+  referralNudgeLeft: { flex: 1 },
+  referralNudgeTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14, marginBottom: 3 },
+  referralNudgeSub: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  referralNudgeBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   empty: {
     alignItems: "center",
     justifyContent: "center",

@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Dimensions,
@@ -25,6 +26,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CountryFlag } from "@/components/CountryFlag";
 import { ProfileImage } from "@/components/ProfileImage";
 import { useApp } from "@/context/AppContext";
+import { useGrowth } from "@/context/GrowthContext";
 import { useColors } from "@/hooks/useColors";
 import { User } from "@/types";
 
@@ -452,6 +454,7 @@ export default function DiscoverScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { discoverUsers, likeUser, passUser } = useApp();
+  const { chemistryPicks, track } = useGrowth();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
@@ -486,6 +489,22 @@ export default function DiscoverScreen() {
       <View style={[styles.header, { paddingTop: topPad + 14 }]}>
         <Text style={[styles.logo, { color: colors.rose }]}>lito</Text>
         <View style={styles.headerRight}>
+          {/* Chemistry Picks pill — navigates to profile coach for now */}
+          {chemistryPicks.length > 0 && (
+            <TouchableOpacity
+              style={[styles.picksPill, { backgroundColor: "#FFF0F3", borderColor: "#F2BDCA" }]}
+              onPress={() => {
+                track("daily_picks_viewed");
+                router.push("/profile-coach" as any);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.picksEmoji]}>✨</Text>
+              <Text style={[styles.picksText, { color: colors.rose }]}>
+                {chemistryPicks.length} Picks
+              </Text>
+            </TouchableOpacity>
+          )}
           <View style={[styles.onlinePill, { backgroundColor: colors.greenLight }]}>
             <View style={[styles.onlineDot, { backgroundColor: colors.green }]} />
             <Text style={[styles.onlineText, { color: colors.green }]}>
@@ -592,6 +611,17 @@ const styles = StyleSheet.create({
     letterSpacing: -0.8,
   },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  picksPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    gap: 4,
+    borderWidth: 1,
+  },
+  picksEmoji: { fontSize: 11 },
+  picksText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
   onlinePill: {
     flexDirection: "row",
     alignItems: "center",

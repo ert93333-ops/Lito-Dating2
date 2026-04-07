@@ -16,6 +16,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider, useApp } from "@/context/AppContext";
+import { GrowthProvider } from "@/context/GrowthContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -50,6 +51,9 @@ function RootNavigator() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
+      <Stack.Screen name="paywall" options={{ headerShown: false, presentation: "modal" }} />
+      <Stack.Screen name="profile-coach" options={{ headerShown: false }} />
+      <Stack.Screen name="referral" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -79,13 +83,15 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <AppProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <KeyboardProvider>
-                <FontLoader>
-                  <RootNavigator />
-                </FontLoader>
-              </KeyboardProvider>
-            </GestureHandlerRootView>
+            <GrowthProvider>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <KeyboardProvider>
+                  <FontLoader>
+                    <RootNavigator />
+                  </FontLoader>
+                </KeyboardProvider>
+              </GestureHandlerRootView>
+            </GrowthProvider>
           </AppProvider>
         </QueryClientProvider>
       </ErrorBoundary>

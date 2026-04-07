@@ -1,0 +1,574 @@
+You are now working on Phase 5 only.
+
+Important current baseline:
+- pronunciation has already been removed
+- chat translation is working
+- chat UI has already been improved
+- profile/discovery UI and swipe motion have already been improved
+- onboarding now includes country selection and automatic primary language setup
+
+Do NOT break any of the above.
+Do NOT reintroduce pronunciation.
+Do NOT remove or destabilize chat translation.
+
+This phase is about product growth systems only:
+1. monetization
+2. AI matching
+3. viral/referral/share loops
+
+This is not a superficial styling task.
+This is a product architecture + UX + implementation task for a Korean-Japanese dating app.
+
+==================================================
+PHASE 5 GOAL
+==================================================
+
+Add a modern growth layer to the app so it can:
+- monetize effectively without harming trust
+- improve match quality using AI
+- grow through referrals, sharing, and social loops
+
+The app should feel like a premium, trustworthy Korean-Japanese dating product,
+not a cheap swipe toy.
+
+Work in a structured way:
+1. review current architecture
+2. add growth-related data models and service structure
+3. implement monetization foundation
+4. implement AI matching MVP
+5. implement viral/referral MVP
+6. connect analytics and feature flags
+7. verify that core app behavior is preserved
+
+==================================================
+1. DO NOT REGRESS EXISTING CORE FEATURES
+==================================================
+
+Preserve the following exactly:
+- onboarding country selection
+- automatic primary language setup
+- working chat translation
+- improved chat UI
+- improved profile/discovery UI
+- improved swipe motion
+
+Do NOT:
+- redesign the whole app again
+- modify translation logic unless absolutely necessary for integration safety
+- reintroduce pronunciation
+- break profile or onboarding behavior
+- add random unrelated features
+
+==================================================
+2. PRODUCT PRINCIPLES
+==================================================
+
+This app is a Korean-Japanese dating app.
+Growth systems must fit that identity.
+
+Principles:
+- trust first
+- translation remains a core feature, not a premium-only feature
+- safety and verification should not be paywalled
+- monetization should accelerate matching, not block basic communication
+- AI should improve compatibility and conversation quality, not feel creepy
+- viral loops should feel socially natural, not spammy
+- visual design should stay premium, warm, and modern for Korea and Japan
+
+Do NOT turn the app into:
+- a gambling-style boost machine
+- a noisy social feed
+- a manipulative paywall trap
+- a low-trust growth hack app
+
+==================================================
+3. MONETIZATION STRUCTURE
+==================================================
+
+Implement a monetization foundation with three layers:
+- Free
+- Plus
+- Premium
+
+Also support consumable items.
+
+----------------------------------
+3A. FREE TIER
+----------------------------------
+
+Free users should keep access to core trust and communication features:
+- account creation and onboarding
+- country/language setup
+- profile browsing
+- basic likes/swipes
+- matching
+- chat
+- translation in chat
+- reporting/blocking
+- verification flows
+- basic profile creation
+- limited AI recommendations
+
+Do NOT paywall:
+- translation
+- safety/reporting
+- verification
+- basic matching and chat
+
+----------------------------------
+3B. PLUS TIER
+----------------------------------
+
+Plus should provide acceleration and convenience.
+
+Recommended Plus benefits:
+- more daily likes or discovery actions
+- rewind / undo
+- advanced filters:
+  - country
+  - language
+  - interests
+  - relationship intent
+- one periodic boost allowance
+- limited city/travel mode
+- better visibility in discovery
+
+----------------------------------
+3C. PREMIUM TIER
+----------------------------------
+
+Premium should provide deeper control and insight.
+
+Recommended Premium benefits:
+- see who liked you
+- incognito / private mode
+- direct intro before match (limited or monthly quota)
+- priority exposure in recommendations
+- unlimited AI profile coach
+- unlimited AI opener suggestions
+- deeper compatibility explanation
+- event priority access if event features exist later
+
+----------------------------------
+3D. CONSUMABLE ITEMS
+----------------------------------
+
+Add support for consumables such as:
+- Boost
+- Direct Intro pack
+- City Pass / Travel Pass
+- AI profile review credit
+- AI photo review credit
+
+Do not hardcode only one product.
+Create a flexible product/entitlement system.
+
+----------------------------------
+3E. PAYWALL / ENTITLEMENT UX
+----------------------------------
+
+Implement:
+- subscription paywall screen
+- feature comparison screen
+- entitlement checks
+- usage limits for gated features
+- purchase-ready architecture
+
+If real billing is not configured yet:
+- build a clean billing abstraction
+- support mock or placeholder purchase flows
+- clearly structure the code so real app store billing can be connected later
+- do not fake real purchases in production paths
+
+----------------------------------
+3F. MONETIZATION ANALYTICS
+----------------------------------
+
+Track:
+- paywall viewed
+- plan selected
+- purchase started
+- purchase completed
+- feature gate hit
+- boost used
+- direct intro used
+- conversion by entry point
+
+==================================================
+4. AI MATCHING STRUCTURE
+==================================================
+
+Implement an AI matching MVP that improves:
+- who is recommended
+- how users present themselves
+- how conversations get started
+
+The AI system should be helpful, explainable, and privacy-aware.
+
+----------------------------------
+4A. DAILY CHEMISTRY PICKS
+----------------------------------
+
+Add a daily recommendation module such as:
+- Daily Chemistry Picks
+- Han-Ja Chemistry Picks
+- Recommended for You
+
+This recommendation system should consider signals such as:
+- relationship intent
+- interests and hobbies
+- values/personality signals
+- country and language context
+- openness to cross-cultural dating
+- preferred communication style
+- response tempo / chat activity patterns if available
+- travel / relocation openness if available
+- verification/safety confidence
+- learned user preferences from behavior
+
+Do NOT reduce matching to only appearance.
+
+----------------------------------
+4B. MATCH SCORE LOGIC
+----------------------------------
+
+Create a structured compatibility scoring system.
+
+Use a transparent scoring approach like:
+- relationship intent fit
+- values/interests overlap
+- language/cultural compatibility
+- conversation style compatibility
+- real-world meeting feasibility
+- user preference learning
+- safety / trust confidence
+
+The exact formula can be heuristic/rule-based first.
+Do not claim advanced AI if the current implementation is heuristic.
+Be honest in architecture and comments.
+
+Each recommendation should support a short explanation such as:
+- similar relationship goals
+- shared interests
+- compatible language context
+- similar reply tempo
+- good Korea-Japan lifestyle fit
+
+----------------------------------
+4C. AI PROFILE COACH
+----------------------------------
+
+Implement an AI profile helper that can:
+- suggest a better self-introduction
+- improve tone clarity
+- reduce awkward or too-generic language
+- help adapt profile text for Korean/Japanese audiences
+- suggest stronger profile structure
+- optionally suggest better photo ordering if image metadata is available
+
+Important:
+- do not overwrite the user’s profile automatically
+- provide suggestions the user can review and accept
+- maintain user voice
+
+----------------------------------
+4D. AI OPENER SUGGESTIONS
+----------------------------------
+
+Implement a feature that suggests conversation starters based on:
+- profile data
+- interests
+- country/language context
+- cross-cultural comfort
+
+This should help users start better conversations.
+It should not feel robotic or embarrassing.
+
+Examples:
+- profile-based first message suggestions
+- context-aware icebreakers
+- soft first date topic suggestions
+
+----------------------------------
+4E. SAFETY / QUALITY ASSIST LAYER
+----------------------------------
+
+Add a lightweight AI safety-support structure where appropriate:
+- suspicious pattern flagging hooks
+- abusive or overly risky opener warnings
+- unsafe behavior scoring hooks
+- moderation-ready architecture
+
+Do NOT overbuild this if the moderation system is not ready.
+Create extensible structure.
+
+----------------------------------
+4F. PRIVACY RULES
+----------------------------------
+
+Important privacy requirements:
+- do not use private message content for ranking by default
+- if any future message-based personalization is planned, keep it opt-in only
+- do not penalize users for weaker language ability
+- translation dependence should not be treated as a negative trait
+- recommendation reasons should be understandable
+
+----------------------------------
+4G. AI ANALYTICS
+----------------------------------
+
+Track:
+- daily picks viewed
+- daily picks liked
+- profile coach opened
+- profile suggestion accepted
+- opener suggestion used
+- AI recommendation to match conversion
+- AI recommendation to chat-start conversion
+
+==================================================
+5. VIRAL / REFERRAL / SHARE STRUCTURE
+==================================================
+
+Implement viral growth loops that feel natural and brand-safe.
+
+Focus on MVP versions of:
+- referral
+- friend-assisted discovery
+- shareable content
+
+Do not turn the app into a full social network.
+
+----------------------------------
+5A. REFERRAL SYSTEM
+----------------------------------
+
+Create a referral system where users can invite friends.
+
+Requirements:
+- unique referral link/code
+- basic reward logic
+- reward state tracking
+- referral attribution analytics
+
+Suggested rewards:
+- Boost credit
+- Direct Intro credit
+- limited premium trial
+- bonus likes/discovery actions
+
+Rewards should be digital and product-native.
+Do not use cash-like mechanics.
+
+----------------------------------
+5B. FRIEND-ASSISTED DISCOVERY MVP
+----------------------------------
+
+Create an MVP version of a friend-help feature similar to:
+- Wingmate
+- Friend picks
+- Help me choose
+
+This can be lightweight:
+- user shares a limited link
+- friend can view a small curated set of profiles or profile summaries
+- friend can vote or recommend
+- the main user sees friend input inside the app
+
+Keep privacy safe.
+Do not expose full sensitive details carelessly.
+
+If no-login friend participation is too large for current scope:
+- build the architecture and UI flow first
+- support an invite state and internal friend feedback flow
+- prepare the system cleanly for later expansion
+
+----------------------------------
+5C. SHAREABLE CHEMISTRY CARDS
+----------------------------------
+
+Add shareable lightweight cards such as:
+- my Korea-Japan dating type
+- my conversation style
+- my cultural chemistry summary
+- compatibility card
+- profile first-impression summary
+
+Requirements:
+- easy to generate
+- visually premium
+- safe to share
+- avoid exposing sensitive private data by default
+- suitable for social sharing screenshots
+
+These should help organic growth without feeling cringey.
+
+----------------------------------
+5D. DATE SHARING / TRUST LOOP HOOKS
+----------------------------------
+
+Prepare optional trust-sharing hooks such as:
+- share date plan with friend
+- share match/update with friend
+- safe-date status architecture
+
+This can be lightweight in MVP.
+Do not overcomplicate it.
+
+----------------------------------
+5E. VIRAL ANALYTICS
+----------------------------------
+
+Track:
+- invite link created
+- invite link opened
+- referral signup completed
+- reward granted
+- chemistry card generated
+- chemistry card shared
+- friend-help flow started
+- friend-help flow completed
+
+==================================================
+6. DATA MODEL / ARCHITECTURE REQUIREMENTS
+==================================================
+
+Inspect the existing codebase and add clean growth-related structures.
+
+Add or extend models/services for:
+- subscription plans
+- entitlements
+- consumable inventory
+- purchase history
+- feature usage limits
+- referrals
+- referral rewards
+- shareable cards
+- AI recommendation candidates
+- compatibility explanations
+- AI profile suggestions
+- AI opener suggestions
+- analytics events
+- feature flags
+
+Use architecture that is maintainable.
+Do not scatter hardcoded logic across random UI files.
+
+Where possible:
+- isolate business logic from presentation
+- keep monetization checks centralized
+- keep recommendation logic modular
+- keep viral flows separate from core chat rendering
+
+==================================================
+7. UX / UI REQUIREMENTS
+==================================================
+
+All new product surfaces must feel consistent with the current app quality.
+
+New surfaces may include:
+- upgrade/paywall screen
+- plan comparison modal
+- daily chemistry picks surface
+- AI profile coach screen or sheet
+- AI opener suggestion sheet
+- referral invite screen
+- reward state UI
+- chemistry card generation/share UI
+
+Visual direction:
+- premium
+- warm-neutral
+- modern Korean/Japanese dating app
+- trustworthy
+- not noisy
+- not gimmicky
+
+Do NOT make paywalls look pushy or cheap.
+Do NOT make AI screens look like fake sci-fi.
+Do NOT make referral flows look spammy.
+
+==================================================
+8. IMPLEMENTATION STRATEGY
+==================================================
+
+Work in this order:
+
+Step 1:
+Inspect the current codebase and identify the safest integration points.
+
+Step 2:
+Add data structures and feature flags for:
+- monetization
+- AI matching
+- viral/referral
+
+Step 3:
+Implement monetization foundation first:
+- plan models
+- entitlements
+- paywall
+- usage gates
+- mock billing integration if needed
+
+Step 4:
+Implement AI matching MVP:
+- daily chemistry picks
+- compatibility explanation
+- profile coach suggestions
+- opener suggestions
+
+Step 5:
+Implement viral MVP:
+- referral links/codes
+- reward logic
+- friend-help architecture
+- shareable chemistry card generation
+
+Step 6:
+Add analytics instrumentation.
+
+Step 7:
+Verify no regressions to:
+- onboarding
+- chat translation
+- profile/discovery
+- swipe motion
+
+Do not jump straight into random UI edits without first structuring the logic.
+
+==================================================
+9. SAFE SCOPING RULES
+==================================================
+
+Important:
+- Build MVP versions first
+- Do not overengineer with enterprise-scale infrastructure
+- Do not fabricate complex AI if the current stack only supports heuristic recommendation
+- It is acceptable to implement rule-based recommendation first, but label the architecture honestly
+- Keep the code extensible for future real AI and real billing providers
+- Prefer clean shipping-quality product logic over fake futuristic demos
+
+==================================================
+10. REQUIRED OUTPUT FORMAT
+==================================================
+
+When finished, provide ALL of the following:
+
+1. which files/components/screens were added or changed
+2. what monetization structure was implemented
+3. what subscription plans and consumables were created
+4. what entitlement / gating logic was added
+5. what AI matching features were implemented
+6. what recommendation logic or score structure was used
+7. what viral/referral/share features were implemented
+8. what analytics events were added
+9. what feature flags were added
+10. confirmation that:
+   - chat translation still works
+   - pronunciation was not reintroduced
+   - onboarding country/language flow still works
+   - profile/discovery UI still works
+   - swipe/discovery interaction still works
+
+Do not say this phase is complete unless the new systems are integrated cleanly and existing core features still work.

@@ -46,26 +46,69 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 ```
 artifacts/lito/
   app/
-    _layout.tsx          # Root layout with providers (AppProvider, QueryClient, etc.)
+    _layout.tsx          # Root layout: AppProvider → GrowthProvider → GestureHandler → …
     onboarding.tsx       # 3-slide onboarding screen
     login.tsx            # Login screen (Email, Kakao, LINE placeholders)
-    profile-setup.tsx    # Profile setup screen
+    profile-setup.tsx    # Profile setup (3-step wizard: country→basics→interests)
     settings.tsx         # Settings screen
+    paywall.tsx          # Subscription upgrade screen (Free / Plus / Premium)
+    profile-coach.tsx    # AI Profile Coach: suggestions the user can accept/reject
+    referral.tsx         # Referral invite: code sharing, rewards, apply friend codes
     (tabs)/
       _layout.tsx        # Tab bar with Discover, Matches, Chats, Profile
-      discover.tsx       # Swipe card discover screen
-      matches.tsx        # Matches list screen
-      chats.tsx          # Conversations list screen
-      profile.tsx        # My profile screen
+      discover.tsx       # Swipe cards + chemistry picks pill in header
+      matches.tsx        # Matches list + referral nudge card
+      chats.tsx          # Conversations list
+      profile.tsx        # My profile + Growth section (plan badge, AI coach, referral)
     chat/
-      [id].tsx           # Chat detail screen with translation + unlock
+      [id].tsx           # Chat with real-time KR↔JP translation (DO NOT TOUCH)
   components/
-    Button.tsx           # Reusable button
-    CompatibilityChip.tsx # Match reason chip
-    CountryFlag.tsx       # KR/JP flag display
-    ProfileImage.tsx      # Profile photo with fallback
+    Button.tsx, CompatibilityChip.tsx, CountryFlag.tsx, ProfileImage.tsx, LitoMark.tsx
   constants/colors.ts    # Design tokens (rose pink theme)
-  context/AppContext.tsx  # Global state (auth, users, matches, conversations)
-  data/mockData.ts        # Mock users, matches, conversations, messages
-  types/index.ts          # TypeScript interfaces
+  context/
+    AppContext.tsx        # Core app state (auth, users, matches, conversations)
+    GrowthContext.tsx     # Phase 5 growth state (subscription, picks, coach, referral)
+  services/
+    analytics.ts         # Event tracking facade (console in dev, swap in real provider)
+    monetization.ts      # Plan definitions, entitlements, usage limits, mock billing
+    aiMatching.ts        # Heuristic compatibility scoring + chemistry picks + openers
+    referral.ts          # Referral code generation + reward logic
+  hooks/
+    useEntitlement.ts    # Inline entitlement check hook
+    useColors.ts, useLocale.ts
+  types/
+    index.ts             # Core app types
+    growth.ts            # Phase 5 types (plans, entitlements, picks, referral, analytics)
+  data/mockData.ts       # Mock users, matches, conversations, messages
 ```
+
+## Phase 5 — Growth Layer (Implemented)
+
+### Monetization
+- 3 plans: Free (20 likes/day, 3 picks), Plus ($9.99, unlimited likes + boost), Premium ($19.99, see who liked + AI coach)
+- Consumables: Boost, Direct Intro, City Pass, AI Review
+- Entitlement system: `isEntitled(key)` / `useEntitlement(key)` checks plan membership
+- Mock billing: `mockUpgradeToPlan()` — ready for RevenueCat/App Store wiring
+- Paywall screen: plan comparison, trust note ("translation always free"), one-tap upgrade
+
+### AI Matching (heuristic, clearly labeled in code)
+- `computeCompatibility()` scores 5 dimensions: intent fit, interest overlap, cultural fit, conversation style, meeting feasibility
+- `generateChemistryPicks()` — daily ranked picks (3 for free, 10 for plus/premium)
+- `generateProfileSuggestions()` — template-based intro/bio improvements, user can accept/reject
+- `generateOpeners()` — 3 contextual conversation starters based on shared interests + country
+- `generateChemistryCard()` — deterministic dating-type card (4 types, shareable)
+
+### Viral / Referral
+- `generateReferralCode()` — deterministic userId prefix + random suffix
+- Reward system: boost on signup, direct intro on first match
+- `applyReferralCode()` — validates and records referral attribution
+- Referral screen: code/link sharing, reward claiming, stats, step-by-step explainer
+
+### Analytics
+- `trackEvent()` facade covers 24 events across monetization, AI, and viral categories
+- Console logging in dev; replace `send()` in analytics.ts to wire in PostHog/Amplitude
+
+### CRITICAL — Do Not Touch
+- `chat/[id].tsx` — translation enrichment pipeline (enrichmentMap, inflight, translationCache)
+- Pronunciation features must NEVER be reintroduced
+- Translation is free for all plans — never paywall it
