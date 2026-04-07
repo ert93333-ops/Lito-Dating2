@@ -2,13 +2,13 @@ import { User, Match, Message, Conversation, MyProfile, TrustProfile } from "@/t
 
 export const CURRENT_USER_ID = "me";
 
-// ── Preset trust profiles (for mock data variety) ─────────────────────────────
+// ── Preset trust profiles (covers all 5 TrustStatus states for demo variety) ──
 
 const TRUST_FULL: TrustProfile = {
-  humanVerified: { status: "verified", verifiedAt: "2025-01-01T00:00:00Z" },
-  faceMatched:   { status: "verified", verifiedAt: "2025-01-01T00:00:00Z" },
-  idVerified:    { status: "verified", verifiedAt: "2025-01-01T00:00:00Z", expiresAt: "2027-01-01T00:00:00Z" },
-  institutionVerified: { status: "verified", verifiedAt: "2025-01-01T00:00:00Z" },
+  humanVerified:       { status: "verified",  verifiedAt: "2025-01-01T00:00:00Z" },
+  faceMatched:         { status: "verified",  verifiedAt: "2025-01-01T00:00:00Z" },
+  idVerified:          { status: "verified",  verifiedAt: "2025-01-01T00:00:00Z", expiresAt: "2027-01-01T00:00:00Z" },
+  institutionVerified: { status: "verified",  verifiedAt: "2025-01-01T00:00:00Z" },
   photoFingerprintAtVerification: "fp_profile5",
 };
 
@@ -20,29 +20,49 @@ const TRUST_THREE_LAYERS: TrustProfile = {
 };
 
 const TRUST_TWO_LAYERS: TrustProfile = {
-  humanVerified: { status: "verified", verifiedAt: "2025-01-03T00:00:00Z" },
-  faceMatched:   { status: "verified", verifiedAt: "2025-01-03T00:00:00Z" },
-  idVerified:    { status: "none" },
+  humanVerified: { status: "verified",     verifiedAt: "2025-01-03T00:00:00Z" },
+  faceMatched:   { status: "verified",     verifiedAt: "2025-01-03T00:00:00Z" },
+  idVerified:    { status: "not_verified" },
   photoFingerprintAtVerification: "fp_profile1",
 };
 
 const TRUST_HUMAN_ONLY: TrustProfile = {
-  humanVerified: { status: "verified", verifiedAt: "2025-01-04T00:00:00Z" },
-  faceMatched:   { status: "none" },
-  idVerified:    { status: "none" },
+  humanVerified: { status: "verified",     verifiedAt: "2025-01-04T00:00:00Z" },
+  faceMatched:   { status: "not_verified" },
+  idVerified:    { status: "not_verified" },
 };
 
 const TRUST_NONE: TrustProfile = {
-  humanVerified: { status: "none" },
-  faceMatched:   { status: "none" },
-  idVerified:    { status: "none" },
+  humanVerified: { status: "not_verified" },
+  faceMatched:   { status: "not_verified" },
+  idVerified:    { status: "not_verified" },
 };
 
+// pending_review: ID document submitted, waiting for backend review
 const TRUST_ID_PENDING: TrustProfile = {
-  humanVerified: { status: "verified", verifiedAt: "2025-01-05T00:00:00Z" },
-  faceMatched:   { status: "verified", verifiedAt: "2025-01-05T00:00:00Z" },
-  idVerified:    { status: "pending" },
+  humanVerified: { status: "verified",      verifiedAt: "2025-01-05T00:00:00Z" },
+  faceMatched:   { status: "verified",      verifiedAt: "2025-01-05T00:00:00Z" },
+  idVerified:    { status: "pending_review", submittedAt: "2026-04-05T10:30:00Z" },
   photoFingerprintAtVerification: "fp_profile6",
+};
+
+// rejected: ID document was submitted but rejected (bad quality, mismatch, etc.)
+const TRUST_ID_REJECTED: TrustProfile = {
+  humanVerified: { status: "verified",  verifiedAt: "2025-01-06T00:00:00Z" },
+  faceMatched:   { status: "verified",  verifiedAt: "2025-01-06T00:00:00Z" },
+  idVerified:    {
+    status: "rejected",
+    rejectionReason: "document_unreadable",
+  },
+  photoFingerprintAtVerification: "fp_profile3",
+};
+
+// reverify_required: previously verified, but photo changed → face re-verify needed
+const TRUST_FACE_REVERIFY: TrustProfile = {
+  humanVerified: { status: "verified",          verifiedAt: "2025-01-07T00:00:00Z" },
+  faceMatched:   { status: "reverify_required"  },
+  idVerified:    { status: "verified",          verifiedAt: "2025-01-07T00:00:00Z", expiresAt: "2027-01-07T00:00:00Z" },
+  photoFingerprintAtVerification: "fp_profile4_old",
 };
 
 // ── Mock users ─────────────────────────────────────────────────────────────────
@@ -295,10 +315,22 @@ export const myProfile: MyProfile = {
   instagramHandle: "@alex.creates",
   photos: [],
   aiStyleSummary: "Your profile radiates creative energy and cultural curiosity. You lead with authenticity — your love for cross-cultural connection comes through naturally. Tip: Adding a photo of your creative workspace could spark great conversation starters.",
-  // My trust profile — humanVerified done, face pending (no photo yet), ID not started
+  // humanVerified done · face/ID not started yet → user can go to verify-id screen to start
   trustProfile: {
-    humanVerified: { status: "verified", verifiedAt: "2025-01-10T00:00:00Z" },
-    faceMatched:   { status: "none" },
-    idVerified:    { status: "none" },
+    humanVerified: { status: "verified",     verifiedAt: "2025-01-10T00:00:00Z" },
+    faceMatched:   { status: "not_verified" },
+    idVerified:    { status: "not_verified" },
   },
+};
+
+// ── Exported presets (used by verify-id.tsx dev helpers & tests) ───────────────
+export {
+  TRUST_FULL,
+  TRUST_THREE_LAYERS,
+  TRUST_TWO_LAYERS,
+  TRUST_HUMAN_ONLY,
+  TRUST_NONE,
+  TRUST_ID_PENDING,
+  TRUST_ID_REJECTED,
+  TRUST_FACE_REVERIFY,
 };

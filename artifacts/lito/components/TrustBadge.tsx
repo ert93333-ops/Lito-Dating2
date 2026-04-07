@@ -2,10 +2,11 @@
  * TrustBadge — renders layered trust indicators for a user.
  *
  * Each of the 4 trust layers is visually distinct in color and icon.
- * Only "verified" layers are shown by default (pending shown as spinner if needed).
+ * Only "verified" layers show a filled badge. pending_review / rejected /
+ * reverify_required are shown with their own distinct chip when showPending=true.
  *
  * Sizes:
- *   "sm"  — compact pills for card overlays and list rows (icon + no text)
+ *   "sm"  — compact pills for card overlays and list rows (icon only)
  *   "md"  — icon + short label for profile headers
  *   "lg"  — full card rows used in the Trust Center screen
  */
@@ -14,7 +15,7 @@ import { Feather } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import type { TrustProfile } from "@/types";
+import type { TrustProfile, TrustStatus } from "@/types";
 
 // ── Layer config ──────────────────────────────────────────────────────────────
 
@@ -61,6 +62,56 @@ export const TRUST_LAYERS = [
   },
 ] as const;
 
+// ── Status display config (5-state) ───────────────────────────────────────────
+
+type StatusConfig = {
+  label: { ko: string; ja: string };
+  color: string;
+  bg: string;
+  icon: "check-circle" | "clock" | "x-circle" | "alert-circle" | "circle";
+};
+
+export function getStatusConfig(status: TrustStatus, layerColor: string, layerBg: string): StatusConfig {
+  switch (status) {
+    case "verified":
+      return {
+        label: { ko: "인증 완료", ja: "認証済み" },
+        color: layerColor,
+        bg: layerBg,
+        icon: "check-circle",
+      };
+    case "pending_review":
+      return {
+        label: { ko: "검토 중", ja: "審査中" },
+        color: "#B07D1A",
+        bg: "#FFF8EC",
+        icon: "clock",
+      };
+    case "rejected":
+      return {
+        label: { ko: "인증 실패", ja: "認証失敗" },
+        color: "#C0392B",
+        bg: "#FFF0EE",
+        icon: "x-circle",
+      };
+    case "reverify_required":
+      return {
+        label: { ko: "재인증 필요", ja: "再認証必要" },
+        color: "#C05020",
+        bg: "#FFF3ED",
+        icon: "alert-circle",
+      };
+    case "not_verified":
+    default:
+      return {
+        label: { ko: "미인증", ja: "未認証" },
+        color: "#8E8E93",
+        bg: "#F4F4F6",
+        icon: "circle",
+      };
+  }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type LayerKey = typeof TRUST_LAYERS[number]["key"];
@@ -73,7 +124,10 @@ interface TrustBadgeProps {
   showPending?: boolean;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── TrustBadge ────────────────────────────────────────────────────────────────
+// Renders compact pills for each verified layer.
+// Pass showPending=true to also render pending_review / reverify_required chips.
+// "rejected" and "not_verified" are never shown here — they are only in TrustLayerRow.
 
 export function TrustBadge({
   trustProfile,
@@ -82,9 +136,9 @@ export function TrustBadge({
   showPending = false,
 }: TrustBadgeProps) {
   const visibleLayers = TRUST_LAYERS.filter((layer) => {
-    const status = trustProfile[layer.key]?.status ?? "none";
+    const status = trustProfile[layer.key]?.status ?? "not_verified";
     if (status === "verified") return true;
-    if (showPending && status === "pending") return true;
+    if (showPending && (status === "pending_review" || status === "reverify_required")) return true;
     return false;
   });
 
@@ -93,8 +147,9 @@ export function TrustBadge({
   return (
     <View style={styles.row}>
       {visibleLayers.map((layer) => {
-        const status = trustProfile[layer.key]?.status;
-        const isPending = status === "pending";
+        const status = trustProfile[layer.key]?.status ?? "not_verified";
+        const sc = getStatusConfig(status, layer.color, layer.bgColor);
+        const isPending = status !== "verified";
 
         if (size === "sm") {
           return (
@@ -103,17 +158,13 @@ export function TrustBadge({
               style={[
                 styles.smPill,
                 {
-                  backgroundColor: layer.bgColor,
-                  borderColor: `${layer.color}30`,
-                  opacity: isPending ? 0.65 : 1,
+                  backgroundColor: sc.bg,
+                  borderColor: `${sc.color}30`,
+                  opacity: isPending ? 0.7 : 1,
                 },
               ]}
             >
-              <Feather
-                name={isPending ? "clock" : layer.icon}
-                size={9}
-                color={layer.color}
-              />
+              <Feather name={isPending ? sc.icon : layer.icon} size={9} color={sc.color} />
             </View>
           );
         }
@@ -124,18 +175,14 @@ export function TrustBadge({
             style={[
               styles.mdPill,
               {
-                backgroundColor: layer.bgColor,
-                borderColor: `${layer.color}25`,
-                opacity: isPending ? 0.7 : 1,
+                backgroundColor: sc.bg,
+                borderColor: `${sc.color}25`,
+                opacity: isPending ? 0.75 : 1,
               },
             ]}
           >
-            <Feather
-              name={isPending ? "clock" : layer.icon}
-              size={11}
-              color={layer.color}
-            />
-            <Text style={[styles.mdLabel, { color: layer.color }]}>
+            <Feather name={isPending ? sc.icon : layer.icon} size={11} color={sc.color} />
+            <Text style={[styles.mdLabel, { color: sc.color }]}>
               {lang === "ko" ? layer.labelKo : layer.labelJa}
             </Text>
           </View>
@@ -145,7 +192,7 @@ export function TrustBadge({
   );
 }
 
-// ── TrustScore — numeric progress bar ─────────────────────────────────────────
+// ── TrustScoreBar — numeric progress bar ─────────────────────────────────────
 
 interface TrustScoreBarProps {
   trustProfile: TrustProfile;
@@ -154,28 +201,20 @@ interface TrustScoreBarProps {
 
 export function TrustScoreBar({ trustProfile, lang = "ko" }: TrustScoreBarProps) {
   const verifiedLayers = TRUST_LAYERS.filter(
-    (l) => (trustProfile[l.key]?.status ?? "none") === "verified"
+    (l) => (trustProfile[l.key]?.status ?? "not_verified") === "verified"
   );
   const total = TRUST_LAYERS.length;
   const pct = (verifiedLayers.length / total) * 100;
-
-  // Show topmost verified layer's color for the bar
   const topLayer = verifiedLayers[verifiedLayers.length - 1];
   const barColor = topLayer?.color ?? "#C7C7CC";
 
   return (
     <View style={score.wrap}>
       <View style={[score.track, { backgroundColor: "#EDE8EA" }]}>
-        <View
-          style={[
-            score.fill,
-            { width: `${pct}%` as any, backgroundColor: barColor },
-          ]}
-        />
+        <View style={[score.fill, { width: `${pct}%` as any, backgroundColor: barColor }]} />
       </View>
       <Text style={score.label}>
-        {verifiedLayers.length}/{total}
-        {"  "}
+        {verifiedLayers.length}/{total}{"  "}
         {lang === "ko" ? "인증 완료" : "認証完了"}
       </Text>
     </View>
@@ -199,45 +238,16 @@ export function TrustLayerRow({
 }: TrustLayerRowProps) {
   const layer = TRUST_LAYERS.find((l) => l.key === layerKey)!;
   const layerData = trustProfile[layerKey];
-  const status = layerData?.status ?? "none";
+  const status: TrustStatus = layerData?.status ?? "not_verified";
 
-  const statusConfig = {
-    verified: {
-      label: lang === "ko" ? "인증 완료" : "認証済み",
-      color: layer.color,
-      bg: layer.bgColor,
-      icon: "check-circle" as const,
-    },
-    pending: {
-      label: lang === "ko" ? "검토 중" : "審査中",
-      color: "#B07D1A",
-      bg: "#FFF8EC",
-      icon: "clock" as const,
-    },
-    failed: {
-      label: lang === "ko" ? "인증 실패" : "認証失敗",
-      color: "#C0392B",
-      bg: "#FFF0EE",
-      icon: "x-circle" as const,
-    },
-    none: {
-      label: lang === "ko" ? "미인증" : "未認証",
-      color: "#8E8E93",
-      bg: "#F4F4F6",
-      icon: "circle" as const,
-    },
-  } as const;
-
-  const sc = statusConfig[status];
+  const sc = getStatusConfig(status, layer.color, layer.bgColor);
 
   return (
     <View style={row.wrap}>
-      {/* Layer icon */}
       <View style={[row.iconWrap, { backgroundColor: layer.bgColor }]}>
         <Feather name={layer.icon} size={18} color={layer.color} />
       </View>
 
-      {/* Labels */}
       <View style={row.meta}>
         <Text style={row.title}>
           {lang === "ko" ? layer.labelKo : layer.labelJa}
@@ -262,10 +272,11 @@ export function TrustLayerRow({
         )}
       </View>
 
-      {/* Status badge */}
       <View style={[row.statusBadge, { backgroundColor: sc.bg }]}>
         <Feather name={sc.icon} size={12} color={sc.color} />
-        <Text style={[row.statusText, { color: sc.color }]}>{sc.label}</Text>
+        <Text style={[row.statusText, { color: sc.color }]}>
+          {lang === "ko" ? sc.label.ko : sc.label.ja}
+        </Text>
       </View>
     </View>
   );
@@ -304,26 +315,10 @@ const styles = StyleSheet.create({
 });
 
 const score = StyleSheet.create({
-  wrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  track: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  fill: {
-    height: 4,
-    borderRadius: 2,
-  },
-  label: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 11.5,
-    color: "#8E8E93",
-  },
+  wrap: { flexDirection: "row", alignItems: "center", gap: 8 },
+  track: { flex: 1, height: 4, borderRadius: 2, overflow: "hidden" },
+  fill: { height: 4, borderRadius: 2 },
+  label: { fontFamily: "Inter_400Regular", fontSize: 11.5, color: "#8E8E93" },
 });
 
 const row = StyleSheet.create({

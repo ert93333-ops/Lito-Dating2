@@ -5,8 +5,14 @@
  * Implementation status per layer:
  *   Layer 1 (Human / Phone): Placeholder — requires SMS OTP provider (e.g. Firebase Auth, Twilio)
  *   Layer 2 (Face Match):    Placeholder — requires liveness SDK (e.g. AWS Rekognition, Onfido)
- *   Layer 3 (ID / Gov Doc):  Placeholder — requires ID verification vendor (e.g. Onfido, Persona)
+ *   Layer 3 (ID / Gov Doc):  Navigates to /verify-id — full status-aware screen
  *   Layer 4 (Institution):   Placeholder — requires email domain verification or document upload
+ *
+ * TrustStatus 5-state lifecycle:
+ *   not_verified → pending_review → verified
+ *                                 ↓
+ *                              rejected → retry → pending_review
+ *   verified → reverify_required → pending_review → verified
  */
 
 import { Feather } from "@expo/vector-icons";
@@ -29,17 +35,16 @@ import { TRUST_LAYERS, TrustLayerRow } from "@/components/TrustBadge";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
-import { computeTrustScore } from "@/types";
+import { computeTrustScore, idNeedsAction } from "@/types";
 
 // ── CTA config per layer ──────────────────────────────────────────────────────
-// Each layer has a "start" action — currently all placeholder alerts.
-// Replace alert bodies with real navigation when backends are wired up.
+// Layer 3 (idVerified) navigates to the dedicated verify-id screen.
+// All other layers use placeholder alerts until backends are ready.
 
 const LAYER_CTA = {
   humanVerified: {
     labelKo: "휴대폰 인증 시작",
     labelJa: "電話番号認証を開始",
-    // TODO: router.push("/verify/phone") — Firebase Auth phone OTP
     onPress: (lang: "ko" | "ja") => {
       Alert.alert(
         lang === "ko" ? "휴대폰 인증" : "電話番号認証",
@@ -53,7 +58,6 @@ const LAYER_CTA = {
   faceMatched: {
     labelKo: "얼굴 인증 시작",
     labelJa: "顔認証を開始",
-    // TODO: router.push("/verify/face") — liveness capture + face compare
     onPress: (lang: "ko" | "ja") => {
       Alert.alert(
         lang === "ko" ? "얼굴 인증" : "顔認証",
@@ -65,23 +69,16 @@ const LAYER_CTA = {
     },
   },
   idVerified: {
-    labelKo: "신분증 인증 시작",
-    labelJa: "身分証明書認証を開始",
-    // TODO: router.push("/verify/id") — document capture + OCR
-    onPress: (lang: "ko" | "ja") => {
-      Alert.alert(
-        lang === "ko" ? "신분증 인증" : "身分証明書認証",
-        lang === "ko"
-          ? "여권, 주민등록증, 운전면허증을 촬영하여 제출합니다.\n\n[백엔드 필요: Onfido / Jumio / Persona ID 검증]"
-          : "パスポート、マイナンバーカード、運転免許証を撮影して提出します。\n\n[バックエンド必要: Onfido / Jumio / Persona 本人確認]",
-        [{ text: lang === "ko" ? "확인" : "OK" }]
-      );
+    labelKo: "신분증 인증",
+    labelJa: "身分証明書を確認",
+    // Navigates to the dedicated verify-id screen (full status-aware flow)
+    onPress: (_lang: "ko" | "ja") => {
+      router.push("/verify-id");
     },
   },
   institutionVerified: {
     labelKo: "직장/학교 인증 시작",
     labelJa: "職場/学校認証を開始",
-    // TODO: router.push("/verify/institution") — email domain verification
     onPress: (lang: "ko" | "ja") => {
       Alert.alert(
         lang === "ko" ? "직장/학교 인증" : "職場/学校認証",
@@ -107,26 +104,18 @@ export default function TrustCenterScreen() {
 
   const trustScore = computeTrustScore(profile.trustProfile);
 
-  // Score band color
   const scoreColor =
-    trustScore >= 90
-      ? "#1A7A4A"
-      : trustScore >= 55
-      ? "#3B6FD4"
-      : trustScore >= 25
-      ? "#B07D1A"
-      : "#8E8E93";
+    trustScore >= 90 ? "#1A7A4A"
+    : trustScore >= 55 ? "#3B6FD4"
+    : trustScore >= 25 ? "#B07D1A"
+    : "#8E8E93";
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View style={[s.header, { paddingTop: topPad + 12 }]}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={s.backBtn}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
           <Feather name="arrow-left" size={22} color={colors.charcoal} />
         </TouchableOpacity>
         <Text style={[s.headerTitle, { color: colors.charcoal }]}>
@@ -140,7 +129,7 @@ export default function TrustCenterScreen() {
         showsVerticalScrollIndicator={false}
       >
 
-        {/* ── Hero score card ─────────────────────────────────────────────── */}
+        {/* ── Hero score card ──────────────────────────────────────────────── */}
         <View style={[s.scoreCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
           <View style={s.scoreTop}>
             <View style={[s.scoreCircle, { borderColor: scoreColor }]}>
@@ -169,15 +158,8 @@ export default function TrustCenterScreen() {
               </View>
             </View>
           </View>
-
-          {/* Progress track */}
           <View style={[s.progressTrack, { backgroundColor: colors.border }]}>
-            <View
-              style={[
-                s.progressFill,
-                { width: `${trustScore}%` as any, backgroundColor: scoreColor },
-              ]}
-            />
+            <View style={[s.progressFill, { width: `${trustScore}%` as any, backgroundColor: scoreColor }]} />
           </View>
         </View>
 
@@ -187,21 +169,9 @@ export default function TrustCenterScreen() {
         </Text>
         <View style={[s.benefitCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
           {[
-            {
-              icon: "zap" as const,
-              ko: "상위 매칭 우선 노출 — 인증 회원 우선",
-              ja: "上位マッチ優先表示 — 認証メンバー優先",
-            },
-            {
-              icon: "shield" as const,
-              ko: "잠금 해제 — 인증 완료 시 연락처 공유 가능",
-              ja: "アンロック — 認証後に連絡先共有が可能",
-            },
-            {
-              icon: "star" as const,
-              ko: "신뢰 배지 — 프로필에 레이어별 배지 표시",
-              ja: "信頼バッジ — プロフィールにレイヤー別バッジ表示",
-            },
+            { icon: "zap"    as const, ko: "상위 매칭 우선 노출 — 인증 회원 우선",       ja: "上位マッチ優先表示 — 認証メンバー優先" },
+            { icon: "shield" as const, ko: "잠금 해제 — 인증 완료 시 연락처 공유 가능",  ja: "アンロック — 認証後に連絡先共有が可能" },
+            { icon: "star"   as const, ko: "신뢰 배지 — 프로필에 레이어별 배지 표시",   ja: "信頼バッジ — プロフィールにレイヤー別バッジ表示" },
           ].map((b, i) => (
             <View key={i} style={[s.benefitRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
               <Feather name={b.icon} size={15} color={colors.rose} />
@@ -218,8 +188,15 @@ export default function TrustCenterScreen() {
         </Text>
         <View style={[s.layerCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
           {TRUST_LAYERS.map((layer, i) => {
-            const status = profile.trustProfile[layer.key]?.status ?? "none";
-            const isActionable = status === "none" || status === "failed";
+            const status = profile.trustProfile[layer.key]?.status ?? "not_verified";
+
+            // Show CTA when: not started, rejected, or reverification required
+            const isActionable =
+              status === "not_verified" || status === "rejected" || status === "reverify_required";
+
+            // Show pending banner when: submitted and awaiting review
+            const isPendingReview = status === "pending_review";
+
             const cta = LAYER_CTA[layer.key];
 
             return (
@@ -246,12 +223,16 @@ export default function TrustCenterScreen() {
                   >
                     <Feather name="arrow-right" size={13} color={layer.color} />
                     <Text style={[s.ctaText, { color: layer.color }]}>
-                      {lang === "ko" ? cta.labelKo : cta.labelJa}
+                      {status === "rejected"
+                        ? lang === "ko" ? "다시 시도하기" : "再試行する"
+                        : status === "reverify_required"
+                        ? lang === "ko" ? "재인증 시작" : "再認証を開始"
+                        : lang === "ko" ? cta.labelKo : cta.labelJa}
                     </Text>
                   </Pressable>
                 )}
 
-                {status === "pending" && (
+                {isPendingReview && (
                   <View style={[s.pendingBanner, { backgroundColor: "#FFF8EC", borderColor: "#B07D1A30" }]}>
                     <Feather name="clock" size={12} color="#B07D1A" />
                     <Text style={[s.pendingText, { color: "#B07D1A" }]}>
@@ -266,7 +247,7 @@ export default function TrustCenterScreen() {
           })}
         </View>
 
-        {/* ── Re-verification notice ────────────────────────────────────────── */}
+        {/* ── Re-verification notice ─────────────────────────────────────────*/}
         <View style={[s.noticeCard, { backgroundColor: "#FFF8EC", borderColor: "#B07D1A25" }]}>
           <Feather name="info" size={14} color="#B07D1A" />
           <Text style={[s.noticeText, { color: "#7A5A10" }]}>
@@ -276,7 +257,6 @@ export default function TrustCenterScreen() {
           </Text>
         </View>
 
-        {/* ── Suspicious activity note ─────────────────────────────────────── */}
         <View style={[s.noticeCard, { backgroundColor: "#FFF0F3", borderColor: "#D8587025", marginTop: 0 }]}>
           <Feather name="alert-triangle" size={14} color={colors.rose} />
           <Text style={[s.noticeText, { color: "#8B2A3C" }]}>
@@ -295,176 +275,43 @@ export default function TrustCenterScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1 },
-
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingBottom: 14,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 20, paddingBottom: 14,
   },
   backBtn: { padding: 6, marginLeft: -6 },
-  headerTitle: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 18,
-    letterSpacing: -0.4,
-  },
-
+  headerTitle: { fontFamily: "Inter_700Bold", fontSize: 18, letterSpacing: -0.4 },
   scroll: { paddingHorizontal: 20, paddingTop: 8 },
-
-  sectionTitle: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 16,
-    marginTop: 24,
-    marginBottom: 12,
-    letterSpacing: -0.3,
-  },
+  sectionTitle: { fontFamily: "Inter_700Bold", fontSize: 16, marginTop: 24, marginBottom: 12, letterSpacing: -0.3 },
 
   // Score card
-  scoreCard: {
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  scoreTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    marginBottom: 16,
-  },
-  scoreCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 3,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scoreNumber: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 24,
-    letterSpacing: -1,
-  },
-  scoreOf: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 10,
-    marginTop: -2,
-  },
+  scoreCard: { borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, padding: 20, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  scoreTop: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 16 },
+  scoreCircle: { width: 72, height: 72, borderRadius: 36, borderWidth: 3, alignItems: "center", justifyContent: "center" },
+  scoreNumber: { fontFamily: "Inter_700Bold", fontSize: 24, letterSpacing: -1 },
+  scoreOf: { fontFamily: "Inter_400Regular", fontSize: 10, marginTop: -2 },
   scoreRight: { flex: 1 },
-  scoreName: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  scoreDesc: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12.5,
-    lineHeight: 19,
-    marginBottom: 8,
-  },
-  scoreBand: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  scoreBandText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 11,
-  },
-  progressTrack: {
-    height: 4,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: 4,
-    borderRadius: 2,
-  },
+  scoreName: { fontFamily: "Inter_700Bold", fontSize: 16, marginBottom: 4 },
+  scoreDesc: { fontFamily: "Inter_400Regular", fontSize: 12.5, lineHeight: 19, marginBottom: 8 },
+  scoreBand: { alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  scoreBandText: { fontFamily: "Inter_600SemiBold", fontSize: 11 },
+  progressTrack: { height: 4, borderRadius: 2, overflow: "hidden" },
+  progressFill: { height: 4, borderRadius: 2 },
 
   // Benefit card
-  benefitCard: {
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: "hidden",
-  },
-  benefitRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    padding: 14,
-  },
-  benefitText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 13.5,
-    lineHeight: 20,
-    flex: 1,
-  },
+  benefitCard: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
+  benefitRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, padding: 14 },
+  benefitText: { fontFamily: "Inter_400Regular", fontSize: 13.5, lineHeight: 20, flex: 1 },
 
   // Layer section
-  layerCard: {
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: "hidden",
-  },
-  layerSection: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    paddingTop: 0,
-  },
-  ctaBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    alignSelf: "flex-start",
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    marginTop: 2,
-    marginLeft: 56,
-  },
-  ctaText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 12.5,
-  },
-  pendingBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    marginTop: 2,
-    marginLeft: 56,
-  },
-  pendingText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    flex: 1,
-    lineHeight: 17,
-  },
+  layerCard: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
+  layerSection: { paddingHorizontal: 16, paddingBottom: 12, paddingTop: 0 },
+  ctaBtn: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 7, marginTop: 2, marginLeft: 56 },
+  ctaText: { fontFamily: "Inter_600SemiBold", fontSize: 12.5 },
+  pendingBanner: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 7, marginTop: 2, marginLeft: 56 },
+  pendingText: { fontFamily: "Inter_400Regular", fontSize: 12, flex: 1, lineHeight: 17 },
 
   // Notices
-  noticeCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 12,
-    marginTop: 12,
-  },
-  noticeText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12.5,
-    lineHeight: 19,
-    flex: 1,
-  },
+  noticeCard: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderRadius: 12, borderWidth: 1, padding: 12, marginTop: 12 },
+  noticeText: { fontFamily: "Inter_400Regular", fontSize: 12.5, lineHeight: 19, flex: 1 },
 });

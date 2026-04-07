@@ -55,6 +55,7 @@ function RootNavigator() {
       <Stack.Screen name="profile-coach" options={{ headerShown: false }} />
       <Stack.Screen name="referral" options={{ headerShown: false }} />
       <Stack.Screen name="trust-center" options={{ headerShown: false }} />
+      <Stack.Screen name="verify-id" options={{ headerShown: false }} />
     </Stack>
   );
 }

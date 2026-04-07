@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
+import { idNeedsAction } from "@/types";
 
 export default function SettingsScreen() {
   const colors = useColors();
@@ -23,6 +24,9 @@ export default function SettingsScreen() {
   const { logout, profile, updateProfile } = useApp();
   const { lang } = useLocale();
   const appLanguage = profile.language;
+
+  const idStatus = profile.trustProfile.idVerified.status;
+  const idNeedsAttention = idNeedsAction(profile.trustProfile);
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
@@ -94,6 +98,42 @@ export default function SettingsScreen() {
         contentContainerStyle={{ paddingBottom: bottomPad + 24 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* ── Identity & verification ──────────────────────────────────────── */}
+        <View style={styles.sectionWrap}>
+          <Text style={[styles.sectionTitle, { color: colors.charcoalLight }]}>
+            {lang === "ko" ? "신원 인증" : "本人確認"}
+          </Text>
+          <View style={[styles.section, { backgroundColor: colors.white, borderColor: colors.border }]}>
+            <SettingRow
+              icon="award"
+              label={lang === "ko" ? "신뢰 센터" : "信頼センター"}
+              sublabel={lang === "ko" ? "인증 현황 및 점수 확인" : "認証状況・スコアを確認"}
+              onPress={() => router.push("/trust-center")}
+            />
+            <SettingRow
+              icon="credit-card"
+              label={lang === "ko" ? "신분증 인증" : "本人確認書類"}
+              sublabel={
+                idStatus === "verified"
+                  ? lang === "ko" ? "인증 완료" : "認証済み"
+                  : idStatus === "pending_review"
+                  ? lang === "ko" ? "검토 중" : "審査中"
+                  : idStatus === "rejected"
+                  ? lang === "ko" ? "인증 실패 — 재시도 필요" : "認証失敗 — 再試行が必要"
+                  : idStatus === "reverify_required"
+                  ? lang === "ko" ? "재인증 필요" : "再認証が必要"
+                  : lang === "ko" ? "미인증 — 인증하면 신뢰도 상승" : "未認証 — 認証で信頼度アップ"
+              }
+              onPress={() => router.push("/verify-id")}
+              right={
+                idStatus === "rejected" || idStatus === "reverify_required" ? (
+                  <View style={[styles.attentionDot, { backgroundColor: colors.rose }]} />
+                ) : undefined
+              }
+            />
+          </View>
+        </View>
+
         <View style={styles.sectionWrap}>
           <Text style={[styles.sectionTitle, { color: colors.charcoalLight }]}>
             {lang === "ko" ? "지원" : "サポート"}
@@ -283,5 +323,10 @@ const styles = StyleSheet.create({
   appTagline: {
     fontFamily: "Inter_400Regular",
     fontSize: 12,
+  },
+  attentionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 });
