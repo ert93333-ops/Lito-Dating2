@@ -506,7 +506,7 @@ function ActionButton({ onPress, hapticStyle = "light", style, children }: Actio
 export default function DiscoverScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { discoverUsers, likeUser, passUser } = useApp();
+  const { discoverUsers, likeUser, passUser, profile } = useApp();
   const { chemistryPicks, track } = useGrowth();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
