@@ -339,6 +339,7 @@ function AiCoachCreditsModal({
   onUpgrade,
 }: AiCoachCreditsModalProps) {
   const colors = useColors();
+  const { lang } = useLocale();
 
   return (
     <Modal
@@ -359,12 +360,12 @@ function AiCoachCreditsModal({
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[creditModal.title, { color: colors.charcoal }]}>
-              AI Coach Credits
+              {lang === "ko" ? "AI 코치 크레딧" : "AIコーチクレジット"}
             </Text>
             <Text style={[creditModal.subtitle, { color: colors.charcoalLight }]}>
               {planId === "free"
-                ? "You've used your 5 free daily credits"
-                : "You've used your 20 daily credits"}
+                ? lang === "ko" ? "오늘의 무료 크레딧 5개를 모두 사용했어요" : "今日の無料クレジット5回を使い切りました"
+                : lang === "ko" ? "오늘의 크레딧 20개를 모두 사용했어요" : "今日のクレジット20回を使い切りました"}
             </Text>
           </View>
         </View>
@@ -374,7 +375,7 @@ function AiCoachCreditsModal({
 
         {/* Credit packs */}
         <Text style={[creditModal.sectionLabel, { color: colors.charcoalLight }]}>
-          Buy extra credits · resets every day
+          {lang === "ko" ? "추가 크레딧 구매 · 매일 초기화" : "追加クレジット購入 · 毎日リセット"}
         </Text>
 
         {AI_COACH_PACKS.map((pack) => (
@@ -395,14 +396,16 @@ function AiCoachCreditsModal({
             <View style={creditModal.packLeft}>
               {pack.popular && (
                 <View style={[creditModal.popularBadge, { backgroundColor: "#D85870" }]}>
-                  <Text style={creditModal.popularText}>Popular</Text>
+                  <Text style={creditModal.popularText}>
+                    {lang === "ko" ? "인기" : "人気"}
+                  </Text>
                 </View>
               )}
               <Text style={[creditModal.packLabel, { color: colors.charcoal }]}>
                 {pack.label}
               </Text>
               <Text style={[creditModal.packDesc, { color: colors.charcoalLight }]}>
-                one-time purchase
+                {lang === "ko" ? "일회성 구매" : "一回限り"}
               </Text>
             </View>
             <View style={[creditModal.packPricePill, { backgroundColor: pack.popular ? "#D85870" : colors.muted }]}>
@@ -422,11 +425,13 @@ function AiCoachCreditsModal({
           }}
         >
           <Feather name="zap" size={15} color="#fff" />
-          <Text style={creditModal.upgradeBtnText}>Unlimited with Premium · $19.99/mo</Text>
+          <Text style={creditModal.upgradeBtnText}>
+            {lang === "ko" ? "프리미엄으로 무제한 · $19.99/월" : "プレミアムで無制限 · $19.99/月"}
+          </Text>
         </Pressable>
 
         <Text style={[creditModal.disclaimer, { color: colors.charcoalFaint }]}>
-          Purchases are mocked — no real charge occurs
+          {lang === "ko" ? "구매는 모의 처리됩니다 — 실제 결제 없음" : "購入はモック処理です — 実際の請求なし"}
         </Text>
       </View>
     </Modal>

@@ -16,10 +16,12 @@ import { ProfileImage } from "@/components/ProfileImage";
 import { useApp } from "@/context/AppContext";
 import { useGrowth } from "@/context/GrowthContext";
 import { useColors } from "@/hooks/useColors";
+import { useLocale } from "@/hooks/useLocale";
 import { Match } from "@/types";
 
 function MatchCard({ match }: { match: Match }) {
   const colors = useColors();
+  const { lang } = useLocale();
 
   const goToChat = () => {
     router.push(`/chat/conv1`);
@@ -46,7 +48,7 @@ function MatchCard({ match }: { match: Match }) {
         <View style={[styles.scoreRow, { backgroundColor: colors.roseLight }]}>
           <Feather name="cpu" size={10} color={colors.rose} />
           <Text style={[styles.scoreLabel, { color: colors.rose }]}>
-            {match.user.compatibilityScore}% match
+            {match.user.compatibilityScore}% {lang === "ko" ? "매칭" : "マッチ"}
           </Text>
         </View>
         <Text style={[styles.matchBio, { color: colors.charcoalLight }]} numberOfLines={1}>
@@ -63,6 +65,7 @@ export default function MatchesScreen() {
   const insets = useSafeAreaInsets();
   const { matches } = useApp();
   const { referral, track } = useGrowth();
+  const { lang } = useLocale();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
@@ -76,15 +79,19 @@ export default function MatchesScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={[styles.header, { paddingTop: topPad + 16 }]}>
-        <Text style={[styles.title, { color: colors.charcoal }]}>Matches</Text>
+        <Text style={[styles.title, { color: colors.charcoal }]}>
+          {lang === "ko" ? "매칭" : "マッチング"}
+        </Text>
         <Text style={[styles.subtitle, { color: colors.charcoalLight }]}>
-          매칭 · マッチング
+          {lang === "ko" ? "매칭 · マッチング" : "マッチング · 매칭"}
         </Text>
       </View>
 
       {newMatches.length > 0 && (
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.rose }]}>New Matches ✨</Text>
+          <Text style={[styles.sectionTitle, { color: colors.rose }]}>
+            {lang === "ko" ? "새 매칭 ✨" : "新しいマッチ ✨"}
+          </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.newMatchRow}>
             {newMatches.map((m) => (
               <TouchableOpacity
@@ -106,7 +113,9 @@ export default function MatchesScreen() {
 
       {pastMatches.length > 0 && (
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.charcoalMid }]}>Previous Matches</Text>
+          <Text style={[styles.sectionTitle, { color: colors.charcoalMid }]}>
+            {lang === "ko" ? "이전 매칭" : "過去のマッチ"}
+          </Text>
           {pastMatches.map((m) => (
             <MatchCard key={m.id} match={m} />
           ))}
@@ -118,9 +127,11 @@ export default function MatchesScreen() {
           <View style={[styles.emptyIcon, { backgroundColor: colors.roseLight }]}>
             <Feather name="heart" size={36} color={colors.rose} />
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>No matches yet</Text>
+          <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>
+            {lang === "ko" ? "아직 매칭이 없어요" : "まだマッチがいません"}
+          </Text>
           <Text style={[styles.emptySub, { color: colors.charcoalLight }]}>
-            Start discovering to find your match!
+            {lang === "ko" ? "스와이프해서 인연을 찾아보세요!" : "スワイプして出会いを見つけましょう！"}
           </Text>
         </View>
       )}

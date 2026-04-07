@@ -116,17 +116,25 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.trustMeta}>
             <Text style={[styles.trustLabel, { color: colors.charcoal }]}>
-              Profile strength
+              {lang === "ko" ? "프로필 강도" : "プロフィール強度"}
             </Text>
             <Text style={[styles.trustSub, { color: colors.charcoalLight }]}>
-              {profile.isVerified ? "Verified member · " : ""}
-              {profile.photos.length} photo{profile.photos.length !== 1 ? "s" : ""}
-              {profile.bio ? " · Bio added" : ""}
+              {profile.isVerified
+                ? lang === "ko" ? "인증 회원 · " : "認証済みメンバー · "
+                : ""}
+              {lang === "ko"
+                ? `${profile.photos.length}장의 사진`
+                : `写真${profile.photos.length}枚`}
+              {profile.bio
+                ? lang === "ko" ? " · 소개 완료" : " · 自己紹介あり"
+                : ""}
             </Text>
           </View>
           <View style={[styles.trustBadge, { backgroundColor: colors.roseLight }]}>
             <Text style={[styles.trustBadgeText, { color: colors.rose }]}>
-              {profile.isVerified ? "Verified" : "Add info"}
+              {profile.isVerified
+                ? lang === "ko" ? "인증됨" : "認証済み"
+                : lang === "ko" ? "정보 추가" : "情報を追加"}
             </Text>
           </View>
         </View>
@@ -154,7 +162,7 @@ export default function ProfileScreen() {
       {/* ── Language badges ───────────────────────────────────────────────── */}
       <View style={[styles.section, { backgroundColor: colors.surface }]}>
         <Text style={[styles.sectionLabel, { color: colors.charcoalLight }]}>
-          LANGUAGE & SOCIAL
+          {lang === "ko" ? "언어 & 소셜" : "言語 & SNS"}
         </Text>
         <View style={styles.badgeRow}>
           <View
@@ -234,7 +242,7 @@ export default function ProfileScreen() {
               <Feather name="cpu" size={12} color={colors.rose} />
             </View>
             <Text style={[styles.aiCardTitle, { color: colors.rose }]}>
-              AI CULTURE FIT
+              {lang === "ko" ? "AI 문화 궁합" : "AIカルチャーフィット"}
             </Text>
           </View>
           <Text style={[styles.aiCardBody, { color: colors.charcoalMid }]}>

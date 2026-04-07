@@ -15,6 +15,7 @@ import { CountryFlag } from "@/components/CountryFlag";
 import { ProfileImage } from "@/components/ProfileImage";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { useLocale } from "@/hooks/useLocale";
 import { Conversation } from "@/types";
 
 function formatTime(iso?: string) {
@@ -28,6 +29,7 @@ function formatTime(iso?: string) {
 
 function ConversationRow({ conversation }: { conversation: Conversation }) {
   const colors = useColors();
+  const { lang } = useLocale();
 
   return (
     <TouchableOpacity
@@ -68,7 +70,7 @@ function ConversationRow({ conversation }: { conversation: Conversation }) {
         {conversation.translationEnabled && (
           <View style={[styles.translationTag, { backgroundColor: colors.roseLight }]}>
             <Feather name="globe" size={10} color={colors.rose} />
-            <Text style={[styles.translationLabel, { color: colors.rose }]}>Translation on</Text>
+            <Text style={[styles.translationLabel, { color: colors.rose }]}>{lang === "ko" ? "번역 켜짐" : "翻訳オン"}</Text>
           </View>
         )}
       </View>
@@ -80,15 +82,18 @@ export default function ChatsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { conversations } = useApp();
+  const { lang } = useLocale();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPad + 16 }]}>
-        <Text style={[styles.title, { color: colors.charcoal }]}>Chats</Text>
+        <Text style={[styles.title, { color: colors.charcoal }]}>
+          {lang === "ko" ? "채팅" : "チャット"}
+        </Text>
         <Text style={[styles.subtitle, { color: colors.charcoalLight }]}>
-          채팅 · チャット
+          {lang === "ko" ? "채팅 · チャット" : "チャット · 채팅"}
         </Text>
       </View>
 
@@ -101,9 +106,11 @@ export default function ChatsScreen() {
             <View style={[styles.emptyIcon, { backgroundColor: colors.roseLight }]}>
               <Feather name="message-circle" size={36} color={colors.rose} />
             </View>
-            <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>No conversations yet</Text>
+            <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>
+              {lang === "ko" ? "아직 대화가 없어요" : "まだ会話がありません"}
+            </Text>
             <Text style={[styles.emptySub, { color: colors.charcoalLight }]}>
-              Match with someone to start chatting!
+              {lang === "ko" ? "매칭하고 대화를 시작해보세요!" : "マッチングして会話を始めましょう！"}
             </Text>
           </View>
         ) : (

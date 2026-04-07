@@ -23,6 +23,7 @@ export const PLANS: Plan[] = [
     id: "free",
     name: "Free",
     tagline: "Start your Korean-Japanese journey",
+    taglineJa: "韓日の出会いを始めよう",
     price: { KRW: "₩0", JPY: "¥0", USD: "$0" },
     highlights: [
       "Basic profile & discovery",
@@ -31,6 +32,14 @@ export const PLANS: Plan[] = [
       "Real-time KR↔JP translation",
       "3 AI Chemistry Picks/day",
       "Safety & reporting tools",
+    ],
+    highlightsJa: [
+      "プロフィール作成・探索",
+      "1日最大20いいね",
+      "全マッチとチャット",
+      "韓日リアルタイム翻訳",
+      "AIケミストリーピック 3回/日",
+      "安全・報告ツール",
     ],
     entitlements: ["chemistry_picks_daily"],
     dailyLikes: 20,
@@ -41,6 +50,7 @@ export const PLANS: Plan[] = [
     id: "plus",
     name: "Plus",
     tagline: "Accelerate your connections",
+    taglineJa: "つながりをもっと深めよう",
     price: { KRW: "₩12,900/월", JPY: "¥1,200/月", USD: "$9.99/mo" },
     highlights: [
       "Unlimited likes",
@@ -50,6 +60,15 @@ export const PLANS: Plan[] = [
       "Limited Travel Mode",
       "Better discovery visibility",
       "Unlimited AI Chemistry Picks",
+    ],
+    highlightsJa: [
+      "いいね無制限",
+      "スワイプを巻き戻し",
+      "詳細フィルター（国・目的・興味）",
+      "ブースト 1回/月 無料",
+      "限定トラベルモード",
+      "探索での表示優先度アップ",
+      "AIケミストリーピック 無制限",
     ],
     entitlements: [
       "chemistry_picks_daily",
@@ -67,6 +86,7 @@ export const PLANS: Plan[] = [
     id: "premium",
     name: "Premium",
     tagline: "The full Lito experience",
+    taglineJa: "Litoのすべてを体験しよう",
     price: { KRW: "₩24,900/월", JPY: "¥2,200/月", USD: "$19.99/mo" },
     highlights: [
       "Everything in Plus",
@@ -77,6 +97,16 @@ export const PLANS: Plan[] = [
       "Unlimited AI Profile Coach",
       "Unlimited AI Opener suggestions",
       "Deep compatibility explanations",
+    ],
+    highlightsJa: [
+      "Plusのすべてを含む",
+      "あなたをいいねした人を確認",
+      "シークレット・プライベートモード",
+      "ダイレクトイントロ 5回/月",
+      "探索での優先表示",
+      "AIプロフィールコーチ 無制限",
+      "AIオープナー提案 無制限",
+      "相性の詳細解説",
     ],
     entitlements: [
       "chemistry_picks_daily",

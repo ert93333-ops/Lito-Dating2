@@ -254,7 +254,9 @@ function DiscoverCard({
           {user.isVerified && (
             <View style={cardStyles.verifiedBadge}>
               <Feather name="check-circle" size={9} color="#fff" />
-              <Text style={cardStyles.verifiedText}>Verified</Text>
+              <Text style={cardStyles.verifiedText}>
+                {profile.language === "ko" ? "인증" : "認証済み"}
+              </Text>
             </View>
           )}
         </View>
@@ -263,7 +265,7 @@ function DiscoverCard({
         <View style={cardStyles.metaRow}>
           <View style={cardStyles.matchPill}>
             <Feather name="zap" size={10} color="#D85870" />
-            <Text style={cardStyles.matchText}>{user.compatibilityScore}% match</Text>
+            <Text style={cardStyles.matchText}>{user.compatibilityScore}% {profile.language === "ko" ? "매치" : "マッチ"}</Text>
           </View>
           {user.city ? (
             <View style={cardStyles.cityRow}>
@@ -524,10 +526,12 @@ export default function DiscoverScreen() {
           <Feather name="heart" size={32} color={colors.rose} />
         </View>
         <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>
-          You're all caught up
+          {profile.language === "ko" ? "오늘의 추천을 모두 봤어요 🎉" : "今日のおすすめを全部見ました 🎉"}
         </Text>
         <Text style={[styles.emptySub, { color: colors.charcoalLight }]}>
-          모든 프로필을 확인했어요{"\n"}すべてのプロフィールを見ました
+          {profile.language === "ko"
+            ? "새 사람이 주변에 나타나면 알려드릴게요"
+            : "新しい人が現れたらお知らせします"}
         </Text>
       </View>
     );
@@ -552,14 +556,14 @@ export default function DiscoverScreen() {
             >
               <Text style={[styles.picksEmoji]}>✨</Text>
               <Text style={[styles.picksText, { color: colors.rose }]}>
-                {chemistryPicks.length} Picks
+                {chemistryPicks.length} {profile.language === "ko" ? "픽" : "ピック"}
               </Text>
             </TouchableOpacity>
           )}
           <View style={[styles.onlinePill, { backgroundColor: colors.greenLight }]}>
             <View style={[styles.onlineDot, { backgroundColor: colors.green }]} />
             <Text style={[styles.onlineText, { color: colors.green }]}>
-              {discoverUsers.length} nearby
+              {discoverUsers.length} {profile.language === "ko" ? "근처" : "近く"}
             </Text>
           </View>
           <TouchableOpacity

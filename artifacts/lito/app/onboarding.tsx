@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LitoMark } from "@/components/LitoMark";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { useLocale } from "@/hooks/useLocale";
 
 const { width } = Dimensions.get("window");
 
@@ -33,30 +34,33 @@ const SLIDES = [
     emoji: "🤝",
     gradientColors: ["#FFF0F3", "#FAE0E5"] as const,
     accentColor: "#D85870",
-    titleEn: "AI Culture Matching",
+    titleKo: "AI 문화 매칭",
+    titleJa: "AIカルチャーマッチング",
     titleBi: "AI 문화 매칭 · AI カルチャーマッチング",
-    bodyEn: "Our AI understands both Korean and Japanese culture — connecting you with someone whose values and lifestyle genuinely align.",
-    bodyBi: "AI가 한국과 일본 문화를 깊이 이해하여\n가치관이 맞는 사람을 찾아드려요.",
+    bodyKo: "AI가 한국과 일본 문화를 깊이 이해하여\n가치관이 맞는 사람을 찾아드려요.",
+    bodyJa: "AIが韓国と日本の文化を深く理解し\n価値観が合う相手を見つけてくれます。",
   },
   {
     id: "2",
     emoji: "💬",
     gradientColors: ["#EEF4FF", "#DCE8FF"] as const,
     accentColor: "#3B6FD4",
-    titleEn: "Real-time Translation",
+    titleKo: "실시간 번역",
+    titleJa: "リアルタイム翻訳",
     titleBi: "실시간 번역 · リアルタイム翻訳",
-    bodyEn: "Chat naturally across language barriers. Korean ↔ Japanese translation lets genuine connections happen.",
-    bodyBi: "언어 장벽을 넘어 자연스럽게 대화하세요.\n한일 번역으로 진정한 연결이 가능해요.",
+    bodyKo: "언어 장벽을 넘어 자연스럽게 대화하세요.\n한일 번역으로 진정한 연결이 가능해요.",
+    bodyJa: "言葉の壁を越えて自然に会話できます。\n韓日翻訳で本当のつながりが生まれます。",
   },
   {
     id: "3",
     emoji: "🛡️",
     gradientColors: ["#EFFAF4", "#D8F5E5"] as const,
     accentColor: "#1A7A4A",
-    titleEn: "Safe and Trusted",
+    titleKo: "안전한 신뢰 쌓기",
+    titleJa: "安全な信頼の構築",
     titleBi: "안전한 신뢰 쌓기 · 安全な信頼構築",
-    bodyEn: "Share personal contact only when you're ready. Lito's trust system ensures meaningful connections.",
-    bodyBi: "준비됐을 때만 연락처를 공유하세요.\n신뢰가 쌓인 후에 앱 밖으로 나갈 수 있어요.",
+    bodyKo: "준비됐을 때만 연락처를 공유하세요.\n신뢰가 쌓인 후에 앱 밖으로 나갈 수 있어요.",
+    bodyJa: "準備ができたときだけ連絡先を共有。\n信頼が深まってからアプリの外へ踏み出せます。",
   },
 ] as const;
 
@@ -111,6 +115,7 @@ export default function OnboardingScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { completeOnboarding } = useApp();
+  const { lang } = useLocale();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatRef = useRef<FlatList>(null);
 
@@ -145,7 +150,9 @@ export default function OnboardingScreen() {
           <Text style={[styles.logo, { color: colors.charcoal }]}>lito</Text>
         </View>
         <TouchableOpacity onPress={skip} style={styles.skipBtn}>
-          <Text style={[styles.skip, { color: colors.charcoalLight }]}>Skip</Text>
+          <Text style={[styles.skip, { color: colors.charcoalLight }]}>
+            {lang === "ko" ? "건너뛰기" : "スキップ"}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -171,7 +178,7 @@ export default function OnboardingScreen() {
 
             {/* Title */}
             <Text style={[styles.title, { color: colors.charcoal }]}>
-              {item.titleEn}
+              {lang === "ko" ? item.titleKo : item.titleJa}
             </Text>
 
             {/* Bilingual subtitle — rose accent */}
@@ -183,12 +190,12 @@ export default function OnboardingScreen() {
 
             {/* Body */}
             <Text style={[styles.body, { color: colors.charcoalLight }]}>
-              {item.bodyEn}
+              {lang === "ko" ? item.bodyKo : item.bodyJa}
             </Text>
 
-            {/* Native language copy */}
+            {/* Native language secondary copy */}
             <Text style={[styles.bodyNative, { color: colors.charcoalMid }]}>
-              {item.bodyBi}
+              {lang === "ko" ? item.bodyJa : item.bodyKo}
             </Text>
           </View>
         )}
@@ -218,13 +225,19 @@ export default function OnboardingScreen() {
         <CtaButton
           accentColor={slide.accentColor}
           onPress={goNext}
-          label={currentIndex === SLIDES.length - 1 ? "Get Started · 시작하기" : "Next"}
+          label={
+            currentIndex === SLIDES.length - 1
+              ? lang === "ko" ? "시작하기 · 始める" : "始める · 시작하기"
+              : lang === "ko" ? "다음" : "次へ"
+          }
         />
 
         {/* Trust cue on last slide */}
         {currentIndex === SLIDES.length - 1 && (
           <Text style={[styles.trustNote, { color: colors.charcoalLight }]}>
-            🇰🇷 Korean · 🇯🇵 Japanese connections supported
+            {lang === "ko"
+              ? "🇰🇷 한국 · 🇯🇵 일본 연결을 지원합니다"
+              : "🇰🇷 韓国 · 🇯🇵 日本のつながりをサポート"}
           </Text>
         )}
       </View>

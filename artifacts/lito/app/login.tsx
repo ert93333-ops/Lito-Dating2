@@ -16,11 +16,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LitoMark } from "@/components/LitoMark";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { useLocale } from "@/hooks/useLocale";
 
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { login } = useApp();
+  const { lang } = useLocale();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -96,7 +98,7 @@ export default function LoginScreen() {
             />
             <TextInput
               style={[styles.input, { color: colors.charcoal }]}
-              placeholder="Enter your email"
+              placeholder={lang === "ko" ? "이메일을 입력하세요" : "メールアドレスを入力"}
               placeholderTextColor={colors.charcoalLight}
               value={email}
               onChangeText={setEmail}
@@ -121,7 +123,9 @@ export default function LoginScreen() {
             disabled={loading}
           >
             {loading ? (
-              <Text style={[styles.primaryBtnText, { color: colors.white }]}>Signing in...</Text>
+              <Text style={[styles.primaryBtnText, { color: colors.white }]}>
+                {lang === "ko" ? "로그인 중..." : "ログイン中..."}
+              </Text>
             ) : (
               <>
                 <Text
@@ -130,7 +134,7 @@ export default function LoginScreen() {
                     { color: emailReady ? colors.white : colors.rose },
                   ]}
                 >
-                  Continue with Email
+                  {lang === "ko" ? "이메일로 계속하기" : "メールで続ける"}
                 </Text>
                 <Feather
                   name="arrow-right"
@@ -145,7 +149,7 @@ export default function LoginScreen() {
           <View style={styles.dividerRow}>
             <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
             <Text style={[styles.dividerText, { color: colors.charcoalLight }]}>
-              or continue with
+              {lang === "ko" ? "또는" : "または"}
             </Text>
             <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
           </View>
@@ -194,10 +198,17 @@ export default function LoginScreen() {
 
         {/* Terms */}
         <Text style={[styles.terms, { color: colors.charcoalLight }]}>
-          By continuing, you agree to our{" "}
-          <Text style={[styles.termsLink, { color: colors.rose }]}>Terms</Text>
-          {" & "}
-          <Text style={[styles.termsLink, { color: colors.rose }]}>Privacy Policy</Text>
+          {lang === "ko"
+            ? "계속하면 "
+            : "続けることで、"}
+          <Text style={[styles.termsLink, { color: colors.rose }]}>
+            {lang === "ko" ? "이용약관" : "利用規約"}
+          </Text>
+          {lang === "ko" ? " 및 " : "・"}
+          <Text style={[styles.termsLink, { color: colors.rose }]}>
+            {lang === "ko" ? "개인정보 보호정책" : "プライバシーポリシー"}
+          </Text>
+          {lang === "ko" ? "에 동의하는 것으로 간주됩니다." : "に同意したことになります。"}
         </Text>
       </View>
     </KeyboardAvoidingView>

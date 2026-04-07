@@ -27,10 +27,12 @@ export interface Plan {
   id: PlanId;
   name: string;
   tagline: string;
+  taglineJa?: string;
   /** Display prices (not real billing) */
   price: { KRW: string; JPY: string; USD: string };
   /** Feature bullets shown in comparison UI */
   highlights: string[];
+  highlightsJa?: string[];
   entitlements: EntitlementKey[];
   dailyLikes: number | null; // null = unlimited
   monthlyBoosts: number;

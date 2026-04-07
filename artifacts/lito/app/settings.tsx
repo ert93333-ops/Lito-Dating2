@@ -15,11 +15,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { useLocale } from "@/hooks/useLocale";
 
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { logout, profile, updateProfile } = useApp();
+  const { lang } = useLocale();
   const appLanguage = profile.language;
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -59,15 +61,16 @@ export default function SettingsScreen() {
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      "Delete Account",
-      "Are you sure? This cannot be undone.\n계정을 삭제하시겠습니까? 취소할 수 없습니다.",
+      lang === "ko" ? "계정 삭제" : "アカウント削除",
+      lang === "ko"
+        ? "정말 삭제하시겠습니까? 취소할 수 없습니다."
+        : "本当に削除しますか？この操作は取り消せません。",
       [
-        { text: "Cancel", style: "cancel" },
+        { text: lang === "ko" ? "취소" : "キャンセル", style: "cancel" },
         {
-          text: "Delete",
+          text: lang === "ko" ? "삭제" : "削除",
           style: "destructive",
           onPress: () => {
-            // TODO: Supabase account deletion
             logout();
           },
         },
@@ -81,7 +84,9 @@ export default function SettingsScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Feather name="chevron-left" size={24} color={colors.charcoal} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.charcoal }]}>Settings</Text>
+        <Text style={[styles.title, { color: colors.charcoal }]}>
+          {lang === "ko" ? "설정" : "設定"}
+        </Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -90,40 +95,38 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.sectionWrap}>
-          <Text style={[styles.sectionTitle, { color: colors.charcoalLight }]}>SUPPORT</Text>
+          <Text style={[styles.sectionTitle, { color: colors.charcoalLight }]}>
+            {lang === "ko" ? "지원" : "サポート"}
+          </Text>
           <View style={[styles.section, { backgroundColor: colors.white, borderColor: colors.border }]}>
             <SettingRow
               icon="mail"
-              label="Contact Support"
+              label={lang === "ko" ? "지원팀에 문의" : "サポートに連絡"}
               sublabel="litosupport@gmail.com"
-              onPress={() => {
-                // TODO: Open email client
-              }}
+              onPress={() => {}}
             />
             <SettingRow
               icon="file-text"
-              label="Privacy Policy"
-              sublabel="개인정보 보호정책 · プライバシーポリシー"
-              onPress={() => {
-                // TODO: Open privacy policy URL
-              }}
+              label={lang === "ko" ? "개인정보 보호정책" : "プライバシーポリシー"}
+              onPress={() => {}}
             />
             <SettingRow
               icon="help-circle"
-              label="FAQ"
-              sublabel="자주 묻는 질문 · よくある質問"
+              label={lang === "ko" ? "자주 묻는 질문" : "よくある質問"}
               onPress={() => {}}
             />
           </View>
         </View>
 
         <View style={styles.sectionWrap}>
-          <Text style={[styles.sectionTitle, { color: colors.charcoalLight }]}>PREFERENCES</Text>
+          <Text style={[styles.sectionTitle, { color: colors.charcoalLight }]}>
+            {lang === "ko" ? "환경설정" : "設定"}
+          </Text>
           <View style={[styles.section, { backgroundColor: colors.white, borderColor: colors.border }]}>
             <SettingRow
               icon="globe"
-              label="App Language"
-              sublabel={appLanguage === "ko" ? "한국어 (Korean)" : "日本語 (Japanese)"}
+              label={lang === "ko" ? "앱 언어" : "アプリ言語"}
+              sublabel={appLanguage === "ko" ? "한국어" : "日本語"}
               right={
                 <View style={styles.langToggle}>
                   {(["ko", "ja"] as const).map((lang) => (
@@ -155,7 +158,7 @@ export default function SettingsScreen() {
             />
             <SettingRow
               icon="bell"
-              label="Notifications"
+              label={lang === "ko" ? "알림" : "通知"}
               right={
                 <Switch
                   value={true}
@@ -169,17 +172,18 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.sectionWrap}>
-          <Text style={[styles.sectionTitle, { color: colors.charcoalLight }]}>ACCOUNT</Text>
+          <Text style={[styles.sectionTitle, { color: colors.charcoalLight }]}>
+            {lang === "ko" ? "계정" : "アカウント"}
+          </Text>
           <View style={[styles.section, { backgroundColor: colors.white, borderColor: colors.border }]}>
             <SettingRow
               icon="shield"
-              label="Block / Report"
+              label={lang === "ko" ? "차단 · 신고" : "ブロック・報告"}
               onPress={() => {}}
             />
             <SettingRow
               icon="trash-2"
-              label="Delete Account"
-              sublabel="계정 삭제 · アカウント削除"
+              label={lang === "ko" ? "계정 삭제" : "アカウント削除"}
               onPress={handleDeleteAccount}
               danger
             />

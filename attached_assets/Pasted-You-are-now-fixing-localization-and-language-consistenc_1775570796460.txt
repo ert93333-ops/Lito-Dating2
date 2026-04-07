@@ -1,0 +1,92 @@
+You are now fixing localization and language consistency.
+
+Important:
+- Do NOT break existing functionality
+- Do NOT redesign layouts
+- Do NOT change logic
+- This task is ONLY about text language and UX consistency
+
+==================================================
+GOAL
+==================================================
+
+Make the app fully usable and natural for Japanese users.
+
+==================================================
+1. REMOVE UNNECESSARY ENGLISH
+==================================================
+
+Identify all UI text.
+
+Rules:
+
+ALLOWED:
+- Free / Plus / Premium (as product names)
+- minimal labels if necessary
+
+NOT ALLOWED:
+- English descriptions
+- English AI feedback
+- English feature explanations
+- English profile analysis text
+
+==================================================
+2. CONVERT TO JAPANESE
+==================================================
+
+Replace all descriptive English text with natural Japanese.
+
+Requirements:
+- use natural Japanese tone
+- avoid direct translation
+- sound like a real Japanese app
+- soft and friendly tone
+
+==================================================
+3. AI TEXT LOCALIZATION
+==================================================
+
+AI-generated text must also be localized.
+
+Do NOT show English AI output.
+
+AI output must:
+- be in Japanese for Japanese users
+- match dating app tone
+- feel natural and human
+
+==================================================
+4. UX PRINCIPLE
+==================================================
+
+If user must READ it → it must be Japanese.
+
+English can only remain if:
+- it is branding
+- it is universally understood (e.g. Premium)
+
+==================================================
+5. APPLY TO ALL SCREENS
+==================================================
+
+Apply to:
+- onboarding
+- profile
+- AI coach
+- subscription/paywall
+- settings
+- discovery
+- chat UI
+
+==================================================
+6. OUTPUT
+==================================================
+
+Provide:
+
+1. list of English texts replaced
+2. updated Japanese versions
+3. confirmation that:
+   - UI is now Japanese-friendly
+   - unnecessary English is removed
+   - AI output is localized

@@ -31,12 +31,15 @@ function PlanCard({
   onSelect: () => void;
 }) {
   const colors = useColors();
+  const { lang } = useLocale();
   const plan = PLANS.find((p) => p.id === planId)!;
   const isPremium = planId === "premium";
   const isPlus = planId === "plus";
 
   const accentColor = isPremium ? "#B83058" : isPlus ? colors.rose : colors.charcoalLight;
   const bgColor = isPremium ? "#FFF4F7" : isPlus ? "#FFF8FA" : colors.white;
+  const tagline = lang === "ja" ? (plan.taglineJa ?? plan.tagline) : plan.tagline;
+  const highlights = lang === "ja" ? (plan.highlightsJa ?? plan.highlights) : plan.highlights;
 
   return (
     <TouchableOpacity
@@ -53,7 +56,9 @@ function PlanCard({
     >
       {isPremium && (
         <View style={[styles.planBadge, { backgroundColor: accentColor }]}>
-          <Text style={styles.planBadgeText}>Most Popular</Text>
+          <Text style={styles.planBadgeText}>
+            {lang === "ko" ? "가장 인기" : "人気No.1"}
+          </Text>
         </View>
       )}
 
@@ -61,7 +66,7 @@ function PlanCard({
         <View>
           <Text style={[styles.planName, { color: accentColor }]}>{plan.name}</Text>
           <Text style={[styles.planTagline, { color: colors.charcoalLight }]}>
-            {plan.tagline}
+            {tagline}
           </Text>
         </View>
         <Text style={[styles.planPrice, { color: colors.charcoal }]}>
@@ -71,7 +76,7 @@ function PlanCard({
 
       <View style={[styles.planDivider, { backgroundColor: colors.border }]} />
 
-      {plan.highlights.map((h, i) => (
+      {highlights.map((h, i) => (
         <View key={i} style={styles.planFeatureRow}>
           <Feather
             name="check"
