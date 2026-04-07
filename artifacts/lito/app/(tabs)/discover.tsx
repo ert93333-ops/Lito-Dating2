@@ -1,20 +1,27 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useEffect, useRef, useState } from "react";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useEffect, useState } from "react";
 import {
-  Animated,
   Dimensions,
-  Easing,
-  PanResponder,
   Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { CompatibilityChip } from "@/components/CompatibilityChip";
 import { CountryFlag } from "@/components/CountryFlag";
 import { ProfileImage } from "@/components/ProfileImage";
 import { useApp } from "@/context/AppContext";
@@ -22,6 +29,7 @@ import { useColors } from "@/hooks/useColors";
 import { User } from "@/types";
 
 // ─── Bio translation ─────────────────────────────────────────────────────────
+// CRITICAL: Do NOT modify this section. Translation logic must stay intact.
 
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
@@ -48,8 +56,8 @@ async function fetchBioTranslation(
   return data;
 }
 
+// TranslatedBio renders on dark photo overlay — text is always white
 function TranslatedBio({ user, viewerLang }: { user: User; viewerLang: "ko" | "ja" }) {
-  const colors = useColors();
   const originalLine = user.bio.split("\n")[0];
   const senderLang = user.language as "ko" | "ja";
   const shouldTranslate = senderLang !== viewerLang;
@@ -69,7 +77,7 @@ function TranslatedBio({ user, viewerLang }: { user: User; viewerLang: "ko" | "j
 
   if (!shouldTranslate || !result) {
     return (
-      <Text style={[cardStyles.bio, { color: colors.charcoalLight }]} numberOfLines={2}>
+      <Text style={cardStyles.bioText} numberOfLines={2}>
         {originalLine}
       </Text>
     );
@@ -77,30 +85,30 @@ function TranslatedBio({ user, viewerLang }: { user: User; viewerLang: "ko" | "j
 
   return (
     <View style={{ gap: 3 }}>
-      <Text style={[cardStyles.bio, { color: colors.charcoal }]} numberOfLines={2}>
+      <Text style={cardStyles.bioText} numberOfLines={2}>
         {result.translation.split("\n")[0]}
       </Text>
-      <Text style={[cardStyles.bioOriginal, { color: colors.charcoalLight }]} numberOfLines={1}>
+      <Text style={cardStyles.bioOriginal} numberOfLines={1}>
         {originalLine}
       </Text>
     </View>
   );
 }
 
-// ─── DiscoverCard ─────────────────────────────────────────────────────────────
-
+// ─── Card geometry ────────────────────────────────────────────────────────────
 const { width, height } = Dimensions.get("window");
-const CARD_WIDTH = width - 40;
-const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.32, height * 0.62);
-const SWIPE_THRESHOLD = 76;
-const ROTATION_RANGE = 5; // degrees max tilt
+const CARD_WIDTH = width - 32;
+const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.52, height * 0.68);
+const SWIPE_THRESHOLD = 72;
+const MAX_ROTATION = 4; // degrees — restrained, premium
+
+// ─── DiscoverCard ─────────────────────────────────────────────────────────────
 
 function DiscoverCard({
   user,
   onLike,
   onPass,
   isTop,
-  stackIndex,
 }: {
   user: User;
   onLike: () => void;
@@ -111,108 +119,92 @@ function DiscoverCard({
   const colors = useColors();
   const { profile } = useApp();
   const viewerLang: "ko" | "ja" = profile.country === "KR" ? "ko" : "ja";
-  const pan = useRef(new Animated.ValueXY()).current;
-  const likeOpacity = useRef(new Animated.Value(0)).current;
-  const passOpacity = useRef(new Animated.Value(0)).current;
 
-  // ── Spring configs ──────────────────────────────────────────────────────
-  // snap-back: tight, crisp, no wobble
-  const snapBack = () => {
-    Animated.parallel([
-      Animated.spring(pan, {
-        toValue: { x: 0, y: 0 },
-        tension: 200,
-        friction: 22,
-        useNativeDriver: true,
-      }),
-      Animated.timing(likeOpacity, { toValue: 0, duration: 100, useNativeDriver: true }),
-      Animated.timing(passOpacity, { toValue: 0, duration: 100, useNativeDriver: true }),
-    ]).start();
-  };
+  // ── Reanimated shared values (run on UI thread) ──────────────────────────
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const likeOpacity = useSharedValue(0);
+  const passOpacity = useSharedValue(0);
 
-  // exit: momentum-based timing (no spring bounce at the edge)
-  const exitRight = (vy: number) => {
-    Animated.parallel([
-      Animated.timing(pan.x, {
-        toValue: width + 120,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(pan.y, {
-        toValue: vy * 80,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start(onLike);
-  };
+  // Haptics must run on JS thread
+  const triggerLikeHaptic = () =>
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  const triggerPassHaptic = () =>
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-  const exitLeft = (vy: number) => {
-    Animated.parallel([
-      Animated.timing(pan.x, {
-        toValue: -(width + 120),
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(pan.y, {
-        toValue: vy * 80,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start(onPass);
-  };
+  // ── Pan gesture — fully native-thread via Reanimated ────────────────────
+  const panGesture = Gesture.Pan()
+    .enabled(isTop)
+    .onUpdate((e) => {
+      translateX.value = e.translationX;
+      translateY.value = e.translationY * 0.35; // damp vertical — feels anchored
+      likeOpacity.value = Math.min(1, Math.max(0, e.translationX / 88));
+      passOpacity.value = Math.min(1, Math.max(0, -e.translationX / 88));
+    })
+    .onEnd((e) => {
+      const fastRight = e.velocityX > 600;
+      const fastLeft = e.velocityX < -600;
+      const dx = e.translationX;
 
-  const panResponder = isTop
-    ? PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderMove: (_, g) => {
-          pan.setValue({ x: g.dx, y: g.dy });
-          // Fade in like/pass stamp proportionally
-          likeOpacity.setValue(Math.min(1, Math.max(0, g.dx / 100)));
-          passOpacity.setValue(Math.min(1, Math.max(0, -g.dx / 100)));
-        },
-        onPanResponderRelease: (_, g) => {
-          const fastSwipe = Math.abs(g.vx) > 0.6;
-          if (g.dx > SWIPE_THRESHOLD || (g.dx > 40 && fastSwipe && g.vx > 0)) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            exitRight(g.vy);
-          } else if (g.dx < -SWIPE_THRESHOLD || (g.dx < -40 && fastSwipe && g.vx < 0)) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            exitLeft(g.vy);
-          } else {
-            snapBack();
-          }
-        },
-        onPanResponderTerminate: () => { snapBack(); },
-      })
-    : { panHandlers: {} };
+      if (dx > SWIPE_THRESHOLD || (dx > 40 && fastRight)) {
+        runOnJS(triggerLikeHaptic)();
+        translateX.value = withTiming(width + 180, { duration: 230 }, () =>
+          runOnJS(onLike)()
+        );
+        translateY.value = withTiming(e.velocityY * 0.06, { duration: 230 });
+        likeOpacity.value = withTiming(0, { duration: 160 });
+      } else if (dx < -SWIPE_THRESHOLD || (dx < -40 && fastLeft)) {
+        runOnJS(triggerPassHaptic)();
+        translateX.value = withTiming(-(width + 180), { duration: 230 }, () =>
+          runOnJS(onPass)()
+        );
+        translateY.value = withTiming(e.velocityY * 0.06, { duration: 230 });
+        passOpacity.value = withTiming(0, { duration: 160 });
+      } else {
+        // Premium spring-back — tight, crisp, no wobble
+        translateX.value = withSpring(0, { damping: 28, stiffness: 380, mass: 0.7 });
+        translateY.value = withSpring(0, { damping: 28, stiffness: 380, mass: 0.7 });
+        likeOpacity.value = withTiming(0, { duration: 130 });
+        passOpacity.value = withTiming(0, { duration: 130 });
+      }
+    });
 
-  // Rotation: subtle, proportional to drag distance
-  const rotate = pan.x.interpolate({
-    inputRange: [-width / 2, 0, width / 2],
-    outputRange: [`-${ROTATION_RANGE}deg`, "0deg", `${ROTATION_RANGE}deg`],
-    extrapolate: "clamp",
+  // ── Animated styles derived on UI thread ────────────────────────────────
+  const cardAnimStyle = useAnimatedStyle(() => {
+    if (!isTop) return {};
+    const rotate = interpolate(
+      translateX.value,
+      [-width / 2, 0, width / 2],
+      [-MAX_ROTATION, 0, MAX_ROTATION],
+      Extrapolation.CLAMP
+    );
+    return {
+      transform: [
+        { translateX: translateX.value },
+        { translateY: translateY.value },
+        { rotate: `${rotate}deg` },
+      ],
+    };
   });
 
-  return (
+  const likeAnimStyle = useAnimatedStyle(() => ({
+    opacity: likeOpacity.value,
+  }));
+
+  const passAnimStyle = useAnimatedStyle(() => ({
+    opacity: passOpacity.value,
+  }));
+
+  // ── Card body ────────────────────────────────────────────────────────────
+  const cardBody = (
     <Animated.View
-      {...panResponder.panHandlers}
       style={[
         cardStyles.card,
-        {
-          backgroundColor: colors.surface,
-          shadowColor: "#1C1C1E",
-          transform: isTop
-            ? [{ translateX: pan.x }, { translateY: pan.y }, { rotate }]
-            : [],
-        },
+        { shadowColor: "#0C0C0E" },
+        cardAnimStyle,
       ]}
     >
-      {/* ── Photo ─────────────────────────────────────────────────────── */}
+      {/* Photo fills entire card */}
       <ProfileImage
         photoKey={user.photos[0]}
         size={CARD_WIDTH}
@@ -220,132 +212,237 @@ function DiscoverCard({
         style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
       />
 
-      {/* ── Like / Pass stamps ─────────────────────────────────────────── */}
-      <Animated.View style={[cardStyles.stamp, cardStyles.stampLeft, { opacity: likeOpacity }]}>
-        <View style={[cardStyles.stampInner, { borderColor: "#D85870" }]}>
+      {/* LIKE stamp */}
+      <Animated.View style={[cardStyles.stamp, cardStyles.stampLike, likeAnimStyle]}>
+        <View style={cardStyles.likeInner}>
+          <Feather name="heart" size={13} color="#D85870" />
           <Text style={[cardStyles.stampText, { color: "#D85870" }]}>LIKE</Text>
         </View>
       </Animated.View>
-      <Animated.View style={[cardStyles.stamp, cardStyles.stampRight, { opacity: passOpacity }]}>
-        <View style={[cardStyles.stampInner, { borderColor: "#8E8E93" }]}>
+
+      {/* PASS stamp */}
+      <Animated.View style={[cardStyles.stamp, cardStyles.stampPass, passAnimStyle]}>
+        <View style={cardStyles.passInner}>
+          <Feather name="x" size={13} color="#8E8E93" />
           <Text style={[cardStyles.stampText, { color: "#8E8E93" }]}>PASS</Text>
         </View>
       </Animated.View>
 
-      {/* ── Card info panel ────────────────────────────────────────────── */}
-      <View style={[cardStyles.info, { backgroundColor: colors.surface }]}>
-        {/* Name row */}
+      {/* Deep bottom gradient — transparent → photo-warm dark */}
+      <LinearGradient
+        colors={[
+          "transparent",
+          "rgba(10,8,10,0.18)",
+          "rgba(10,8,10,0.68)",
+          "rgba(10,8,10,0.88)",
+        ]}
+        locations={[0.28, 0.52, 0.78, 1]}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
+
+      {/* ── Info overlay — floats over gradient ─────────────────────────── */}
+      <View style={cardStyles.info}>
+        {/* Name / age / flag / verified */}
         <View style={cardStyles.nameRow}>
-          <View style={cardStyles.namePart}>
-            <Text style={[cardStyles.name, { color: colors.charcoal }]}>{user.nickname}</Text>
-            <Text style={[cardStyles.age, { color: colors.charcoalMid }]}>{user.age}</Text>
+          <Text style={cardStyles.name}>{user.nickname}</Text>
+          <Text style={cardStyles.age}>{user.age}</Text>
+          <CountryFlag country={user.country} size={17} />
+          {user.isVerified && (
+            <View style={cardStyles.verifiedBadge}>
+              <Feather name="check-circle" size={9} color="#fff" />
+              <Text style={cardStyles.verifiedText}>Verified</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Match score + city */}
+        <View style={cardStyles.metaRow}>
+          <View style={cardStyles.matchPill}>
+            <Feather name="zap" size={10} color="#D85870" />
+            <Text style={cardStyles.matchText}>{user.compatibilityScore}% match</Text>
           </View>
-          <View style={cardStyles.nameMeta}>
-            <CountryFlag country={user.country} size={16} />
-            {user.isVerified && (
-              <View style={[cardStyles.verifiedPill, { backgroundColor: colors.roseLight }]}>
-                <Feather name="check-circle" size={10} color={colors.rose} />
-                <Text style={[cardStyles.verifiedText, { color: colors.rose }]}>Verified</Text>
+          {user.city ? (
+            <View style={cardStyles.cityRow}>
+              <Feather name="map-pin" size={10} color="rgba(255,255,255,0.65)" />
+              <Text style={cardStyles.cityText}>{user.city}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Compatibility chips — translucent white on dark bg */}
+        {user.compatibilityReasons.length > 0 && (
+          <View style={cardStyles.chips}>
+            {user.compatibilityReasons.slice(0, 3).map((r) => (
+              <View key={r} style={cardStyles.chip}>
+                <Text style={cardStyles.chipText}>{r}</Text>
               </View>
-            )}
+            ))}
           </View>
-        </View>
+        )}
 
-        {/* Match score */}
-        <View style={cardStyles.scoreRow}>
-          <View style={[cardStyles.scorePill, { backgroundColor: colors.roseLight }]}>
-            <Feather name="zap" size={11} color={colors.rose} />
-            <Text style={[cardStyles.scoreText, { color: colors.rose }]}>{user.compatibilityScore}% match</Text>
-          </View>
-        </View>
-
-        {/* Interest chips */}
-        <View style={cardStyles.chips}>
-          {user.compatibilityReasons.slice(0, 3).map((r) => (
-            <CompatibilityChip key={r} label={r} />
-          ))}
-        </View>
-
-        {/* Bio */}
+        {/* Bio — translation logic preserved exactly */}
         <TranslatedBio user={user} viewerLang={viewerLang} />
       </View>
     </Animated.View>
   );
+
+  // Top card gets gesture detector; background cards are static
+  if (isTop) {
+    return <GestureDetector gesture={panGesture}>{cardBody}</GestureDetector>;
+  }
+  return cardBody;
 }
+
+// ─── Card styles ──────────────────────────────────────────────────────────────
 
 const cardStyles = StyleSheet.create({
   card: {
-    borderRadius: 22,
+    borderRadius: 24,
     overflow: "hidden",
     width: CARD_WIDTH,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 18,
-    elevation: 8,
+    height: CARD_HEIGHT,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 28,
+    elevation: 12,
   },
-  stamp: {
-    position: "absolute",
-    top: 40,
+
+  // Stamps — refined pill with icon, white background for legibility
+  stamp: { position: "absolute", top: 44, zIndex: 20 },
+  stampLike: { left: 20, transform: [{ rotate: "-12deg" }] },
+  stampPass: { right: 20, transform: [{ rotate: "12deg" }] },
+  likeInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(255,255,255,0.96)",
+    borderWidth: 2,
+    borderColor: "#D85870",
+    borderRadius: 8,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
   },
-  stampLeft: { left: 20, transform: [{ rotate: "-12deg" }] },
-  stampRight: { right: 20, transform: [{ rotate: "12deg" }] },
-  stampInner: {
-    borderWidth: 2.5,
-    borderRadius: 6,
-    paddingHorizontal: 12,
+  passInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    borderWidth: 2,
+    borderColor: "#8E8E93",
+    borderRadius: 8,
+    paddingHorizontal: 11,
     paddingVertical: 5,
   },
   stampText: {
     fontFamily: "Inter_700Bold",
-    fontSize: 16,
-    letterSpacing: 2,
+    fontSize: 13,
+    letterSpacing: 1.4,
   },
+
+  // Info panel — absolute, sits above gradient
   info: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 14,
+    paddingTop: 28,
+    paddingBottom: 20,
+    gap: 9,
   },
+
+  // Name row
   nameRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
+    flexWrap: "wrap",
+    gap: 7,
   },
-  namePart: { flexDirection: "row", alignItems: "baseline", gap: 6 },
-  name: { fontFamily: "Inter_700Bold", fontSize: 22 },
-  age: { fontFamily: "Inter_400Regular", fontSize: 18 },
-  nameMeta: { flexDirection: "row", alignItems: "center", gap: 6 },
-  verifiedPill: {
+  name: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 26,
+    color: "#fff",
+    textShadowColor: "rgba(0,0,0,0.35)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 5,
+  },
+  age: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 22,
+    color: "rgba(255,255,255,0.82)",
+  },
+  verifiedBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 20,
     gap: 3,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 20,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.35)",
   },
-  verifiedText: { fontFamily: "Inter_500Medium", fontSize: 10 },
-  scoreRow: { marginBottom: 10 },
-  scorePill: {
+  verifiedText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 9.5,
+    color: "#fff",
+    letterSpacing: 0.2,
+  },
+
+  // Meta row
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  matchPill: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-start",
+    gap: 4,
+    backgroundColor: "rgba(255,255,255,0.95)",
+    borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 20,
-    gap: 4,
+    alignSelf: "flex-start",
   },
-  scoreText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
-  chips: { flexDirection: "row", flexWrap: "wrap", marginBottom: 6 },
-  bio: {
+  matchText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11.5,
+    color: "#D85870",
+  },
+  cityRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  cityText: {
     fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 13,
+    color: "rgba(255,255,255,0.7)",
+  },
+
+  // Chips — glass effect on dark bg
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  chip: {
+    borderRadius: 20,
+    paddingHorizontal: 11,
+    paddingVertical: 4,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.28)",
+  },
+  chipText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.92)",
+  },
+
+  // Bio text — white on dark, small and quiet
+  bioText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: "rgba(255,255,255,0.88)",
   },
   bioOriginal: {
     fontFamily: "Inter_400Regular",
     fontSize: 12,
     lineHeight: 17,
     fontStyle: "italic",
+    color: "rgba(255,255,255,0.52)",
   },
 });
 
@@ -358,16 +455,23 @@ export default function DiscoverScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const handleLike = (userId: string) => { setTimeout(() => likeUser(userId), 260); };
-  const handlePass = (userId: string) => { setTimeout(() => passUser(userId), 260); };
+  const handleLike = (userId: string) => { setTimeout(() => likeUser(userId), 240); };
+  const handlePass = (userId: string) => { setTimeout(() => passUser(userId), 240); };
 
   if (discoverUsers.length === 0) {
     return (
-      <View style={[styles.empty, { paddingTop: topPad + 20, backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.empty,
+          { paddingTop: topPad + 20, backgroundColor: colors.background },
+        ]}
+      >
         <View style={[styles.emptyIcon, { backgroundColor: colors.roseLight }]}>
           <Feather name="heart" size={32} color={colors.rose} />
         </View>
-        <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>You're all caught up</Text>
+        <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>
+          You're all caught up
+        </Text>
         <Text style={[styles.emptySub, { color: colors.charcoalLight }]}>
           모든 프로필을 확인했어요{"\n"}すべてのプロフィールを見ました
         </Text>
@@ -375,11 +479,10 @@ export default function DiscoverScreen() {
     );
   }
 
-  const CARD_INFOHEIGHT = CARD_HEIGHT + 160; // approx card total height
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* ── Header ───────────────────────────────────────────────────────── */}
+
+      {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={[styles.header, { paddingTop: topPad + 14 }]}>
         <Text style={[styles.logo, { color: colors.rose }]}>lito</Text>
         <View style={styles.headerRight}>
@@ -389,17 +492,26 @@ export default function DiscoverScreen() {
               {discoverUsers.length} nearby
             </Text>
           </View>
+          <TouchableOpacity
+            style={[
+              styles.filterBtn,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+            activeOpacity={0.7}
+          >
+            <Feather name="sliders" size={16} color={colors.charcoalMid} />
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* ── Card stack ───────────────────────────────────────────────────── */}
-      <View style={[styles.stack, { bottom: bottomPad + 106 }]}>
+      {/* ── Card stack ─────────────────────────────────────────────────── */}
+      <View style={[styles.stack, { bottom: bottomPad + 112 }]}>
         {discoverUsers.slice(0, 3).map((user, idx) => {
           const isTop = idx === 0;
-          // Background cards: progressively smaller and further back
-          const scale = 1 - idx * 0.035;
-          const translateY = idx * 12;
-          const opacity = 1 - idx * 0.15;
+          // Background cards: scale down, push back
+          const scale = 1 - idx * 0.03;
+          const translateY = idx * 13;
+          const opacity = 1 - idx * 0.16;
           return (
             <View
               key={user.id}
@@ -407,7 +519,7 @@ export default function DiscoverScreen() {
                 styles.stackItem,
                 {
                   zIndex: 10 - idx,
-                  opacity,
+                  opacity: isTop ? 1 : opacity,
                   transform: isTop ? [] : [{ scale }, { translateY }],
                 },
               ]}
@@ -424,29 +536,39 @@ export default function DiscoverScreen() {
         })}
       </View>
 
-      {/* ── Action buttons ───────────────────────────────────────────────── */}
-      <View style={[styles.actionRow, { bottom: bottomPad + 28 }]}>
+      {/* ── Action buttons ──────────────────────────────────────────────── */}
+      <View style={[styles.actionRow, { bottom: bottomPad + 26 }]}>
+
+        {/* Pass */}
         <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          style={[
+            styles.actionBtn,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
           onPress={() => discoverUsers[0] && handlePass(discoverUsers[0].id)}
           activeOpacity={0.75}
         >
-          <Feather name="x" size={26} color={colors.charcoalLight} />
+          <Feather name="x" size={24} color={colors.charcoalMid} />
         </TouchableOpacity>
 
+        {/* Like — primary CTA */}
         <TouchableOpacity
-          style={[styles.actionBtnMain, { backgroundColor: colors.rose }]}
+          style={[styles.actionBtnMain, { backgroundColor: colors.rose, shadowColor: colors.rose }]}
           onPress={() => discoverUsers[0] && handleLike(discoverUsers[0].id)}
           activeOpacity={0.8}
         >
           <Feather name="heart" size={28} color={colors.white} />
         </TouchableOpacity>
 
+        {/* Super like */}
         <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: colors.goldLight, borderColor: colors.goldLight }]}
+          style={[
+            styles.actionBtn,
+            { backgroundColor: colors.goldLight, borderColor: "transparent" },
+          ]}
           activeOpacity={0.75}
         >
-          <Feather name="star" size={22} color={colors.gold} />
+          <Feather name="star" size={20} color={colors.gold} />
         </TouchableOpacity>
       </View>
     </View>
@@ -455,11 +577,13 @@ export default function DiscoverScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
+  // ── Header ───────────────────────────────────────────────────────────────
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 10,
   },
   logo: {
@@ -476,20 +600,23 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 5,
   },
-  onlineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+  onlineDot: { width: 6, height: 6, borderRadius: 3 },
+  onlineText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
+  filterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  onlineText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 12,
-  },
+
+  // ── Card stack ────────────────────────────────────────────────────────────
   stack: {
     position: "absolute",
     top: 0,
-    left: 20,
-    right: 20,
+    left: 16,
+    right: 16,
     alignItems: "center",
   },
   stackItem: {
@@ -499,6 +626,8 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: "center",
   },
+
+  // ── Action buttons ────────────────────────────────────────────────────────
   actionRow: {
     position: "absolute",
     left: 0,
@@ -506,7 +635,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: 18,
+    gap: 20,
   },
   actionBtn: {
     width: 58,
@@ -514,23 +643,25 @@ const styles = StyleSheet.create({
     borderRadius: 29,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 3 },
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 10,
+    elevation: 4,
   },
   actionBtnMain: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: "center",
     justifyContent: "center",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.32,
+    shadowRadius: 18,
+    elevation: 12,
   },
+
+  // ── Empty state ───────────────────────────────────────────────────────────
   empty: {
     flex: 1,
     alignItems: "center",

@@ -1,0 +1,241 @@
+You are now working on Phase 3 only.
+
+Important:
+- Chat translation is already working. Do NOT break it.
+- Pronunciation must remain removed.
+- Do NOT redesign onboarding in this phase.
+- This phase is only for profile/discovery UI and swipe motion improvement.
+
+==================================================
+PHASE 3 GOAL
+==================================================
+
+Redesign the profile browsing and swipe experience so it feels premium, modern, trendy, and polished for a Korean-Japanese dating app.
+
+The result should feel closer to a high-quality East Asian dating app:
+- attractive
+- premium
+- trustworthy
+- smooth
+- modern
+- emotionally warm but restrained
+- not childish
+- not tacky
+- not like a generic template
+
+==================================================
+1. DO NOT TOUCH CHAT TRANSLATION
+==================================================
+
+Preserve the currently working chat translation behavior exactly.
+
+Do not:
+- modify translation logic
+- reintroduce pronunciation
+- touch chat architecture unless absolutely necessary for shared styles
+
+This phase is about profile/discovery and swipe motion only.
+
+==================================================
+2. UPGRADE PROFILE CARD DESIGN
+==================================================
+
+Improve the profile cards so they feel visually premium and more emotionally engaging.
+
+Upgrade:
+- photo presentation
+- card layout
+- name / age / country placement
+- location / language / interest tags
+- trust / verification indicators
+- CTA hierarchy
+- spacing and visual depth
+
+Profile cards should feel:
+- more attractive
+- more refined
+- more premium
+- more confident
+- less flat
+- less cheap
+- less like a first prototype
+
+Requirements:
+- photo should remain the hero element
+- text hierarchy should be cleaner
+- tags/chips should feel elegant and useful
+- verification/trust cues should be visible but not noisy
+- actions should be obvious without clutter
+- spacing should feel deliberate and editorial
+
+Do not overcrowd the card.
+Keep the information hierarchy strong and easy to scan.
+
+==================================================
+3. UPGRADE PROFILE DETAIL SCREEN
+==================================================
+
+Improve the full profile/detail page as well.
+
+Make it feel more like a premium dating product, not a basic profile form.
+
+Improve:
+- image gallery treatment
+- section hierarchy
+- self-introduction area
+- hobbies / interests / values display
+- country / language context
+- verification / trust modules
+- call-to-action area
+
+The profile detail page should feel:
+- immersive
+- easy to read
+- premium
+- trustworthy
+- emotionally warm
+- culturally polished for Korea and Japan
+
+==================================================
+4. IMPROVE SWIPE / DISCOVERY MOTION
+==================================================
+
+The swipe movement currently feels awkward, outdated, and low-end.
+Redesign the card/photo swipe motion so it feels smooth, tactile, and premium.
+
+Required motion improvements:
+- smooth finger tracking
+- subtle rotation during drag
+- subtle scale/depth response
+- refined spring-back animation
+- clean swipe-away transition
+- no jitter
+- no laggy re-render feel
+- no clumsy bounce
+- no cheap exaggerated effects
+
+Motion direction:
+- premium
+- restrained
+- physically believable
+- modern mobile-native
+- smooth and responsive
+
+Avoid:
+- dramatic tilt
+- floaty or unstable drag
+- cheesy overlays
+- cartoon-like bounce
+- old-fashioned Tinder clone feel
+- awkward image snapping
+
+If there is a photo carousel inside the card/profile:
+- make horizontal image transitions smoother
+- improve gesture response
+- reduce clunky snapping
+- add subtle polish to image paging indicators if present
+
+==================================================
+5. UPGRADE DISCOVERY SCREEN VISUAL POLISH
+==================================================
+
+Improve the overall browsing/discovery screen so it feels cohesive and premium.
+
+Upgrade:
+- top area / filters / controls if present
+- card stack depth
+- spacing around the main card
+- action buttons
+- badges / pills / chips
+- empty/loading/error states
+
+Design direction:
+- premium Korean/Japanese dating app
+- trust-first
+- clean and modern
+- warm-neutral visual tone
+- elegant but not flashy
+- stylish without becoming noisy
+
+==================================================
+6. VISUAL STYLE DIRECTION
+==================================================
+
+Use a trendy visual language suitable for both Korea and Japan.
+
+Color direction:
+- premium neutral base
+- restrained warm accent
+- subtle contrast
+- not neon
+- not muddy gray-only
+- not too cute or sugary
+- not overly masculine or cold
+
+Typography direction:
+- clean and premium
+- strong readability
+- elegant hierarchy
+- good for Korean and Japanese
+- avoid cramped layouts
+
+Component direction:
+- refined cards
+- better radius
+- more deliberate spacing
+- subtle depth
+- polished chips/tags
+- premium CTA buttons
+- smoother iconography and surfaces
+
+==================================================
+7. PRODUCT UX DIRECTION
+==================================================
+
+This app should not feel like a casual low-trust swipe toy.
+It should feel like a polished Korean-Japanese dating app where:
+- trust matters
+- presentation matters
+- profile quality matters
+- cultural context matters
+- visual polish matters
+
+The discovery experience should feel exciting but calm.
+The profile should feel attractive but sincere.
+
+==================================================
+8. KEEP CHANGES SCOPED
+==================================================
+
+This phase should only improve:
+- profile card UI
+- profile detail UI
+- swipe/discovery motion
+- discovery visual polish
+
+Do not:
+- redesign onboarding yet
+- touch country/language onboarding flow yet
+- change core chat translation logic
+- add pronunciation back
+- add random new features
+
+Reuse working architecture where possible.
+Focus on polishing the user-facing discovery experience.
+
+==================================================
+9. REQUIRED OUTPUT FORMAT
+==================================================
+
+When finished, provide:
+
+1. which profile/discovery components were changed
+2. how the profile card hierarchy was improved
+3. how the profile detail screen was improved
+4. what swipe-motion improvements were made
+5. what image/card interaction improvements were made
+6. what visual design upgrades were made
+7. confirmation that chat translation was not affected
+8. confirmation that pronunciation was not reintroduced
+
+Do not say the phase is complete unless the profile/discovery experience looks noticeably more premium and the swipe motion feels smoother.
