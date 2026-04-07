@@ -1,6 +1,51 @@
-import { User, Match, Message, Conversation, MyProfile } from "@/types";
+import { User, Match, Message, Conversation, MyProfile, TrustProfile } from "@/types";
 
 export const CURRENT_USER_ID = "me";
+
+// ── Preset trust profiles (for mock data variety) ─────────────────────────────
+
+const TRUST_FULL: TrustProfile = {
+  humanVerified: { status: "verified", verifiedAt: "2025-01-01T00:00:00Z" },
+  faceMatched:   { status: "verified", verifiedAt: "2025-01-01T00:00:00Z" },
+  idVerified:    { status: "verified", verifiedAt: "2025-01-01T00:00:00Z", expiresAt: "2027-01-01T00:00:00Z" },
+  institutionVerified: { status: "verified", verifiedAt: "2025-01-01T00:00:00Z" },
+  photoFingerprintAtVerification: "fp_profile5",
+};
+
+const TRUST_THREE_LAYERS: TrustProfile = {
+  humanVerified: { status: "verified", verifiedAt: "2025-01-02T00:00:00Z" },
+  faceMatched:   { status: "verified", verifiedAt: "2025-01-02T00:00:00Z" },
+  idVerified:    { status: "verified", verifiedAt: "2025-01-02T00:00:00Z", expiresAt: "2027-01-02T00:00:00Z" },
+  photoFingerprintAtVerification: "fp_profile2",
+};
+
+const TRUST_TWO_LAYERS: TrustProfile = {
+  humanVerified: { status: "verified", verifiedAt: "2025-01-03T00:00:00Z" },
+  faceMatched:   { status: "verified", verifiedAt: "2025-01-03T00:00:00Z" },
+  idVerified:    { status: "none" },
+  photoFingerprintAtVerification: "fp_profile1",
+};
+
+const TRUST_HUMAN_ONLY: TrustProfile = {
+  humanVerified: { status: "verified", verifiedAt: "2025-01-04T00:00:00Z" },
+  faceMatched:   { status: "none" },
+  idVerified:    { status: "none" },
+};
+
+const TRUST_NONE: TrustProfile = {
+  humanVerified: { status: "none" },
+  faceMatched:   { status: "none" },
+  idVerified:    { status: "none" },
+};
+
+const TRUST_ID_PENDING: TrustProfile = {
+  humanVerified: { status: "verified", verifiedAt: "2025-01-05T00:00:00Z" },
+  faceMatched:   { status: "verified", verifiedAt: "2025-01-05T00:00:00Z" },
+  idVerified:    { status: "pending" },
+  photoFingerprintAtVerification: "fp_profile6",
+};
+
+// ── Mock users ─────────────────────────────────────────────────────────────────
 
 export const mockUsers: User[] = [
   {
@@ -14,7 +59,7 @@ export const mockUsers: User[] = [
     photos: ["profile1"],
     compatibilityScore: 94,
     compatibilityReasons: ["Creative souls", "Love for travel", "Bilingual ambition", "K-drama fans"],
-    isVerified: true,
+    trustProfile: TRUST_TWO_LAYERS,
     lastActive: "2분 전",
   },
   {
@@ -28,7 +73,7 @@ export const mockUsers: User[] = [
     photos: ["profile2"],
     compatibilityScore: 89,
     compatibilityReasons: ["Tech minds", "Music lovers", "Language learners", "Food enthusiasts"],
-    isVerified: true,
+    trustProfile: TRUST_THREE_LAYERS,
     lastActive: "10분 전",
   },
   {
@@ -42,7 +87,7 @@ export const mockUsers: User[] = [
     photos: ["profile3"],
     compatibilityScore: 87,
     compatibilityReasons: ["Art & photography", "Café culture", "Introspective personalities", "Nature lovers"],
-    isVerified: true,
+    trustProfile: TRUST_HUMAN_ONLY,
     lastActive: "1시간 전",
   },
   {
@@ -56,7 +101,7 @@ export const mockUsers: User[] = [
     photos: ["profile4"],
     compatibilityScore: 82,
     compatibilityReasons: ["Foodie spirits", "Coastal hearts", "Cultural curiosity", "Active lifestyle"],
-    isVerified: false,
+    trustProfile: TRUST_NONE,
     lastActive: "3시간 전",
   },
   {
@@ -70,7 +115,7 @@ export const mockUsers: User[] = [
     photos: ["profile5"],
     compatibilityScore: 91,
     compatibilityReasons: ["Deep thinkers", "Literature lovers", "City pop fans", "Emotionally intelligent"],
-    isVerified: true,
+    trustProfile: TRUST_FULL,
     lastActive: "방금 전",
   },
   {
@@ -84,7 +129,7 @@ export const mockUsers: User[] = [
     photos: ["profile6"],
     compatibilityScore: 85,
     compatibilityReasons: ["Musical souls", "Creative freedom", "Night owls", "Cultural bridges"],
-    isVerified: true,
+    trustProfile: TRUST_ID_PENDING,
     lastActive: "30분 전",
   },
 ];
@@ -107,76 +152,9 @@ export const mockMatches: Match[] = [
   {
     id: "match3",
     userId: "user3",
-    matchedAt: "2025-01-06T18:45:00Z",
+    matchedAt: "2025-01-07T09:10:00Z",
     isNew: true,
     user: mockUsers[2],
-  },
-];
-
-// ── Japanese conversation messages (conv3 — Hana from Kyoto) ─────────────────
-// All sent by Hana (Japanese). Use these to test KO translation direction.
-export const mockMessagesConv3: Message[] = [
-  {
-    id: "c3msg1",
-    conversationId: "conv3",
-    senderId: "user3",
-    originalText: "こんにちは！プロフィール見て、韓国文化が大好きなんですね 🌸",
-    originalLanguage: "ja",
-    translatedText: "안녕하세요! 프로필 보니 한국 문화를 정말 좋아하시는군요 🌸",
-    translatedLanguage: "ko",
-    createdAt: "2025-01-06T19:00:00Z",
-    isRead: true,
-  },
-  {
-    id: "c3msg2",
-    conversationId: "conv3",
-    senderId: CURRENT_USER_ID,
-    originalText: "はい！韓国のカフェや映画が大好きです。京都出身なんですね？",
-    originalLanguage: "ja",
-    createdAt: "2025-01-06T19:05:00Z",
-    isRead: true,
-  },
-  {
-    id: "c3msg3",
-    conversationId: "conv3",
-    senderId: "user3",
-    originalText: "そうです！京都は本当に美しいですよ。いつか韓国に行ってみたいです ✈️",
-    originalLanguage: "ja",
-    translatedText: "맞아요! 교토는 정말 아름다워요. 언젠가 한국에 가보고 싶어요 ✈️",
-    translatedLanguage: "ko",
-    createdAt: "2025-01-06T19:10:00Z",
-    isRead: true,
-  },
-  {
-    id: "c3msg4",
-    conversationId: "conv3",
-    senderId: "user3",
-    originalText: "韓国語を少し勉強しているんですが、難しいですね 😅 発音が特に…",
-    originalLanguage: "ja",
-    translatedText: "한국어를 조금 공부하고 있는데 어렵네요 😅 특히 발음이…",
-    translatedLanguage: "ko",
-    createdAt: "2025-01-06T19:15:00Z",
-    isRead: true,
-  },
-  {
-    id: "c3msg5",
-    conversationId: "conv3",
-    senderId: CURRENT_USER_ID,
-    originalText: "一緒に練習しましょう！私も韓国語の勉強中です 😊",
-    originalLanguage: "ja",
-    createdAt: "2025-01-06T19:20:00Z",
-    isRead: true,
-  },
-  {
-    id: "c3msg6",
-    conversationId: "conv3",
-    senderId: "user3",
-    originalText: "わあ、嬉しい！おすすめの韓国ドラマはありますか？📺",
-    originalLanguage: "ja",
-    translatedText: "와, 기뻐요! 추천할 만한 한국 드라마가 있나요? 📺",
-    translatedLanguage: "ko",
-    createdAt: "2025-01-06T19:25:00Z",
-    isRead: false,
   },
 ];
 
@@ -185,9 +163,9 @@ export const mockMessages: Message[] = [
     id: "msg1",
     conversationId: "conv1",
     senderId: "user1",
-    originalText: "안녕하세요! 반가워요 😊 일본 문화에 관심이 많으시다고 들었어요!",
+    originalText: "안녕하세요! 처음 뵙겠습니다. 일본에서 오셨나요?",
     originalLanguage: "ko",
-    translatedText: "こんにちは！はじめまして 😊 日本文化にとても興味がおありだと聞きました！",
+    translatedText: "はじめまして！日本から来られましたか？",
     translatedLanguage: "ja",
     createdAt: "2025-01-05T11:00:00Z",
     isRead: true,
@@ -196,7 +174,7 @@ export const mockMessages: Message[] = [
     id: "msg2",
     conversationId: "conv1",
     senderId: CURRENT_USER_ID,
-    originalText: "はい、とても興味があります！韓国語も勉強しているんですよ。",
+    originalText: "はい、東京出身です！ソウルに興味があります。",
     originalLanguage: "ja",
     createdAt: "2025-01-05T11:05:00Z",
     isRead: true,
@@ -245,6 +223,36 @@ export const mockMessages: Message[] = [
   },
 ];
 
+export const mockMessagesConv3: Message[] = [
+  {
+    id: "conv3msg1",
+    conversationId: "conv3",
+    senderId: "user3",
+    originalText: "こんにちは！プロフィールを見て、すごく素敵だと思いました。",
+    originalLanguage: "ja",
+    createdAt: "2025-01-07T09:30:00Z",
+    isRead: true,
+  },
+  {
+    id: "conv3msg2",
+    conversationId: "conv3",
+    senderId: CURRENT_USER_ID,
+    originalText: "ありがとうございます！京都出身なんですね、素敵な街ですよね。",
+    originalLanguage: "ja",
+    createdAt: "2025-01-07T09:45:00Z",
+    isRead: true,
+  },
+  {
+    id: "conv3msg3",
+    conversationId: "conv3",
+    senderId: "user3",
+    originalText: "韓国のカフェ文化にとても憧れています。ソウルのおすすめのカフェはありますか？",
+    originalLanguage: "ja",
+    createdAt: "2025-01-07T10:00:00Z",
+    isRead: false,
+  },
+];
+
 export const mockConversations: Conversation[] = [
   {
     id: "conv1",
@@ -287,4 +295,10 @@ export const myProfile: MyProfile = {
   instagramHandle: "@alex.creates",
   photos: [],
   aiStyleSummary: "Your profile radiates creative energy and cultural curiosity. You lead with authenticity — your love for cross-cultural connection comes through naturally. Tip: Adding a photo of your creative workspace could spark great conversation starters.",
+  // My trust profile — humanVerified done, face pending (no photo yet), ID not started
+  trustProfile: {
+    humanVerified: { status: "verified", verifiedAt: "2025-01-10T00:00:00Z" },
+    faceMatched:   { status: "none" },
+    idVerified:    { status: "none" },
+  },
 };

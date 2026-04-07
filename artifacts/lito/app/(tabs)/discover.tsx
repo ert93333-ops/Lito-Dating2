@@ -26,6 +26,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CountryFlag } from "@/components/CountryFlag";
 import { ProfileImage } from "@/components/ProfileImage";
+import { TrustBadge } from "@/components/TrustBadge";
 import { useApp } from "@/context/AppContext";
 import { useGrowth } from "@/context/GrowthContext";
 import { useColors } from "@/hooks/useColors";
@@ -251,14 +252,7 @@ function DiscoverCard({
           <Text style={cardStyles.name}>{user.nickname}</Text>
           <Text style={cardStyles.age}>{user.age}</Text>
           <CountryFlag country={user.country} size={17} />
-          {user.isVerified && (
-            <View style={cardStyles.verifiedBadge}>
-              <Feather name="check-circle" size={9} color="#fff" />
-              <Text style={cardStyles.verifiedText}>
-                {profile.language === "ko" ? "인증" : "認証済み"}
-              </Text>
-            </View>
-          )}
+          <TrustBadge trustProfile={user.trustProfile} size="sm" />
         </View>
 
         {/* Match score + city */}

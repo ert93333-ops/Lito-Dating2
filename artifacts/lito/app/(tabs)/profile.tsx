@@ -15,11 +15,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CountryFlag } from "@/components/CountryFlag";
 import { ProfileImage } from "@/components/ProfileImage";
+import { TrustBadge } from "@/components/TrustBadge";
 import { useApp } from "@/context/AppContext";
 import { useGrowth } from "@/context/GrowthContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 import { PLANS } from "@/services/monetization";
+import { computeTrustScore } from "@/types";
 
 const { width } = Dimensions.get("window");
 
@@ -108,20 +110,21 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* ── Trust / completeness bar ──────────────────────────────────────── */}
-      <View style={[styles.trustCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      {/* ── Trust / completeness card ──────────────────────────────────────── */}
+      <TouchableOpacity
+        style={[styles.trustCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        activeOpacity={0.88}
+        onPress={() => router.push("/trust-center")}
+      >
         <View style={styles.trustRow}>
           <View style={[styles.trustIcon, { backgroundColor: colors.roseLight }]}>
             <Feather name="shield" size={14} color={colors.rose} />
           </View>
           <View style={styles.trustMeta}>
             <Text style={[styles.trustLabel, { color: colors.charcoal }]}>
-              {lang === "ko" ? "프로필 강도" : "プロフィール強度"}
+              {lang === "ko" ? "신뢰 & 프로필 강도" : "信頼 & プロフィール強度"}
             </Text>
             <Text style={[styles.trustSub, { color: colors.charcoalLight }]}>
-              {profile.isVerified
-                ? lang === "ko" ? "인증 회원 · " : "認証済みメンバー · "
-                : ""}
               {lang === "ko"
                 ? `${profile.photos.length}장의 사진`
                 : `写真${profile.photos.length}枚`}
@@ -130,16 +133,30 @@ export default function ProfileScreen() {
                 : ""}
             </Text>
           </View>
-          <View style={[styles.trustBadge, { backgroundColor: colors.roseLight }]}>
-            <Text style={[styles.trustBadgeText, { color: colors.rose }]}>
-              {profile.isVerified
-                ? lang === "ko" ? "인증됨" : "認証済み"
-                : lang === "ko" ? "정보 추가" : "情報を追加"}
-            </Text>
-          </View>
+          <Feather name="chevron-right" size={15} color={colors.charcoalLight} />
         </View>
 
-        {/* Strength bar */}
+        {/* Layered trust badges */}
+        <View style={styles.trustBadgesRow}>
+          <TrustBadge
+            trustProfile={profile.trustProfile}
+            size="md"
+            lang={lang}
+            showPending
+          />
+          {computeTrustScore(profile.trustProfile) === 0 && (
+            <TouchableOpacity
+              onPress={() => router.push("/trust-center")}
+              style={[styles.trustStartBtn, { backgroundColor: colors.roseLight, borderColor: colors.roseSoft }]}
+            >
+              <Text style={[styles.trustStartText, { color: colors.rose }]}>
+                {lang === "ko" ? "인증 시작 →" : "認証を開始 →"}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Strength bar (profile completeness + trust combined) */}
         <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
           <View
             style={[
@@ -148,16 +165,16 @@ export default function ProfileScreen() {
                 backgroundColor: colors.rose,
                 width: `${Math.min(
                   100,
-                  (profile.photos.length > 0 ? 30 : 0) +
-                    (profile.bio ? 25 : 0) +
-                    (profile.interests?.length ? 20 : 0) +
-                    (profile.isVerified ? 25 : 0)
+                  (profile.photos.length > 0 ? 25 : 0) +
+                    (profile.bio ? 20 : 0) +
+                    (profile.interests?.length ? 15 : 0) +
+                    computeTrustScore(profile.trustProfile) * 0.4
                 )}%` as any,
               },
             ]}
           />
         </View>
-      </View>
+      </TouchableOpacity>
 
       {/* ── Language badges ───────────────────────────────────────────────── */}
       <View style={[styles.section, { backgroundColor: colors.surface }]}>
@@ -488,6 +505,23 @@ const styles = StyleSheet.create({
   trustMeta: { flex: 1 },
   trustLabel: { fontFamily: "Inter_600SemiBold", fontSize: 14, marginBottom: 2 },
   trustSub: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  trustBadgesRow: {
+    marginBottom: 12,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    alignItems: "center",
+  },
+  trustStartBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  trustStartText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+  },
   trustBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,

@@ -64,6 +64,7 @@ artifacts/lito/
       [id].tsx           # Chat with real-time KR↔JP translation (DO NOT TOUCH)
   components/
     Button.tsx, CompatibilityChip.tsx, CountryFlag.tsx, ProfileImage.tsx, LitoMark.tsx
+    TrustBadge.tsx  # Layered trust badge system (4 layers: human/face/id/institution)
   constants/colors.ts    # Design tokens (rose pink theme)
   context/
     AppContext.tsx        # Core app state (auth, users, matches, conversations)
