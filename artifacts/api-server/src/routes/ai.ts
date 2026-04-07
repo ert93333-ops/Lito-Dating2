@@ -189,27 +189,44 @@ router.post("/ai/coach", async (req, res) => {
 
     const lang = targetLang === "ko" ? "Korean" : "Japanese";
 
-    const systemPrompt = `You are a warm and friendly conversation coach for a Korean-Japanese dating app.
+    const systemPrompt = `You are a conversation coach for a Korean-Japanese dating app.
 Analyse the conversation and return ONLY a valid JSON object — no markdown, no explanation, no code fences.
 
-The JSON must have exactly this structure:
+Return exactly this JSON structure:
 {
-  "summary": "1-2 sentence plain English explanation of what the other person is expressing or feeling",
-  "directions": ["Direction label 1", "Direction label 2", "Direction label 3"],
-  "examples": ["Example reply in ${lang}", "Example reply in ${lang}", "Example reply in ${lang}"],
-  "tips": ["Short coaching tip", "Short coaching tip"]
+  "summary": "1-2 sentence summary in Korean (한국어) — explain what the other person is expressing, e.g. '상대가 호감을 보이며 같이 연습하자고 제안했어요'",
+  "tones": [
+    {
+      "emoji": "😊",
+      "label": "편하게",
+      "suggestions": ["${lang} reply option 1", "${lang} reply option 2"],
+      "tip": "Korean coaching tip for this tone"
+    },
+    {
+      "emoji": "🔥",
+      "label": "적극적으로",
+      "suggestions": ["${lang} reply option 1", "${lang} reply option 2"],
+      "tip": "Korean coaching tip for this tone"
+    },
+    {
+      "emoji": "😏",
+      "label": "가볍게",
+      "suggestions": ["${lang} reply option 1", "${lang} reply option 2"],
+      "tip": "Korean coaching tip for this tone"
+    }
+  ]
 }
 
 Rules:
-- summary: friendly plain English, e.g. "She's excited about practicing Korean together and wants K-drama recommendations."
-- directions: tone labels in English, e.g. "Friendly", "Playful", "Thoughtful" — choose labels that fit this conversation
-- examples: 3 natural ${lang} reply options (reference only — not for auto-inserting), each 1-2 sentences, warm and genuine
-- tips: 2 brief, helpful coaching tips in plain English — practical and human
+- summary: natural warm Korean, brief, describes what the other person is expressing
+- tone emoji and label: keep exactly as shown above (😊 편하게, 🔥 적극적으로, 😏 가볍게)
+- suggestions: write in ${lang} — 2 natural, warm, genuine replies per tone, each 1-2 sentences
+- tip: 1 brief practical coaching tip per tone, in Korean, e.g. "이모지를 넣으면 더 가볍게 느껴져요"
 - Return ONLY the raw JSON object, nothing else`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-5.2",
-      max_completion_tokens: 400,
+      max_completion_tokens: 600,
       messages: [
         { role: "system", content: systemPrompt },
         {

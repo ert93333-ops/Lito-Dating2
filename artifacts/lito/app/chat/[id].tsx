@@ -6,11 +6,11 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Easing,
   FlatList,
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -49,11 +49,15 @@ interface Enrichment {
 }
 
 // ── AI Coach structured response ─────────────────────────────────────────────
+interface CoachTone {
+  emoji: string;
+  label: string;
+  suggestions: string[];
+  tip: string;
+}
 interface CoachResult {
   summary: string;
-  directions: string[];
-  examples: string[];
-  tips: string[];
+  tones: CoachTone[];
 }
 
 // ─── MessageBubble ────────────────────────────────────────────────────────────
@@ -547,278 +551,232 @@ const creditModal = StyleSheet.create({
   },
 });
 
-// ─── AiCoachSheet ─────────────────────────────────────────────────────────────
-// Conversation coaching bottom sheet — read-only, never touches the input field.
+// ─── AiCoachPopup ─────────────────────────────────────────────────────────────
+// Top slide-down coaching card. Never blocks the chat. Never touches the input.
+// 2-step: Step 1 = summary + tone pills  →  Step 2 = tone's suggestions + tip.
 
-interface AiCoachSheetProps {
+interface AiCoachPopupProps {
   visible: boolean;
   data: CoachResult | null;
+  topOffset: number;
   onClose: () => void;
 }
 
-function AiCoachSheet({ visible, data, onClose }: AiCoachSheetProps) {
+function AiCoachPopup({ visible, data, topOffset, onClose }: AiCoachPopupProps) {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
-  const [selectedDir, setSelectedDir] = useState(0);
+  const slideAnim = useRef(new Animated.Value(-320)).current;
+  const [selectedTone, setSelectedTone] = useState<number | null>(null);
+  const [mounted, setMounted] = useState(false);
 
-  if (!data) return null;
+  useEffect(() => {
+    if (visible) {
+      setMounted(true);
+      setSelectedTone(null);
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(slideAnim, {
+        toValue: -320,
+        duration: 200,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) setMounted(false);
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
-  const dirColors = ["#D85870", "#6C63FF", "#2BB56E"];
+  if (!mounted || !data) return null;
+
+  const tone = selectedTone !== null ? data.tones[selectedTone] : null;
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-      statusBarTranslucent
+    <Animated.View
+      style={[popup.container, { top: topOffset, transform: [{ translateY: slideAnim }] }]}
+      pointerEvents="box-none"
     >
-      <Pressable style={coach.backdrop} onPress={onClose} />
-      <View style={[coach.sheet, { backgroundColor: colors.surface, paddingBottom: insets.bottom + 20 }]}>
-        {/* Handle */}
-        <View style={[coach.handle, { backgroundColor: colors.border }]} />
+      <View style={[popup.card, { backgroundColor: colors.surface }]}>
 
-        {/* Header row */}
-        <View style={coach.headerRow}>
-          <View style={coach.headerLeft}>
-            <Text style={[coach.headerIcon]}>⚡</Text>
-            <Text style={[coach.headerTitle, { color: colors.charcoal }]}>Conversation Coach</Text>
-          </View>
-          <TouchableOpacity onPress={onClose} style={coach.closeBtn} hitSlop={12}>
-            <Feather name="x" size={20} color={colors.charcoalLight} />
+        {/* ── Header ──────────────────────────────────────────────────────── */}
+        <View style={popup.header}>
+          {tone ? (
+            <TouchableOpacity
+              onPress={() => setSelectedTone(null)}
+              style={popup.backBtn}
+              hitSlop={12}
+            >
+              <Feather name="arrow-left" size={17} color={colors.charcoalLight} />
+            </TouchableOpacity>
+          ) : (
+            <Text style={popup.headerIcon}>⚡</Text>
+          )}
+          <Text style={[popup.headerTitle, { color: colors.charcoal }]} numberOfLines={1}>
+            {tone ? `${tone.emoji} ${tone.label}` : "대화 코치"}
+          </Text>
+          <TouchableOpacity onPress={onClose} style={popup.closeBtn} hitSlop={12}>
+            <Feather name="x" size={18} color={colors.charcoalLight} />
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={coach.scroll}>
-
-          {/* ── Summary ─────────────────────────────────────────────────────── */}
-          <Text style={[coach.sectionLabel, { color: colors.charcoalLight }]}>📌 What they said</Text>
-          <View style={[coach.summaryCard, { backgroundColor: colors.muted }]}>
-            <Text style={[coach.summaryText, { color: colors.charcoal }]}>{data.summary}</Text>
-          </View>
-
-          {/* ── Tone directions ─────────────────────────────────────────────── */}
-          <Text style={[coach.sectionLabel, { color: colors.charcoalLight }]}>💡 Tone directions</Text>
-          <View style={coach.pillRow}>
-            {data.directions.map((dir, i) => (
-              <Pressable
-                key={dir}
-                onPress={() => setSelectedDir(i)}
+        {tone === null ? (
+          // ── Step 1: Situation summary + tone selection ───────────────────
+          <>
+            <View style={[popup.summaryWrap, { backgroundColor: colors.muted }]}>
+              <Text style={[popup.summaryText, { color: colors.charcoal }]}>{data.summary}</Text>
+            </View>
+            <Text style={[popup.label, { color: colors.charcoalLight }]}>답변 스타일 선택</Text>
+            <View style={popup.toneRow}>
+              {data.tones.map((t, i) => (
+                <Pressable
+                  key={t.label}
+                  onPress={() => {
+                    setSelectedTone(i);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  style={[popup.tonePill, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                >
+                  <Text style={popup.toneEmoji}>{t.emoji}</Text>
+                  <Text style={[popup.toneLabel, { color: colors.charcoal }]}>{t.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        ) : (
+          // ── Step 2: Selected tone's suggestions + tip ────────────────────
+          <>
+            {tone.suggestions.map((s, i) => (
+              <View
+                key={i}
                 style={[
-                  coach.pill,
-                  {
-                    backgroundColor: selectedDir === i ? dirColors[i % dirColors.length] : colors.muted,
-                    borderColor: selectedDir === i ? "transparent" : colors.border,
-                  },
+                  popup.suggestionRow,
+                  i < tone.suggestions.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
                 ]}
               >
-                <Text
-                  style={[
-                    coach.pillText,
-                    { color: selectedDir === i ? "#fff" : colors.charcoalLight },
-                  ]}
-                >
-                  {dir}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {/* ── Example replies ─────────────────────────────────────────────── */}
-          <View style={coach.exampleHeader}>
-            <Text style={[coach.sectionLabel, { color: colors.charcoalLight, marginBottom: 0 }]}>
-              ✍️ Example replies
-            </Text>
-            <View style={[coach.refBadge, { backgroundColor: colors.muted }]}>
-              <Text style={[coach.refBadgeText, { color: colors.charcoalLight }]}>reference only</Text>
-            </View>
-          </View>
-          {data.examples.map((ex, i) => (
-            <View
-              key={i}
-              style={[
-                coach.exampleCard,
-                {
-                  backgroundColor: colors.background,
-                  borderColor: colors.border,
-                  borderLeftColor: dirColors[i % dirColors.length],
-                },
-              ]}
-            >
-              <Text style={[coach.exampleText, { color: colors.charcoal }]}>{ex}</Text>
-              <Text style={[coach.exampleHint, { color: colors.charcoalFaint }]}>
-                {data.directions[i] ?? ""}
-              </Text>
-            </View>
-          ))}
-
-          {/* ── Coaching tips ───────────────────────────────────────────────── */}
-          <Text style={[coach.sectionLabel, { color: colors.charcoalLight }]}>🌟 Coaching tips</Text>
-          <View style={[coach.tipsCard, { backgroundColor: colors.muted }]}>
-            {data.tips.map((tip, i) => (
-              <View key={i} style={coach.tipRow}>
-                <Text style={[coach.tipBullet, { color: "#D85870" }]}>•</Text>
-                <Text style={[coach.tipText, { color: colors.charcoal }]}>{tip}</Text>
+                <Text style={[popup.bullet, { color: "#D85870" }]}>•</Text>
+                <Text style={[popup.suggestionText, { color: colors.charcoal }]}>{s}</Text>
               </View>
             ))}
-          </View>
-
-          <Text style={[coach.footerNote, { color: colors.charcoalFaint }]}>
-            Read the suggestions, decide what feels right, then write in your own words.
-          </Text>
-        </ScrollView>
+            <View style={[popup.tipWrap, { backgroundColor: colors.muted }]}>
+              <Text style={[popup.tipLabel, { color: "#D85870" }]}>💡 팁</Text>
+              <Text style={[popup.tipText, { color: colors.charcoal }]}>{tone.tip}</Text>
+            </View>
+          </>
+        )}
       </View>
-    </Modal>
+    </Animated.View>
   );
 }
 
-const coach = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+const popup = StyleSheet.create({
+  container: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    zIndex: 999,
+    elevation: 16,
   },
-  sheet: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    paddingHorizontal: 20,
+  card: {
+    borderRadius: 18,
+    paddingHorizontal: 16,
     paddingTop: 14,
-    maxHeight: "82%",
+    paddingBottom: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.14,
-    shadowRadius: 24,
-    elevation: 24,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.13,
+    shadowRadius: 22,
+    elevation: 16,
   },
-  handle: {
-    width: 38,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: 16,
-  },
-  headerRow: {
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 20,
+    gap: 6,
+    marginBottom: 12,
   },
-  headerLeft: {
-    flexDirection: "row",
+  headerIcon: { fontSize: 16 },
+  backBtn: {
+    width: 28,
+    height: 28,
     alignItems: "center",
-    gap: 7,
-  },
-  headerIcon: {
-    fontSize: 20,
+    justifyContent: "center",
   },
   headerTitle: {
     fontFamily: "Inter_700Bold",
-    fontSize: 18,
+    fontSize: 15,
+    flex: 1,
   },
-  closeBtn: {
-    padding: 4,
-  },
-  scroll: {
-    paddingBottom: 8,
-  },
-  sectionLabel: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 12,
-    letterSpacing: 0.2,
-    marginBottom: 10,
-    marginTop: 4,
-  },
-  summaryCard: {
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 20,
+  closeBtn: { padding: 2 },
+  summaryWrap: {
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginBottom: 12,
   },
   summaryText: {
     fontFamily: "Inter_400Regular",
-    fontSize: 14.5,
-    lineHeight: 22,
-  },
-  pillRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 20,
-  },
-  pill: {
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  pillText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 13,
-  },
-  exampleHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 10,
-    marginTop: 4,
-  },
-  refBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  refBadgeText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 10,
-    letterSpacing: 0.2,
-  },
-  exampleCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderLeftWidth: 3,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    marginBottom: 10,
-    gap: 4,
-  },
-  exampleText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 15,
-    lineHeight: 23,
-  },
-  exampleHint: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 11,
-    letterSpacing: 0.2,
-  },
-  tipsCard: {
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 20,
-    gap: 10,
-  },
-  tipRow: {
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "flex-start",
-  },
-  tipBullet: {
-    fontFamily: "Inter_700Bold",
     fontSize: 14,
     lineHeight: 21,
+  },
+  label: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 11.5,
+    letterSpacing: 0.2,
+    marginBottom: 8,
+  },
+  toneRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  tonePill: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 4,
+  },
+  toneEmoji: { fontSize: 20 },
+  toneLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+  },
+  suggestionRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingVertical: 10,
+    alignItems: "flex-start",
+  },
+  bullet: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  suggestionText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14.5,
+    lineHeight: 22,
+    flex: 1,
+  },
+  tipWrap: {
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginTop: 10,
+    gap: 3,
+  },
+  tipLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    letterSpacing: 0.2,
   },
   tipText: {
     fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    lineHeight: 21,
-    flex: 1,
-  },
-  footerNote: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 11.5,
-    textAlign: "center",
-    lineHeight: 17,
-    marginBottom: 4,
+    fontSize: 13.5,
+    lineHeight: 20,
   },
 });
 
@@ -1232,10 +1190,11 @@ export default function ChatDetailScreen() {
         }}
       />
 
-      {/* ── AI Conversation Coach sheet ──────────────────────────────────── */}
-      <AiCoachSheet
+      {/* ── AI Conversation Coach popup (top slide-down, non-blocking) ───── */}
+      <AiCoachPopup
         visible={showCoachSheet}
         data={coachData}
+        topOffset={topPad + 72}
         onClose={() => setShowCoachSheet(false)}
       />
 

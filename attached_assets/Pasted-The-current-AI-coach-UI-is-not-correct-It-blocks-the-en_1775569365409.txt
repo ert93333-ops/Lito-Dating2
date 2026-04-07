@@ -1,0 +1,127 @@
+The current AI coach UI is not correct.
+
+It blocks the entire screen and breaks chat flow.
+It also uses English UI and shows too much information at once.
+
+You must redesign ONLY the AI coach interaction UI.
+
+==================================================
+GOAL
+==================================================
+
+Make the AI coach feel:
+- lightweight
+- fast
+- non-intrusive
+- helpful
+- integrated into chat
+
+==================================================
+1. REMOVE FULL SCREEN BOTTOM SHEET
+==================================================
+
+The AI coach must NOT:
+- block the full screen
+- interrupt the chat flow
+
+Replace it with:
+
+👉 a top slide-down popup (like KakaoTalk notification)
+
+- appears from top
+- does not cover full screen
+- user can still see chat
+- easy to dismiss
+
+==================================================
+2. REMOVE ALL ENGLISH UI
+==================================================
+
+All UI must be localized to Korean.
+
+Replace:
+- Conversation Coach
+- Tone directions
+- Example replies
+- What they said
+
+WITH:
+- 대화 코치
+- 답변 스타일
+- 추천 예시
+- 상황 요약
+
+No English should remain.
+
+==================================================
+3. CHANGE INTERACTION FLOW (IMPORTANT)
+==================================================
+
+DO NOT show all examples at once.
+
+Use 2-step interaction:
+
+----------------------------------
+STEP 1
+----------------------------------
+
+Show:
+- short situation summary
+- tone selection buttons
+
+Example:
+
+"상대가 호감을 보이며 같이 연습하자고 제안했어요"
+
+[😊 편하게] [🔥 적극적으로] [😏 가볍게]
+
+----------------------------------
+STEP 2
+----------------------------------
+
+When user selects a tone:
+
+- show ONLY that tone's suggestions
+- expand inline or below
+
+Example:
+
+🔥 적극적으로
+
+- 완전 찬성이에요 😊 같이 연습하면 더 빨리 늘 것 같아요
+- 좋아요! 이번 주에 시간 정해서 같이 해볼까요?
+
+💡 팁:
+- 너무 딱딱하지 않게 웃는 표현을 추가해보세요
+
+==================================================
+4. KEEP USER CONTROL
+==================================================
+
+- DO NOT auto insert text
+- DO NOT auto send
+- user must choose and type
+
+==================================================
+5. MOTION STYLE
+==================================================
+
+- smooth top slide animation
+- fast response
+- no heavy bounce
+- premium and subtle
+
+==================================================
+6. REQUIRED OUTPUT
+==================================================
+
+Provide:
+
+1. UI change from bottom sheet → top popup
+2. full Korean localization
+3. new 2-step tone selection flow
+4. how suggestions are conditionally rendered
+5. confirmation that:
+   - chat is not blocked
+   - UX feels lightweight
+   - AI coach feels helpful, not intrusive
