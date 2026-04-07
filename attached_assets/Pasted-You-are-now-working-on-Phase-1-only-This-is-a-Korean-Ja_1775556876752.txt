@@ -1,0 +1,160 @@
+You are now working on Phase 1 only.
+
+This is a Korean-Japanese dating app.
+Your task is NOT to redesign the entire app yet.
+Your task is to cleanly remove the pronunciation feature and stabilize chat translation first.
+
+Do not work on swipe animation, profile redesign, onboarding redesign, or visual overhaul in this phase.
+Only focus on pronunciation removal and translation stability.
+
+==================================================
+PHASE 1 GOAL
+==================================================
+
+Cleanly remove the pronunciation feature from the app and make sure chat translation is stable.
+
+After this phase:
+- pronunciation must no longer exist anywhere in the app
+- translated text must no longer disappear
+- each translated chat message must reliably show:
+  - original text
+  - translated text
+
+==================================================
+1. REMOVE PRONUNCIATION COMPLETELY
+==================================================
+
+Remove all pronunciation-related code from the current implementation, including:
+
+- pronunciation toggle button
+- pronunciation labels
+- pronunciation text rows
+- pronunciation state variables
+- pronunciation hooks
+- pronunciation API calls
+- pronunciation parsing logic
+- pronunciation-related conditions
+- pronunciation-related fields in message rendering
+- pronunciation icons, helper text, placeholders
+- any settings entry related to pronunciation
+- any hidden or disabled pronunciation UI
+
+Important:
+Do not just hide the feature visually.
+Actually remove the logic so it can no longer interfere with translation rendering.
+
+After removal:
+- there must be no pronunciation button in chat
+- there must be no pronunciation line in message bubbles
+- no message component may reference pronunciation state
+- no translation logic may depend on pronunciation in any way
+
+==================================================
+2. SIMPLIFY MESSAGE DATA MODEL
+==================================================
+
+Refactor the chat message structure so it is simple and stable.
+
+For translated messages, only keep:
+- originalText
+- translatedText
+
+If there are old pronunciation-related fields inside the message object,
+remove them from rendering flow and clean up usage where appropriate.
+
+Do not allow translation to share a render slot with any removed feature.
+
+==================================================
+3. FIX MESSAGE RENDERING LOGIC
+==================================================
+
+Correct rendering for each message must be:
+
+MessageBubble
+- OriginalText
+- TranslatedText (only if translatedText exists)
+
+Rules:
+- original text always displays
+- translated text displays whenever translatedText exists
+- translation must never disappear because of another UI action
+- translation must not be replaced by any other text
+- layout must remain stable even if translation is loading or missing
+
+Do NOT:
+- replace original text with translation
+- use a shared conditional block for multiple features
+- hide translation because of any toggle
+- keep leftover pronunciation conditionals in the render path
+
+==================================================
+4. VERIFY TRANSLATION STABILITY
+==================================================
+
+After code changes, verify these exact cases:
+
+Case 1:
+A translated message
+Expected:
+- original text visible
+- translated text visible
+
+Case 2:
+Multiple translated messages in one chat
+Expected:
+- all original texts visible
+- all translated texts visible
+- translation does not disappear
+
+Case 3:
+An untranslated message
+Expected:
+- original text visible
+- no broken empty area
+
+Case 4:
+Chat room re-render / refresh / re-entry
+Expected:
+- translation remains correctly visible
+- no unstable conditional rendering
+
+Case 5:
+Translation loading or delayed response
+Expected:
+- original text remains visible
+- layout remains stable
+- translated text appears when available
+
+==================================================
+5. ENGINEERING RULES
+==================================================
+
+Important:
+- inspect the actual existing codebase first
+- identify all files/components/functions related to pronunciation
+- remove them cleanly
+- do not redesign unrelated screens in this phase
+- do not make cosmetic-only edits and claim success
+- do not leave hidden broken pronunciation logic behind
+- keep changes focused and architecture-safe
+
+If pronunciation logic is tangled into chat rendering:
+- separate it
+- remove it fully
+- simplify the render tree
+
+==================================================
+6. REQUIRED OUTPUT FORMAT
+==================================================
+
+When finished, provide:
+
+1. which pronunciation-related code was removed
+2. which files/components were changed
+3. the final simplified message rendering logic
+4. the exact reason translation was disappearing before
+5. how translation stability was improved
+6. confirmation that pronunciation has been fully removed
+7. confirmation that translated text now remains visible
+
+Do not say “done” unless pronunciation is fully removed and translated text is stable.
