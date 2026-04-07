@@ -593,7 +593,22 @@ function AiCoachPopup({ visible, data, topOffset, onClose }: AiCoachPopupProps) 
 
   if (!mounted || !data) return null;
 
-  const tone = selectedTone !== null ? data.tones[selectedTone] : null;
+  // Defensive: normalise tones at render time so .map() never crashes
+  const safeTones: CoachTone[] = Array.isArray(data.tones)
+    ? data.tones.map((t) => ({
+        emoji: t?.emoji ?? "💬",
+        label: t?.label ?? "일반",
+        suggestions: Array.isArray(t?.suggestions)
+          ? t.suggestions.filter((s): s is string => typeof s === "string")
+          : [],
+        tip: t?.tip ?? "",
+      }))
+    : [];
+
+  const safeSummary = data.summary || "대화 내용을 분석했어요.";
+  const tone = selectedTone !== null && selectedTone < safeTones.length
+    ? safeTones[selectedTone]
+    : null;
 
   return (
     <Animated.View
@@ -627,44 +642,63 @@ function AiCoachPopup({ visible, data, topOffset, onClose }: AiCoachPopupProps) 
           // ── Step 1: Situation summary + tone selection ───────────────────
           <>
             <View style={[popup.summaryWrap, { backgroundColor: colors.muted }]}>
-              <Text style={[popup.summaryText, { color: colors.charcoal }]}>{data.summary}</Text>
+              <Text style={[popup.summaryText, { color: colors.charcoal }]}>{safeSummary}</Text>
             </View>
-            <Text style={[popup.label, { color: colors.charcoalLight }]}>답변 스타일 선택</Text>
-            <View style={popup.toneRow}>
-              {data.tones.map((t, i) => (
-                <Pressable
-                  key={t.label}
-                  onPress={() => {
-                    setSelectedTone(i);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                  style={[popup.tonePill, { backgroundColor: colors.muted, borderColor: colors.border }]}
-                >
-                  <Text style={popup.toneEmoji}>{t.emoji}</Text>
-                  <Text style={[popup.toneLabel, { color: colors.charcoal }]}>{t.label}</Text>
-                </Pressable>
-              ))}
-            </View>
+            {safeTones.length === 0 ? (
+              <Text style={[popup.label, { color: colors.charcoalFaint, textAlign: "center", paddingVertical: 8 }]}>
+                스타일 정보를 불러올 수 없어요
+              </Text>
+            ) : (
+              <>
+                <Text style={[popup.label, { color: colors.charcoalLight }]}>답변 스타일 선택</Text>
+                <View style={popup.toneRow}>
+                  {safeTones.map((t, i) => (
+                    <Pressable
+                      key={`${t.label}-${i}`}
+                      onPress={() => {
+                        setSelectedTone(i);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                      style={[popup.tonePill, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                    >
+                      <Text style={popup.toneEmoji}>{t.emoji}</Text>
+                      <Text style={[popup.toneLabel, { color: colors.charcoal }]}>{t.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
           </>
         ) : (
           // ── Step 2: Selected tone's suggestions + tip ────────────────────
           <>
-            {tone.suggestions.map((s, i) => (
-              <View
-                key={i}
-                style={[
-                  popup.suggestionRow,
-                  i < tone.suggestions.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-                ]}
-              >
-                <Text style={[popup.bullet, { color: "#D85870" }]}>•</Text>
-                <Text style={[popup.suggestionText, { color: colors.charcoal }]}>{s}</Text>
+            {tone.suggestions.length === 0 ? (
+              <Text style={[popup.label, { color: colors.charcoalFaint, paddingVertical: 10 }]}>
+                추천 예시를 불러올 수 없어요
+              </Text>
+            ) : (
+              tone.suggestions.map((s, i) => (
+                <View
+                  key={i}
+                  style={[
+                    popup.suggestionRow,
+                    i < tone.suggestions.length - 1 && {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[popup.bullet, { color: "#D85870" }]}>•</Text>
+                  <Text style={[popup.suggestionText, { color: colors.charcoal }]}>{s}</Text>
+                </View>
+              ))
+            )}
+            {tone.tip ? (
+              <View style={[popup.tipWrap, { backgroundColor: colors.muted }]}>
+                <Text style={[popup.tipLabel, { color: "#D85870" }]}>💡 팁</Text>
+                <Text style={[popup.tipText, { color: colors.charcoal }]}>{tone.tip}</Text>
               </View>
-            ))}
-            <View style={[popup.tipWrap, { backgroundColor: colors.muted }]}>
-              <Text style={[popup.tipLabel, { color: "#D85870" }]}>💡 팁</Text>
-              <Text style={[popup.tipText, { color: colors.charcoal }]}>{tone.tip}</Text>
-            </View>
+            ) : null}
           </>
         )}
       </View>
@@ -1020,6 +1054,14 @@ export default function ChatDetailScreen() {
 
   const handleAiSuggest = async () => {
     if (aiSuggesting) return;
+
+    // Guard: need at least one received message to coach on
+    const lastThemMsg = convMessages.slice().reverse().find((m) => m.senderId !== CURRENT_USER_ID);
+    if (!lastThemMsg) {
+      Alert.alert("AI 코치", "상대방의 메시지가 없습니다.");
+      return;
+    }
+
     // Credit check — deduct before API call
     const credited = consumeAiCoachCredit();
     if (!credited) {
@@ -1027,6 +1069,7 @@ export default function ChatDetailScreen() {
       setShowCreditsModal(true);
       return;
     }
+
     setAiSuggesting(true);
     try {
       const recentMessages = convMessages.slice(-10).map((m) => ({
@@ -1040,13 +1083,41 @@ export default function ChatDetailScreen() {
         body: JSON.stringify({ messages: recentMessages, targetLang }),
       });
       if (!response.ok) throw new Error(`API ${response.status}`);
-      const data = (await response.json()) as CoachResult;
-      // Never touch the input field — open coaching sheet instead
-      setCoachData(data);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const raw: any = await response.json();
+      console.log("[AI Coach] raw:", JSON.stringify(raw).slice(0, 300));
+
+      if (raw?.error) throw new Error(raw.error);
+
+      // Normalise — never trust AI response shape
+      const safeData: CoachResult = {
+        summary:
+          typeof raw?.summary === "string" && raw.summary
+            ? raw.summary
+            : "대화 분석을 불러올 수 없습니다.",
+        tones: Array.isArray(raw?.tones)
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (raw.tones as any[]).map((t: any) => ({
+              emoji: typeof t?.emoji === "string" ? t.emoji : "💬",
+              label: typeof t?.label === "string" ? t.label : "일반",
+              suggestions: Array.isArray(t?.suggestions)
+                ? (t.suggestions as unknown[]).filter((s): s is string => typeof s === "string")
+                : [],
+              tip: typeof t?.tip === "string" ? t.tip : "",
+            }))
+          : [],
+      };
+
+      console.log("[AI Coach] safeData — tones:", safeData.tones.length, "summary len:", safeData.summary.length);
+
+      // Never touch the input field — open coaching popup instead
+      setCoachData(safeData);
       setShowCoachSheet(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {
-      Alert.alert("AI Coach", "Could not load coaching. Please try again.");
+    } catch (err) {
+      console.error("[AI Coach] error:", err);
+      Alert.alert("AI 코치", "AI 코치를 불러오는 중 문제가 발생했어요. 다시 시도해주세요.");
     } finally {
       setAiSuggesting(false);
     }

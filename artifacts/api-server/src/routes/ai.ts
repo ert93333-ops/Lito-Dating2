@@ -240,16 +240,40 @@ Rules:
     // Strip markdown code fences if GPT included them
     const jsonStr = raw.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/i, "").trim();
 
-    let data: unknown;
+    let data: Record<string, unknown>;
     try {
-      data = JSON.parse(jsonStr);
+      data = JSON.parse(jsonStr) as Record<string, unknown>;
     } catch {
       console.error("[ai/coach] JSON parse failed, raw:", raw.slice(0, 200));
       res.status(500).json({ error: "Failed to parse coaching response" });
       return;
     }
 
-    res.json(data);
+    // Validate expected shape — must have summary (string) and tones (array)
+    const summary = typeof data.summary === "string" ? data.summary : "";
+    const tones = Array.isArray(data.tones) ? data.tones : [];
+
+    if (!summary || tones.length === 0) {
+      console.error("[ai/coach] invalid shape, summary:", !!summary, "tones:", tones.length, "raw:", raw.slice(0, 200));
+      res.status(500).json({ error: "Malformed coaching response from AI" });
+      return;
+    }
+
+    // Normalise each tone — guard missing fields
+    const safeTones = tones.map((t: unknown) => {
+      const tone = (t && typeof t === "object" ? t : {}) as Record<string, unknown>;
+      return {
+        emoji: typeof tone.emoji === "string" ? tone.emoji : "💬",
+        label: typeof tone.label === "string" ? tone.label : "일반",
+        suggestions: Array.isArray(tone.suggestions)
+          ? (tone.suggestions as unknown[]).filter((s) => typeof s === "string")
+          : [],
+        tip: typeof tone.tip === "string" ? tone.tip : "",
+      };
+    });
+
+    console.log("[ai/coach] OK — summary len:", summary.length, "tones:", safeTones.length);
+    res.json({ summary, tones: safeTones });
   } catch (err) {
     console.error("[ai/coach] error:", err);
     res.status(500).json({ error: "Failed to generate coaching" });

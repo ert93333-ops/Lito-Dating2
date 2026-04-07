@@ -1,0 +1,122 @@
+The app is crashing when using the AI coach.
+
+This is a critical stability issue.
+
+==================================================
+GOAL
+==================================================
+
+Fix the crash by making the AI coach fully safe against undefined, null, or malformed data.
+
+The app must NEVER crash because of AI response issues.
+
+==================================================
+1. SAFE AI RESPONSE HANDLING (MANDATORY)
+==================================================
+
+DO NOT trust AI response structure.
+
+Before using any data:
+
+Check:
+
+- if response exists
+- if response.summary exists
+- if response.tones exists
+- if response.tones is an array
+
+Example:
+
+const tones = Array.isArray(response?.tones) ? response.tones : []
+
+const summary = response?.summary ?? "대화 분석을 불러올 수 없습니다."
+
+==================================================
+2. PREVENT .map CRASH
+==================================================
+
+DO NOT do:
+
+response.tones.map(...)
+
+Instead:
+
+(Array.isArray(response?.tones) ? response.tones : []).map(...)
+
+==================================================
+3. SAFE LAST MESSAGE ACCESS
+==================================================
+
+Before using:
+
+const lastMessage = messages?.[messages.length - 1]
+
+If missing:
+
+- DO NOT call AI
+- show fallback message
+
+==================================================
+4. JSON PARSING SAFETY
+==================================================
+
+If parsing is used:
+
+try {
+  parsed = JSON.parse(response)
+} catch (e) {
+  parsed = null
+}
+
+==================================================
+5. ERROR BOUNDARY / FALLBACK UI
+==================================================
+
+If ANY error occurs:
+
+DO NOT crash.
+
+Show:
+
+"AI 코치를 불러오는 중 문제가 발생했어요. 다시 시도해주세요."
+
+==================================================
+6. CREDIT SYSTEM SAFETY
+==================================================
+
+If credits are 0:
+
+- block AI call
+- show proper message
+- DO NOT proceed with logic
+
+==================================================
+7. LOGGING (IMPORTANT)
+==================================================
+
+Log:
+
+- raw AI response
+- parsed response
+- tones
+- summary
+
+==================================================
+8. FINAL RULE
+==================================================
+
+The app must NEVER crash due to AI coach.
+
+Even if AI completely fails:
+- UI must stay alive
+- fallback must show
+
+==================================================
+OUTPUT
+==================================================
+
+1. root cause of crash
+2. where undefined access occurred
+3. safe guards added
+4. fallback UI added
+5. confirmation that app no longer crashes
