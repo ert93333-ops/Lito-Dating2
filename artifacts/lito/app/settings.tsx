@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import { router } from "expo-router";
 import React from "react";
 import {
@@ -51,7 +51,7 @@ export default function SettingsScreen() {
       disabled={!onPress && !right}
     >
       <View style={[styles.rowIcon, { backgroundColor: danger ? "#FFEDED" : colors.roseLight }]}>
-        <Feather name={icon as any} size={16} color={danger ? colors.destructive : colors.rose} />
+        <FIcon name={icon as any} size={16} color={danger ? colors.destructive : colors.rose} />
       </View>
       <View style={styles.rowContent}>
         <Text style={[styles.rowLabel, { color: danger ? colors.destructive : colors.charcoal }]}>
@@ -59,7 +59,7 @@ export default function SettingsScreen() {
         </Text>
         {sublabel && <Text style={[styles.rowSub, { color: colors.charcoalLight }]}>{sublabel}</Text>}
       </View>
-      {right || (onPress && <Feather name="chevron-right" size={16} color={colors.charcoalLight} />)}
+      {right || (onPress && <FIcon name="chevron-right" size={16} color={colors.charcoalLight} />)}
     </TouchableOpacity>
   );
 
@@ -86,7 +86,7 @@ export default function SettingsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPad + 12 }]}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Feather name="chevron-left" size={24} color={colors.charcoal} />
+          <FIcon name="chevron-left" size={24} color={colors.charcoal} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.charcoal }]}>
           {lang === "ko" ? "설정" : "設定"}

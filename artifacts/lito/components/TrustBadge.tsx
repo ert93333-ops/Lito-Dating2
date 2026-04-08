@@ -11,7 +11,7 @@
  *   "lg"  — full card rows used in the Trust Center screen
  */
 
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -164,7 +164,7 @@ export function TrustBadge({
                 },
               ]}
             >
-              <Feather name={isPending ? sc.icon : layer.icon} size={12} color={sc.color} />
+              <FIcon name={isPending ? sc.icon : layer.icon} size={12} color={sc.color} />
             </View>
           );
         }
@@ -181,7 +181,7 @@ export function TrustBadge({
               },
             ]}
           >
-            <Feather name={isPending ? sc.icon : layer.icon} size={11} color={sc.color} />
+            <FIcon name={isPending ? sc.icon : layer.icon} size={11} color={sc.color} />
             <Text style={[styles.mdLabel, { color: sc.color }]}>
               {lang === "ko" ? layer.labelKo : layer.labelJa}
             </Text>
@@ -245,7 +245,7 @@ export function TrustLayerRow({
   return (
     <View style={row.wrap}>
       <View style={[row.iconWrap, { backgroundColor: layer.bgColor }]}>
-        <Feather name={layer.icon} size={18} color={layer.color} />
+        <FIcon name={layer.icon} size={18} color={layer.color} />
       </View>
 
       <View style={row.meta}>
@@ -273,7 +273,7 @@ export function TrustLayerRow({
       </View>
 
       <View style={[row.statusBadge, { backgroundColor: sc.bg }]}>
-        <Feather name={sc.icon} size={12} color={sc.color} />
+        <FIcon name={sc.icon} size={12} color={sc.color} />
         <Text style={[row.statusText, { color: sc.color }]}>
           {lang === "ko" ? sc.label.ko : sc.label.ja}
         </Text>

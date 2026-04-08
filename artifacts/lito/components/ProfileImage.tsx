@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import { Image } from "expo-image";
 import React from "react";
 import { StyleSheet, View } from "react-native";
@@ -40,7 +40,7 @@ export function ProfileImage({ photoKey, size = 60, borderRadius, style }: Profi
           style,
         ]}
       >
-        <Feather name="user" size={size * 0.4} color={colors.rose} />
+        <FIcon name="user" size={size * 0.4} color={colors.rose} />
       </View>
     );
   }

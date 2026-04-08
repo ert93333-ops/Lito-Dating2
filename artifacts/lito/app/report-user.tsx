@@ -25,7 +25,7 @@
  *   ❌ Guarantee any specific moderation timeline
  */
 
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
@@ -243,13 +243,13 @@ export default function ReportUserScreen() {
       <View style={[s.container, { backgroundColor: colors.background }]}>
         <View style={[s.header, { paddingTop: topPad + 12 }]}>
           <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-            <Feather name="x" size={22} color={colors.charcoal} />
+            <FIcon name="x" size={22} color={colors.charcoal} />
           </TouchableOpacity>
           <View style={{ width: 36 }} />
         </View>
         <View style={s.thankYouWrap}>
           <View style={[s.thankYouIcon, { backgroundColor: "#EFFAF4" }]}>
-            <Feather name="check-circle" size={36} color="#1A7A4A" />
+            <FIcon name="check-circle" size={36} color="#1A7A4A" />
           </View>
           <Text style={[s.thankYouTitle, { color: colors.charcoal }]}>
             {lang === "ko" ? "신고가 접수되었습니다" : "通報を受け付けました"}
@@ -271,7 +271,7 @@ export default function ReportUserScreen() {
 
           {selectedConfig?.isSevere && (
             <View style={[s.safetyCard, { backgroundColor: "#FFF0EE", borderColor: "#C0392B25" }]}>
-              <Feather name="phone" size={16} color="#C0392B" />
+              <FIcon name="phone" size={16} color="#C0392B" />
               <View style={{ flex: 1 }}>
                 <Text style={[s.safetyTitle, { color: "#8B2020" }]}>
                   {lang === "ko" ? "도움이 필요하시면" : "サポートが必要な場合"}
@@ -295,7 +295,7 @@ export default function ReportUserScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity onPress={handleBlock} style={s.blockLink}>
-            <Feather name="slash" size={13} color={colors.charcoalLight} />
+            <FIcon name="slash" size={13} color={colors.charcoalLight} />
             <Text style={[s.blockLinkText, { color: colors.charcoalLight }]}>
               {lang === "ko" ? `${reportedNickname}님 차단하기` : `${reportedNickname}さんをブロック`}
             </Text>
@@ -315,7 +315,7 @@ export default function ReportUserScreen() {
       {/* Header */}
       <View style={[s.header, { paddingTop: topPad + 12 }]}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Feather name="arrow-left" size={22} color={colors.charcoal} />
+          <FIcon name="arrow-left" size={22} color={colors.charcoal} />
         </TouchableOpacity>
         <Text style={[s.headerTitle, { color: colors.charcoal }]}>
           {lang === "ko" ? "신고하기" : "通報する"}
@@ -330,7 +330,7 @@ export default function ReportUserScreen() {
       >
         {/* Intro */}
         <View style={[s.introCard, { backgroundColor: "#EEF4FF", borderColor: "#3B6FD420" }]}>
-          <Feather name="shield" size={16} color="#3B6FD4" />
+          <FIcon name="shield" size={16} color="#3B6FD4" />
           <Text style={s.introText}>
             {lang === "ko"
               ? `신고는 익명으로 처리됩니다. ${reportedNickname}님은 신고 사실을 알 수 없습니다.`
@@ -361,7 +361,7 @@ export default function ReportUserScreen() {
               }}
             >
               <View style={[s.catIcon, { backgroundColor: isSelected ? `${cat.color}18` : colors.roseLight }]}>
-                <Feather
+                <FIcon
                   name={cat.icon as any}
                   size={18}
                   color={isSelected ? cat.color : colors.charcoalMid}
@@ -384,7 +384,7 @@ export default function ReportUserScreen() {
                   },
                 ]}
               >
-                {isSelected && <Feather name="check" size={10} color="#FFF" />}
+                {isSelected && <FIcon name="check" size={10} color="#FFF" />}
               </View>
             </Pressable>
           );
@@ -427,7 +427,7 @@ export default function ReportUserScreen() {
         {/* Safety notice for severe categories */}
         {selectedConfig?.isSevere && (
           <View style={[s.safetyCard, { backgroundColor: "#FFF0EE", borderColor: "#C0392B25" }]}>
-            <Feather name="alert-circle" size={16} color="#C0392B" />
+            <FIcon name="alert-circle" size={16} color="#C0392B" />
             <View style={{ flex: 1 }}>
               <Text style={[s.safetyTitle, { color: "#8B2020" }]}>
                 {lang === "ko" ? "금전 피해를 입으셨나요?" : "金銭的な被害を受けましたか？"}
@@ -454,7 +454,7 @@ export default function ReportUserScreen() {
         ]}
       >
         <TouchableOpacity onPress={handleBlock} style={s.blockBtn}>
-          <Feather name="slash" size={14} color={colors.charcoalMid} />
+          <FIcon name="slash" size={14} color={colors.charcoalMid} />
           <Text style={[s.blockBtnText, { color: colors.charcoalMid }]}>
             {lang === "ko" ? "차단만 하기" : "ブロックのみ"}
           </Text>

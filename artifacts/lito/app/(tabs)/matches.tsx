@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import { router } from "expo-router";
 import React from "react";
 import {
@@ -78,7 +78,7 @@ function MatchCard({ match }: { match: Match }) {
         {/* Ice breaker or bio */}
         {(match.iceBreaker || match.iceBreakerJa) ? (
           <View style={[styles.iceBreakerRow, { backgroundColor: colors.roseLight, borderColor: "#F2BDCA" }]}>
-            <Feather name="cpu" size={9} color={colors.rose} />
+            <FIcon name="cpu" size={9} color={colors.rose} />
             <Text style={[styles.iceBreakerText, { color: colors.rose }]} numberOfLines={2}>
               {lang === "ja"
                 ? (match.iceBreakerJa ?? match.iceBreaker)
@@ -93,12 +93,12 @@ function MatchCard({ match }: { match: Match }) {
 
         {/* Last active */}
         <Text style={[styles.lastActiveText, { color: colors.charcoalLight }]}>
-          <Feather name="clock" size={9} color={colors.charcoalLight} />
+          <FIcon name="clock" size={9} color={colors.charcoalLight} />
           {" "}{match.user.lastActive}
         </Text>
       </View>
 
-      <Feather name="message-circle" size={20} color={colors.rose} style={styles.chatIcon} />
+      <FIcon name="message-circle" size={20} color={colors.rose} style={styles.chatIcon} />
     </TouchableOpacity>
   );
 }
@@ -168,7 +168,7 @@ export default function MatchesScreen() {
       {matches.length === 0 && (
         <View style={styles.empty}>
           <View style={[styles.emptyIcon, { backgroundColor: colors.roseLight }]}>
-            <Feather name="heart" size={36} color={colors.rose} />
+            <FIcon name="heart" size={36} color={colors.rose} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>
             {lang === "ko" ? "아직 매칭이 없어요" : "まだマッチがいません"}
@@ -202,7 +202,7 @@ export default function MatchesScreen() {
             router.push("/referral" as any);
           }}
         >
-          <Feather name="gift" size={14} color="#fff" />
+          <FIcon name="gift" size={14} color="#fff" />
         </TouchableOpacity>
       </View>
     </ScrollView>

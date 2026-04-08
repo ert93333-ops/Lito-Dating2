@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -231,14 +231,14 @@ function DiscoverCard({
           activeOpacity={0.7}
           hitSlop={{ top: 14, right: 14, bottom: 14, left: 14 }}
         >
-          <Feather name="flag" size={15} color="rgba(255,255,255,0.9)" />
+          <FIcon name="flag" size={15} color="rgba(255,255,255,0.9)" />
         </TouchableOpacity>
       )}
 
       {/* LIKE stamp */}
       <Animated.View style={[cardStyles.stamp, cardStyles.stampLike, likeAnimStyle]}>
         <View style={cardStyles.likeInner}>
-          <Feather name="heart" size={13} color="#D85870" />
+          <FIcon name="heart" size={13} color="#D85870" />
           <Text style={[cardStyles.stampText, { color: "#D85870" }]}>LIKE</Text>
         </View>
       </Animated.View>
@@ -246,7 +246,7 @@ function DiscoverCard({
       {/* PASS stamp */}
       <Animated.View style={[cardStyles.stamp, cardStyles.stampPass, passAnimStyle]}>
         <View style={cardStyles.passInner}>
-          <Feather name="x" size={13} color="#8E8E93" />
+          <FIcon name="x" size={13} color="#8E8E93" />
           <Text style={[cardStyles.stampText, { color: "#8E8E93" }]}>PASS</Text>
         </View>
       </Animated.View>
@@ -277,12 +277,12 @@ function DiscoverCard({
         {/* Match score + city + language study badge */}
         <View style={cardStyles.metaRow}>
           <View style={cardStyles.matchPill}>
-            <Feather name="zap" size={10} color="#D85870" />
+            <FIcon name="zap" size={10} color="#D85870" />
             <Text style={cardStyles.matchText}>{user.compatibilityScore}% {profile.language === "ko" ? "매치" : "マッチ"}</Text>
           </View>
           {user.city ? (
             <View style={cardStyles.cityRow}>
-              <Feather name="map-pin" size={10} color="rgba(255,255,255,0.65)" />
+              <FIcon name="map-pin" size={10} color="rgba(255,255,255,0.65)" />
               <Text style={cardStyles.cityText}>{user.city}</Text>
             </View>
           ) : null}
@@ -587,7 +587,7 @@ export default function DiscoverScreen() {
         ]}
       >
         <View style={[styles.emptyIcon, { backgroundColor: colors.roseLight }]}>
-          <Feather name="heart" size={32} color={colors.rose} />
+          <FIcon name="heart" size={32} color={colors.rose} />
         </View>
         <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>
           {profile.language === "ko" ? "오늘의 추천을 모두 봤어요" : "今日のおすすめを全部見ました"}
@@ -636,7 +636,7 @@ export default function DiscoverScreen() {
             ]}
             activeOpacity={0.7}
           >
-            <Feather name="sliders" size={16} color={colors.charcoalMid} />
+            <FIcon name="sliders" size={16} color={colors.charcoalMid} />
           </TouchableOpacity>
         </View>
       </View>
@@ -691,7 +691,7 @@ export default function DiscoverScreen() {
               { backgroundColor: colors.surface, borderColor: colors.border },
             ]}
           >
-            <Feather name="x" size={24} color={colors.charcoalMid} />
+            <FIcon name="x" size={24} color={colors.charcoalMid} />
           </View>
         </ActionButton>
 
@@ -703,7 +703,7 @@ export default function DiscoverScreen() {
           <View
             style={[styles.actionBtnMain, { backgroundColor: colors.rose, shadowColor: colors.rose }]}
           >
-            <Feather name="heart" size={28} color={colors.white} />
+            <FIcon name="heart" size={28} color={colors.white} />
           </View>
         </ActionButton>
 
@@ -715,7 +715,7 @@ export default function DiscoverScreen() {
               { backgroundColor: colors.goldLight, borderColor: "transparent" },
             ]}
           >
-            <Feather name="star" size={20} color={colors.gold} />
+            <FIcon name="star" size={20} color={colors.gold} />
           </View>
         </ActionButton>
       </View>

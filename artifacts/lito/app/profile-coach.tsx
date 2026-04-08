@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect } from "react";
@@ -51,7 +51,7 @@ function SuggestionCard({ suggestion }: { suggestion: ProfileSuggestion }) {
         </View>
         {isAccepted && (
           <View style={[styles.statusBadge, { backgroundColor: "#EFFAF4" }]}>
-            <Feather name="check" size={11} color="#1A7A4A" />
+            <FIcon name="check" size={11} color="#1A7A4A" />
             <Text style={[styles.statusText, { color: "#1A7A4A" }]}>
               {lang === "ko" ? "적용됨" : "適用済み"}
             </Text>
@@ -74,7 +74,7 @@ function SuggestionCard({ suggestion }: { suggestion: ProfileSuggestion }) {
       {/* Arrow */}
       <View style={styles.arrowRow}>
         <View style={[styles.arrowLine, { backgroundColor: colors.roseSoft }]} />
-        <Feather name="arrow-down" size={14} color={colors.rose} />
+        <FIcon name="arrow-down" size={14} color={colors.rose} />
         <View style={[styles.arrowLine, { backgroundColor: colors.roseSoft }]} />
       </View>
 
@@ -146,7 +146,7 @@ export default function ProfileCoachScreen() {
         style={[styles.header, { paddingTop: topPad + 14 }]}
       >
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Feather name="arrow-left" size={20} color={colors.charcoal} />
+          <FIcon name="arrow-left" size={20} color={colors.charcoal} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={[styles.headerTitle, { color: colors.charcoal }]}>
@@ -205,7 +205,7 @@ export default function ProfileCoachScreen() {
           style={[styles.refreshBtn, { borderColor: colors.border }]}
           onPress={refreshProfileSuggestions}
         >
-          <Feather name="refresh-cw" size={14} color={colors.charcoalMid} />
+          <FIcon name="refresh-cw" size={14} color={colors.charcoalMid} />
           <Text style={[styles.refreshBtnText, { color: colors.charcoalMid }]}>
             {lang === "ko" ? "다시 분석하기" : "再分析する"}
           </Text>
@@ -213,7 +213,7 @@ export default function ProfileCoachScreen() {
 
         {/* Privacy note */}
         <View style={[styles.privacyNote, { borderColor: colors.border }]}>
-          <Feather name="lock" size={12} color={colors.charcoalLight} />
+          <FIcon name="lock" size={12} color={colors.charcoalLight} />
           <Text style={[styles.privacyText, { color: colors.charcoalLight }]}>
             {lang === "ko"
               ? "채팅 내용은 분석에 사용되지 않아요. 프로필 정보만 참고해요."

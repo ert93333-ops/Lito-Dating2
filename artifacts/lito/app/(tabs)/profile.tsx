@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React from "react";
@@ -84,14 +84,14 @@ export default function ProfileScreen() {
           style={[styles.settingsBtn, { top: topPad + 14 }]}
           onPress={() => router.push("/settings" as any)}
         >
-          <Feather name="settings" size={19} color={colors.white} />
+          <FIcon name="settings" size={19} color={colors.white} />
         </TouchableOpacity>
 
         {/* Edit photo — bottom right overlay */}
         <TouchableOpacity
           style={[styles.addPhotoBtn, { backgroundColor: "rgba(0,0,0,0.42)" }]}
         >
-          <Feather name="camera" size={13} color={colors.white} />
+          <FIcon name="camera" size={13} color={colors.white} />
           <Text style={styles.addPhotoBtnText}>{t("profile.addPhoto")}</Text>
         </TouchableOpacity>
 
@@ -118,7 +118,7 @@ export default function ProfileScreen() {
       >
         <View style={styles.trustRow}>
           <View style={[styles.trustIcon, { backgroundColor: colors.roseLight }]}>
-            <Feather name="shield" size={14} color={colors.rose} />
+            <FIcon name="shield" size={14} color={colors.rose} />
           </View>
           <View style={styles.trustMeta}>
             <Text style={[styles.trustLabel, { color: colors.charcoal }]}>
@@ -133,7 +133,7 @@ export default function ProfileScreen() {
                 : ""}
             </Text>
           </View>
-          <Feather name="chevron-right" size={15} color={colors.charcoalLight} />
+          <FIcon name="chevron-right" size={15} color={colors.charcoalLight} />
         </View>
 
         {/* Layered trust badges */}
@@ -188,7 +188,7 @@ export default function ProfileScreen() {
               { backgroundColor: colors.roseLight, borderColor: colors.roseSoft },
             ]}
           >
-            <Feather name="globe" size={12} color={colors.rose} />
+            <FIcon name="globe" size={12} color={colors.rose} />
             <Text style={[styles.badgeText, { color: colors.rose }]}>
               {profile.language === "ko" ? "한국어" : "日本語"}
             </Text>
@@ -200,7 +200,7 @@ export default function ProfileScreen() {
                 { backgroundColor: "#F5F0FF", borderColor: "#DDD5F8" },
               ]}
             >
-              <Feather name="instagram" size={12} color="#7C3AED" />
+              <FIcon name="instagram" size={12} color="#7C3AED" />
               <Text style={[styles.badgeText, { color: "#7C3AED" }]}>
                 {profile.instagramHandle}
               </Text>
@@ -256,7 +256,7 @@ export default function ProfileScreen() {
         >
           <View style={styles.aiCardHeader}>
             <View style={[styles.aiIconWrap, { backgroundColor: colors.roseSoft }]}>
-              <Feather name="cpu" size={12} color={colors.rose} />
+              <FIcon name="cpu" size={12} color={colors.rose} />
             </View>
             <Text style={[styles.aiCardTitle, { color: colors.rose }]}>
               {lang === "ko" ? "AI 문화 공감" : "AIカルチャーフィット"}
@@ -277,7 +277,7 @@ export default function ProfileScreen() {
         {/* Plan badge */}
         <View style={[styles.planRow, { borderColor: colors.border }]}>
           <View style={[styles.planBadgeIcon, { backgroundColor: subscription.planId === "free" ? colors.roseLight : "#FFF4F7" }]}>
-            <Feather
+            <FIcon
               name={subscription.planId === "premium" ? "star" : subscription.planId === "plus" ? "zap" : "user"}
               size={14}
               color={subscription.planId === "free" ? colors.charcoalMid : "#B83058"}
@@ -317,7 +317,7 @@ export default function ProfileScreen() {
           }}
         >
           <View style={[styles.growthBtnIcon, { backgroundColor: colors.roseLight }]}>
-            <Feather name="cpu" size={15} color={colors.rose} />
+            <FIcon name="cpu" size={15} color={colors.rose} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.growthBtnLabel, { color: colors.charcoal }]}>
@@ -327,7 +327,7 @@ export default function ProfileScreen() {
               {lang === "ko" ? "프로필 개선 제안 받기" : "プロフィール改善提案を見る"}
             </Text>
           </View>
-          <Feather name="chevron-right" size={15} color={colors.charcoalLight} />
+          <FIcon name="chevron-right" size={15} color={colors.charcoalLight} />
         </TouchableOpacity>
 
         {/* Referral */}
@@ -339,7 +339,7 @@ export default function ProfileScreen() {
           }}
         >
           <View style={[styles.growthBtnIcon, { backgroundColor: colors.roseLight }]}>
-            <Feather name="gift" size={15} color={colors.rose} />
+            <FIcon name="gift" size={15} color={colors.rose} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.growthBtnLabel, { color: colors.charcoal }]}>
@@ -349,7 +349,7 @@ export default function ProfileScreen() {
               {lang === "ko" ? "초대하면 둘 다 보상을 받아요" : "招待するとお互いに特典があります"}
             </Text>
           </View>
-          <Feather name="chevron-right" size={15} color={colors.charcoalLight} />
+          <FIcon name="chevron-right" size={15} color={colors.charcoalLight} />
         </TouchableOpacity>
       </View>
 
@@ -365,12 +365,12 @@ export default function ProfileScreen() {
           onPress={() => router.push("/profile-setup" as any)}
         >
           <View style={[styles.actionIcon, { backgroundColor: colors.roseLight }]}>
-            <Feather name="edit-2" size={16} color={colors.rose} />
+            <FIcon name="edit-2" size={16} color={colors.rose} />
           </View>
           <Text style={[styles.actionLabel, { color: colors.charcoal }]}>
             {t("profile.editProfile")}
           </Text>
-          <Feather name="chevron-right" size={15} color={colors.charcoalLight} />
+          <FIcon name="chevron-right" size={15} color={colors.charcoalLight} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -378,17 +378,17 @@ export default function ProfileScreen() {
           onPress={() => router.push("/settings" as any)}
         >
           <View style={[styles.actionIcon, { backgroundColor: colors.roseLight }]}>
-            <Feather name="settings" size={16} color={colors.rose} />
+            <FIcon name="settings" size={16} color={colors.rose} />
           </View>
           <Text style={[styles.actionLabel, { color: colors.charcoal }]}>
             {t("profile.settings")}
           </Text>
-          <Feather name="chevron-right" size={15} color={colors.charcoalLight} />
+          <FIcon name="chevron-right" size={15} color={colors.charcoalLight} />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionRow} onPress={logout}>
           <View style={[styles.actionIcon, { backgroundColor: "#FFEDED" }]}>
-            <Feather name="log-out" size={16} color="#E8607A" />
+            <FIcon name="log-out" size={16} color="#E8607A" />
           </View>
           <Text style={[styles.actionLabel, { color: "#E8607A" }]}>
             {t("profile.signOut")}

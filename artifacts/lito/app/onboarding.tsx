@@ -1,7 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import React, { useEffect, useRef, useState } from "react";
 import {
   BackHandler,
@@ -415,7 +415,7 @@ export default function OnboardingScreen() {
               colors={item.gradientColors}
               style={styles.iconCircle}
             >
-              <Feather name={item.icon} size={52} color={item.accentColor} />
+              <FIcon name={item.icon} size={52} color={item.accentColor} />
             </LinearGradient>
 
             <Text style={[styles.title, { color: colors.charcoal }]}>

@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
@@ -49,7 +49,7 @@ function RewardCard({ reward }: { reward: ReferralReward }) {
   return (
     <View style={[styles.rewardCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
       <View style={[styles.rewardIcon, { backgroundColor: colors.roseLight }]}>
-        <Feather name={icon as any} size={18} color={colors.rose} />
+        <FIcon name={icon as any} size={18} color={colors.rose} />
       </View>
       <View style={styles.rewardInfo}>
         <Text style={[styles.rewardLabel, { color: colors.charcoal }]}>{label}</Text>
@@ -111,7 +111,7 @@ export default function ReferralScreen() {
         style={[styles.header, { paddingTop: topPad + 14 }]}
       >
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Feather name="arrow-left" size={20} color={colors.charcoal} />
+          <FIcon name="arrow-left" size={20} color={colors.charcoal} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerTitle, { color: colors.charcoal }]}>
@@ -175,7 +175,7 @@ export default function ReferralScreen() {
             style={[styles.copyBtn, { backgroundColor: codeCopied ? "#EFFAF4" : colors.rose }]}
             onPress={copyCode}
           >
-            <Feather
+            <FIcon
               name={codeCopied ? "check" : "copy"}
               size={15}
               color={codeCopied ? "#1A7A4A" : "#fff"}
@@ -208,7 +208,7 @@ export default function ReferralScreen() {
             </Text>
             {codeApplied ? (
               <View style={styles.appliedRow}>
-                <Feather name="check-circle" size={16} color="#1A7A4A" />
+                <FIcon name="check-circle" size={16} color="#1A7A4A" />
                 <Text style={{ color: "#1A7A4A", fontFamily: "Inter_500Medium", fontSize: 14 }}>
                   {lang === "ko" ? "코드가 적용됐어요!" : "コードが適用されました！"}
                 </Text>

@@ -3,7 +3,7 @@ import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Tabs } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
@@ -85,7 +85,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="flame" tintColor={color} size={24} />
             ) : (
-              <Feather name="compass" size={22} color={color} />
+              <FIcon name="compass" size={22} color={color} />
             ),
         }}
       />
@@ -97,7 +97,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="heart" tintColor={color} size={24} />
             ) : (
-              <Feather name="heart" size={22} color={color} />
+              <FIcon name="heart" size={22} color={color} />
             ),
         }}
       />
@@ -109,7 +109,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="message" tintColor={color} size={24} />
             ) : (
-              <Feather name="message-circle" size={22} color={color} />
+              <FIcon name="message-circle" size={22} color={color} />
             ),
         }}
       />
@@ -121,7 +121,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="person.circle" tintColor={color} size={24} />
             ) : (
-              <Feather name="user" size={22} color={color} />
+              <FIcon name="user" size={22} color={color} />
             ),
         }}
       />

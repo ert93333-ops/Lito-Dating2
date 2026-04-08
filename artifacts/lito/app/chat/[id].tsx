@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -166,7 +166,7 @@ function MessageBubble({ msg, enrichment, viewerLang, onToggleTranslation, showF
           {/* L6 FIX: First-use hint — prominent callout when user hasn't translated yet */}
           {!hasTranslation && !isTranslating && showFirstUseHint && (
             <View style={[bubble.firstUseHint, { backgroundColor: colors.roseLight, borderColor: "#F2BDCA" }]}>
-              <Feather name="globe" size={12} color={colors.rose} />
+              <FIcon name="globe" size={12} color={colors.rose} />
               <Text style={[bubble.firstUseHintText, { color: colors.rose }]}>
                 {viewerLang === "ko" ? "탭해서 번역" : "タップして翻訳"}
               </Text>
@@ -175,7 +175,7 @@ function MessageBubble({ msg, enrichment, viewerLang, onToggleTranslation, showF
           {/* Subtle globe hint — shown on all other untranslated messages */}
           {!hasTranslation && !isTranslating && !showFirstUseHint && (
             <View style={bubble.translateHint}>
-              <Feather name="globe" size={11} color={colors.charcoalLight} style={{ opacity: 0.55 }} />
+              <FIcon name="globe" size={11} color={colors.charcoalLight} style={{ opacity: 0.55 }} />
             </View>
           )}
         </View>
@@ -331,7 +331,7 @@ function AiCoachCreditsModal({
         {/* Header */}
         <View style={creditModal.header}>
           <View style={[creditModal.iconWrap, { backgroundColor: "#FFF0F3" }]}>
-            <Feather name="zap" size={20} color="#D85870" />
+            <FIcon name="zap" size={20} color="#D85870" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[creditModal.title, { color: colors.charcoal }]}>
@@ -399,7 +399,7 @@ function AiCoachCreditsModal({
             onUpgrade();
           }}
         >
-          <Feather name="zap" size={15} color="#fff" />
+          <FIcon name="zap" size={15} color="#fff" />
           <Text style={creditModal.upgradeBtnText}>
             {lang === "ko" ? "프리미엄으로 무제한 · $19.99/월" : "プレミアムで無制限 · $19.99/月"}
           </Text>
@@ -605,16 +605,16 @@ function AiCoachPopup({ visible, data, topOffset, onClose }: AiCoachPopupProps) 
               style={popup.backBtn}
               hitSlop={12}
             >
-              <Feather name="arrow-left" size={17} color={colors.charcoalLight} />
+              <FIcon name="arrow-left" size={17} color={colors.charcoalLight} />
             </TouchableOpacity>
           ) : (
-            <Feather name="zap" size={16} color={colors.charcoalLight} />
+            <FIcon name="zap" size={16} color={colors.charcoalLight} />
           )}
           <Text style={[popup.headerTitle, { color: colors.charcoal }]} numberOfLines={1}>
             {tone ? tone.label : "대화 코치"}
           </Text>
           <TouchableOpacity onPress={onClose} style={popup.closeBtn} hitSlop={12}>
-            <Feather name="x" size={18} color={colors.charcoalLight} />
+            <FIcon name="x" size={18} color={colors.charcoalLight} />
           </TouchableOpacity>
         </View>
 
@@ -1154,7 +1154,7 @@ export default function ChatDetailScreen() {
           style={styles.backBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Feather name="arrow-left" size={22} color={colors.charcoal} />
+          <FIcon name="arrow-left" size={22} color={colors.charcoal} />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.headerUser} activeOpacity={0.7}>
@@ -1193,10 +1193,10 @@ export default function ChatDetailScreen() {
           activeOpacity={0.8}
         >
           <View style={[styles.unlockIconWrap, { backgroundColor: colors.roseSoft }]}>
-            <Feather name="unlock" size={11} color={colors.rose} />
+            <FIcon name="unlock" size={11} color={colors.rose} />
           </View>
           <Text style={[styles.unlockText, { color: colors.rose }]}>{t("chat.unlock")}</Text>
-          <Feather name="chevron-right" size={13} color={colors.roseMid} style={{ marginLeft: "auto" }} />
+          <FIcon name="chevron-right" size={13} color={colors.roseMid} style={{ marginLeft: "auto" }} />
         </TouchableOpacity>
       )}
       {conversation.externalUnlocked && (
@@ -1207,7 +1207,7 @@ export default function ChatDetailScreen() {
           ]}
         >
           <View style={[styles.unlockIconWrap, { backgroundColor: "#B2F2C9" }]}>
-            <Feather name="check-circle" size={11} color={colors.green} />
+            <FIcon name="check-circle" size={11} color={colors.green} />
           </View>
           <Text style={[styles.unlockText, { color: colors.green }]}>{t("chat.unlocked")}</Text>
         </View>
@@ -1297,7 +1297,7 @@ export default function ChatDetailScreen() {
                   <ActivityIndicator size="small" color={colors.rose} />
                 ) : (
                   <>
-                    <Feather
+                    <FIcon
                       name={isEmpty ? "lock" : "zap"}
                       size={13}
                       color={isEmpty ? colors.charcoalLight : colors.rose}
@@ -1361,7 +1361,7 @@ export default function ChatDetailScreen() {
               onPressOut={handleSendPressOut}
               disabled={!inputText.trim()}
             >
-              <Feather
+              <FIcon
                 name="send"
                 size={16}
                 color={inputText.trim() ? colors.white : colors.charcoalFaint}

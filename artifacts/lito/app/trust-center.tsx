@@ -15,7 +15,7 @@
  *   verified → reverify_required → pending_review → verified
  */
 
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React from "react";
@@ -116,7 +116,7 @@ export default function TrustCenterScreen() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View style={[s.header, { paddingTop: topPad + 12 }]}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
-          <Feather name="arrow-left" size={22} color={colors.charcoal} />
+          <FIcon name="arrow-left" size={22} color={colors.charcoal} />
         </TouchableOpacity>
         <Text style={[s.headerTitle, { color: colors.charcoal }]}>
           {lang === "ko" ? "신뢰 센터" : "信頼センター"}
@@ -174,7 +174,7 @@ export default function TrustCenterScreen() {
             { icon: "star"   as const, ko: "신뢰 배지 — 프로필에 레이어별 배지 표시",   ja: "信頼バッジ — プロフィールにレイヤー別バッジ表示" },
           ].map((b, i) => (
             <View key={i} style={[s.benefitRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
-              <Feather name={b.icon} size={15} color={colors.rose} />
+              <FIcon name={b.icon} size={15} color={colors.rose} />
               <Text style={[s.benefitText, { color: colors.charcoalMid }]}>
                 {lang === "ko" ? b.ko : b.ja}
               </Text>
@@ -221,7 +221,7 @@ export default function TrustCenterScreen() {
                       cta.onPress(lang);
                     }}
                   >
-                    <Feather name="arrow-right" size={13} color={layer.color} />
+                    <FIcon name="arrow-right" size={13} color={layer.color} />
                     <Text style={[s.ctaText, { color: layer.color }]}>
                       {status === "rejected"
                         ? lang === "ko" ? "다시 시도하기" : "再試行する"
@@ -234,7 +234,7 @@ export default function TrustCenterScreen() {
 
                 {isPendingReview && (
                   <View style={[s.pendingBanner, { backgroundColor: "#FFF8EC", borderColor: "#B07D1A30" }]}>
-                    <Feather name="clock" size={12} color="#B07D1A" />
+                    <FIcon name="clock" size={12} color="#B07D1A" />
                     <Text style={[s.pendingText, { color: "#B07D1A" }]}>
                       {lang === "ko"
                         ? "검토 중입니다. 보통 1-3 영업일 소요됩니다."
@@ -249,7 +249,7 @@ export default function TrustCenterScreen() {
 
         {/* ── Re-verification notice ─────────────────────────────────────────*/}
         <View style={[s.noticeCard, { backgroundColor: "#FFF8EC", borderColor: "#B07D1A25" }]}>
-          <Feather name="info" size={14} color="#B07D1A" />
+          <FIcon name="info" size={14} color="#B07D1A" />
           <Text style={[s.noticeText, { color: "#7A5A10" }]}>
             {lang === "ko"
               ? "프로필 사진을 변경하면 얼굴 인증이 초기화됩니다. 새 사진 업로드 후 재인증이 필요합니다."
@@ -258,7 +258,7 @@ export default function TrustCenterScreen() {
         </View>
 
         <View style={[s.noticeCard, { backgroundColor: "#FFF0F3", borderColor: "#D8587025", marginTop: 0 }]}>
-          <Feather name="alert-triangle" size={14} color={colors.rose} />
+          <FIcon name="alert-triangle" size={14} color={colors.rose} />
           <Text style={[s.noticeText, { color: "#8B2A3C" }]}>
             {lang === "ko"
               ? "의심스러운 활동이 감지되면 추가 인증이 자동으로 요청될 수 있습니다."

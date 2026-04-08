@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -58,7 +58,7 @@ export default function LoginScreen() {
         style={[styles.backBtn, { top: topPad + 12 }]}
         onPress={() => router.replace("/onboarding")}
       >
-        <Feather name="chevron-left" size={22} color={colors.charcoalMid} />
+        <FIcon name="chevron-left" size={22} color={colors.charcoalMid} />
       </TouchableOpacity>
 
       <View style={[styles.inner, { paddingTop: topPad + 60, paddingBottom: bottomPad + 32 }]}>
@@ -87,7 +87,7 @@ export default function LoginScreen() {
               },
             ]}
           >
-            <Feather
+            <FIcon
               name="mail"
               size={17}
               color={focused ? colors.rose : colors.charcoalLight}
@@ -132,7 +132,7 @@ export default function LoginScreen() {
                 >
                   {lang === "ko" ? "이메일로 계속하기" : "メールで続ける"}
                 </Text>
-                <Feather
+                <FIcon
                   name="arrow-right"
                   size={17}
                   color={emailReady ? colors.white : colors.rose}

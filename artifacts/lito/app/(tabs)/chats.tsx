@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import { router } from "expo-router";
 import React from "react";
 import {
@@ -69,7 +69,7 @@ function ConversationRow({ conversation }: { conversation: Conversation }) {
 
         {conversation.translationEnabled && (
           <View style={[styles.translationTag, { backgroundColor: colors.roseLight }]}>
-            <Feather name="globe" size={10} color={colors.rose} />
+            <FIcon name="globe" size={10} color={colors.rose} />
             <Text style={[styles.translationLabel, { color: colors.rose }]}>{lang === "ko" ? "번역 켜짐" : "翻訳オン"}</Text>
           </View>
         )}
@@ -104,7 +104,7 @@ export default function ChatsScreen() {
         {conversations.length === 0 ? (
           <View style={styles.empty}>
             <View style={[styles.emptyIcon, { backgroundColor: colors.roseLight }]}>
-              <Feather name="message-circle" size={36} color={colors.rose} />
+              <FIcon name="message-circle" size={36} color={colors.rose} />
             </View>
             <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>
               {lang === "ko" ? "아직 대화가 없어요" : "まだ会話がありません"}

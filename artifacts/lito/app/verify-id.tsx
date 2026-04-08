@@ -26,7 +26,7 @@
  *   - Layer 3 (this screen) = government-issued document → confirms your identity
  */
 
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React from "react";
@@ -191,7 +191,7 @@ export default function VerifyIdScreen() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View style={[s.header, { paddingTop: topPad + 12 }]}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
-          <Feather name="arrow-left" size={22} color={colors.charcoal} />
+          <FIcon name="arrow-left" size={22} color={colors.charcoal} />
         </TouchableOpacity>
         <Text style={[s.headerTitle, { color: colors.charcoal }]}>
           {lang === "ko" ? "신분증 인증" : "本人確認書類"}
@@ -255,7 +255,7 @@ export default function VerifyIdScreen() {
             {/* Privacy */}
             <SectionTitle lang={lang} ko="개인정보 보호" ja="個人情報の保護" colors={colors} />
             <View style={[s.privacyCard, { backgroundColor: "#EEF4FF", borderColor: "#3B6FD425" }]}>
-              <Feather name="lock" size={16} color="#3B6FD4" />
+              <FIcon name="lock" size={16} color="#3B6FD4" />
               <Text style={[s.privacyText, { color: "#2A4D99" }]}>
                 {lang === "ko"
                   ? "신분증 이미지는 제3자 인증 기관에만 전달되며, Lito 서버에는 저장되지 않습니다. 인증 후 24시간 내 삭제됩니다."
@@ -268,7 +268,7 @@ export default function VerifyIdScreen() {
               style={[s.ctaBtn, { backgroundColor: "#B07D1A" }]}
               onPress={() => handleStartVerification(lang)}
             >
-              <Feather name="upload" size={16} color="#FFF" />
+              <FIcon name="upload" size={16} color="#FFF" />
               <Text style={s.ctaBtnText}>
                 {lang === "ko" ? "인증 시작하기" : "認証を開始する"}
               </Text>
@@ -298,7 +298,7 @@ export default function VerifyIdScreen() {
             </InfoCard>
 
             <View style={[s.helpCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
-              <Feather name="message-circle" size={15} color={colors.charcoalLight} />
+              <FIcon name="message-circle" size={15} color={colors.charcoalLight} />
               <Text style={[s.helpText, { color: colors.charcoalMid }]}>
                 {lang === "ko"
                   ? "3 영업일이 지났는데 결과가 없으신가요? 지원팀에 문의하세요."
@@ -351,7 +351,7 @@ export default function VerifyIdScreen() {
 
             {/* What to do if document changes */}
             <View style={[s.noteCard, { backgroundColor: "#FFF8EC", borderColor: "#B07D1A25" }]}>
-              <Feather name="info" size={14} color="#B07D1A" />
+              <FIcon name="info" size={14} color="#B07D1A" />
               <Text style={[s.noteText, { color: "#7A5A10" }]}>
                 {lang === "ko"
                   ? "신분증이 만료되거나 변경되면 재인증이 필요합니다. 만료 전에 미리 갱신해 주세요."
@@ -366,7 +366,7 @@ export default function VerifyIdScreen() {
           <>
             <SectionTitle lang={lang} ko="거절 사유" ja="却下の理由" colors={colors} />
             <View style={[s.rejectionCard, { backgroundColor: "#FFF0EE", borderColor: "#C0392B25" }]}>
-              <Feather name="x-circle" size={16} color="#C0392B" />
+              <FIcon name="x-circle" size={16} color="#C0392B" />
               <Text style={[s.rejectionText, { color: "#8B2020" }]}>
                 {getRejectionLabel(idLayer?.rejectionReason, lang)}
               </Text>
@@ -389,7 +389,7 @@ export default function VerifyIdScreen() {
               style={[s.ctaBtn, { backgroundColor: "#C0392B" }]}
               onPress={() => handleStartVerification(lang)}
             >
-              <Feather name="refresh-cw" size={16} color="#FFF" />
+              <FIcon name="refresh-cw" size={16} color="#FFF" />
               <Text style={s.ctaBtnText}>
                 {lang === "ko" ? "다시 시도하기" : "再試行する"}
               </Text>
@@ -411,7 +411,7 @@ export default function VerifyIdScreen() {
             </InfoCard>
 
             <View style={[s.noteCard, { backgroundColor: "#FFF3ED", borderColor: "#C0502025" }]}>
-              <Feather name="info" size={14} color="#C05020" />
+              <FIcon name="info" size={14} color="#C05020" />
               <Text style={[s.noteText, { color: "#7A3510" }]}>
                 {lang === "ko"
                   ? "재인증 동안 신분증 인증 배지는 일시적으로 프로필에서 숨겨집니다."
@@ -423,7 +423,7 @@ export default function VerifyIdScreen() {
               style={[s.ctaBtn, { backgroundColor: "#C05020" }]}
               onPress={() => handleStartVerification(lang)}
             >
-              <Feather name="refresh-cw" size={16} color="#FFF" />
+              <FIcon name="refresh-cw" size={16} color="#FFF" />
               <Text style={s.ctaBtnText}>
                 {lang === "ko" ? "재인증 시작하기" : "再認証を開始する"}
               </Text>
@@ -464,7 +464,7 @@ function BulletRow({
 }) {
   return (
     <View style={s.bulletRow}>
-      <Feather name={icon} size={14} color={color} style={{ marginTop: 2 }} />
+      <FIcon name={icon} size={14} color={color} style={{ marginTop: 2 }} />
       <Text style={[s.bulletText, { color: colors.charcoalMid }]}>
         {lang === "ko" ? ko : ja}
       </Text>
@@ -479,7 +479,7 @@ function InfoRow({
 }) {
   return (
     <View style={s.infoRow}>
-      <Feather name={icon} size={14} color={color} />
+      <FIcon name={icon} size={14} color={color} />
       <Text style={s.infoRowLabel}>{lang === "ko" ? label.ko : label.ja}</Text>
       <Text style={[s.infoRowValue, { color }]}>{value}</Text>
     </View>
@@ -501,7 +501,7 @@ function TimelineStep({
     <View style={s.timelineStep}>
       <View style={s.timelineLeft}>
         <View style={[s.timelineDot, { backgroundColor: done ? color : "#E0E0E0", borderColor: done ? color : "#C7C7CC" }]}>
-          {done && <Feather name="check" size={10} color="#FFF" />}
+          {done && <FIcon name="check" size={10} color="#FFF" />}
         </View>
         {!last && <View style={[s.timelineLine, { backgroundColor: done ? `${color}40` : "#E0E0E0" }]} />}
       </View>
@@ -525,7 +525,7 @@ function DistinctionBanner({ lang, colors }: { lang: "ko" | "ja"; colors: any })
         {/* Human verified */}
         <View style={[s.distinctionCol, { backgroundColor: "#EEF4FF", borderColor: "#3B6FD420" }]}>
           <View style={[s.distinctionIconWrap, { backgroundColor: "#3B6FD415" }]}>
-            <Feather name="user-check" size={18} color="#3B6FD4" />
+            <FIcon name="user-check" size={18} color="#3B6FD4" />
           </View>
           <Text style={[s.distinctionColTitle, { color: "#3B6FD4" }]}>
             {lang === "ko" ? "Layer 1 · 본인 인증" : "Layer 1 · 本人確認"}
@@ -539,7 +539,7 @@ function DistinctionBanner({ lang, colors }: { lang: "ko" | "ja"; colors: any })
         {/* ID verified */}
         <View style={[s.distinctionCol, { backgroundColor: "#FFF8EC", borderColor: "#B07D1A20" }]}>
           <View style={[s.distinctionIconWrap, { backgroundColor: "#B07D1A15" }]}>
-            <Feather name="credit-card" size={18} color="#B07D1A" />
+            <FIcon name="credit-card" size={18} color="#B07D1A" />
           </View>
           <Text style={[s.distinctionColTitle, { color: "#B07D1A" }]}>
             {lang === "ko" ? "Layer 3 · 신분증 인증" : "Layer 3 · 身分証明書"}

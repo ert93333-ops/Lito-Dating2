@@ -69,6 +69,7 @@ function FontLoader({ children }: { children: React.ReactNode }) {
     Inter_700Bold,
     // Load Feather font from local assets — prevents Metro bundler resolution
     // issues with require() calls from inside node_modules (Expo SDK 54 + new arch)
+    // Must match fontName used by @expo/vector-icons createIconSet: 'feather' (lowercase)
     "feather": require("../assets/fonts/Feather.ttf"),
   });
 

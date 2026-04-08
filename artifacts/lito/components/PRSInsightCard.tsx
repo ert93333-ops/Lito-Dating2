@@ -18,7 +18,7 @@
 //  • Error state: silently hidden (don't show broken state)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import React, { useEffect, useRef } from "react";
 import {
   Animated,
@@ -293,7 +293,7 @@ function LowConfidenceFallbackState({
 
   return (
     <View style={[s.fallbackRow, { backgroundColor: colors.muted }]}>
-      <Feather name="bar-chart-2" size={13} color={colors.charcoalLight} />
+      <FIcon name="bar-chart-2" size={13} color={colors.charcoalLight} />
       <Text style={[s.fallbackText, { color: colors.charcoalLight }]}>{text}</Text>
     </View>
   );
@@ -390,7 +390,7 @@ export function PRSInsightCard({ state, expanded, onToggle }: PRSInsightCardProp
         </Text>
 
         {/* Chevron */}
-        <Feather
+        <FIcon
           name={expanded ? "chevron-up" : "chevron-down"}
           size={13}
           color={colors.charcoalLight}

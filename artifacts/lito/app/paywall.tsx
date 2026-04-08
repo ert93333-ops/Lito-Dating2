@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import FIcon from "@/components/FIcon";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
@@ -78,7 +78,7 @@ function PlanCard({
 
       {highlights.map((h, i) => (
         <View key={i} style={styles.planFeatureRow}>
-          <Feather
+          <FIcon
             name="check"
             size={13}
             color={planId === "free" ? colors.charcoalLight : accentColor}
@@ -91,7 +91,7 @@ function PlanCard({
 
       {selected && planId !== "free" && (
         <View style={[styles.selectedIndicator, { backgroundColor: accentColor }]}>
-          <Feather name="check" size={14} color="#fff" />
+          <FIcon name="check" size={14} color="#fff" />
         </View>
       )}
     </TouchableOpacity>
@@ -143,7 +143,7 @@ export default function PaywallScreen() {
           style={styles.closeBtn}
           onPress={() => router.back()}
         >
-          <Feather name="x" size={22} color={colors.charcoalMid} />
+          <FIcon name="x" size={22} color={colors.charcoalMid} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.charcoal }]}>
           {lang === "ko" ? "Lito 멤버십" : "Lito メンバーシップ"}
@@ -164,7 +164,7 @@ export default function PaywallScreen() {
       >
         {/* ── Trust line ─────────────────────────────────────────────── */}
         <View style={[styles.trustRow, { backgroundColor: colors.roseLight, borderColor: colors.roseSoft }]}>
-          <Feather name="shield" size={13} color={colors.rose} />
+          <FIcon name="shield" size={13} color={colors.rose} />
           <Text style={[styles.trustText, { color: colors.rose }]}>
             {lang === "ko"
               ? "번역, 안전 기능, 기본 채팅은 항상 무료입니다"
@@ -199,7 +199,7 @@ export default function PaywallScreen() {
       >
         {upgraded ? (
           <View style={[styles.successRow, { backgroundColor: "#EFFAF4" }]}>
-            <Feather name="check-circle" size={18} color="#1A7A4A" />
+            <FIcon name="check-circle" size={18} color="#1A7A4A" />
             <Text style={[styles.successText, { color: "#1A7A4A" }]}>
               {lang === "ko" ? "업그레이드 완료!" : "アップグレード完了！"}
             </Text>
