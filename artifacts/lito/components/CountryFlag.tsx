@@ -1,5 +1,5 @@
 import React from "react";
-import { View } from "react-native";
+import Svg, { Circle, G, Path } from "react-native-svg";
 
 interface CountryFlagProps {
   country: "KR" | "JP";
@@ -7,58 +7,47 @@ interface CountryFlagProps {
 }
 
 /**
- * View-based flag badge — no emoji dependency.
- * Safe on all Android devices including Samsung (which often lacks flag emoji support).
+ * SVG-based country flags — no emoji dependency, Android-safe.
  *
- * KR: white circle, red top half / blue bottom half, white center dot (simplified Taeguk)
- * JP: white circle, solid red inner circle (exact Japanese flag hi-no-maru pattern)
+ * KR: Taeguk (태극) — rotating yin-yang in Korean red/blue on white
+ * JP: Hi-no-maru (日の丸) — red circle on white
  */
 export function CountryFlag({ country, size = 20 }: CountryFlagProps) {
-  const r = size / 2;
-  const isKR = country === "KR";
-
-  if (!isKR) {
+  if (country === "JP") {
     return (
-      <View
-        style={{
-          width: size, height: size, borderRadius: r,
-          backgroundColor: "#FFFFFF",
-          alignItems: "center", justifyContent: "center",
-          borderWidth: Math.max(1, size * 0.06), borderColor: "#E0DADA",
-          overflow: "hidden",
-        }}
-      >
-        <View
-          style={{
-            width: size * 0.54, height: size * 0.54,
-            borderRadius: size * 0.27,
-            backgroundColor: "#BC002D",
-          }}
-        />
-      </View>
+      <Svg width={size} height={size} viewBox="0 0 100 100">
+        <Circle cx="50" cy="50" r="50" fill="#FFFFFF" />
+        <Circle cx="50" cy="50" r="30" fill="#BC002D" />
+        <Circle cx="50" cy="50" r="49" fill="none" stroke="#E0DADA" strokeWidth="1.5" />
+      </Svg>
     );
   }
 
+  // KR — Taeguk (simplified yin-yang, rotated -45° to match Korean flag orientation)
   return (
-    <View
-      style={{
-        width: size, height: size, borderRadius: r,
-        backgroundColor: "#FFFFFF",
-        overflow: "hidden",
-        borderWidth: Math.max(1, size * 0.06), borderColor: "#E0DADA",
-      }}
-    >
-      <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
-        <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: r, backgroundColor: "#C60C30" }} />
-        <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: r, backgroundColor: "#003478" }} />
-        <View
-          style={{
-            width: size * 0.38, height: size * 0.38,
-            borderRadius: size * 0.19,
-            backgroundColor: "#FFFFFF",
-          }}
+    <Svg width={size} height={size} viewBox="0 0 100 100">
+      {/* White background */}
+      <Circle cx="50" cy="50" r="50" fill="#FFFFFF" />
+
+      <G rotation="-45" origin="50, 50">
+        {/* Red yang — right semicircle with S-curve */}
+        <Path
+          d="M 50 10 A 40 40 0 0 1 50 90 A 20 20 0 0 1 50 50 A 20 20 0 0 0 50 10 Z"
+          fill="#C60C30"
         />
-      </View>
-    </View>
+        {/* Blue yin — left semicircle with S-curve */}
+        <Path
+          d="M 50 10 A 40 40 0 0 0 50 90 A 20 20 0 0 0 50 50 A 20 20 0 0 1 50 10 Z"
+          fill="#003478"
+        />
+        {/* Blue dot in red area */}
+        <Circle cx="50" cy="30" r="9" fill="#003478" />
+        {/* Red dot in blue area */}
+        <Circle cx="50" cy="70" r="9" fill="#C60C30" />
+      </G>
+
+      {/* Border */}
+      <Circle cx="50" cy="50" r="49" fill="none" stroke="#D0C8CA" strokeWidth="1.5" />
+    </Svg>
   );
 }
