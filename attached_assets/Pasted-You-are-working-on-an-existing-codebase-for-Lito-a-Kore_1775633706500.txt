@@ -1,0 +1,233 @@
+You are working on an existing codebase for Lito, a Korean-Japanese cross-border dating app.
+
+IMPORTANT:
+- Do NOT rewrite the whole app
+- Do NOT replace existing chat, profile, or onboarding systems unless necessary
+- Do NOT implement anything blindly
+- First analyze the current architecture and propose the safest integration plan
+
+Your task:
+Design an MVP-ready “AI Mutual Interest Signal” system for Lito.
+
+This feature must NOT be framed as:
+- “love score”
+- “exact attraction score”
+- “the other person definitely likes you”
+
+Instead, it must be framed as:
+- Partner Receptivity Score (PRS)
+- Confidence Score (CS)
+- stage-aware conversational insight
+- explanation-based coaching
+
+The system should estimate:
+“How likely the other person is to continue engaging positively and move toward the next interaction stage, based on observed conversation signals.”
+
+==================================================
+PRODUCT PRINCIPLES
+==================================================
+
+1. This is NOT a mind-reading feature
+2. This is a probabilistic signal system, not a certainty engine
+3. The UI must avoid overclaiming
+4. The model should provide reasons, not only a score
+5. Use LLMs as semantic feature extractors when useful, not as the final decision-maker
+6. The system must work for Korean-Japanese cross-border communication
+7. Cultural differences must be handled through calibration, not stereotypes
+8. Reply speed should be evaluated relative to the partner’s own baseline when possible
+
+==================================================
+CORE OUTPUTS TO DESIGN
+==================================================
+
+Design these outputs:
+
+1. Partner Receptivity Score (PRS)
+- range: 0 to 100
+- meaning: estimated current receptivity / positive engagement likelihood
+
+2. Confidence Score (CS)
+- range: 0 to 100
+- meaning: how reliable the estimate is given message volume, consistency, and signal quality
+
+3. Conversation Stage
+- opening
+- discovery
+- escalation
+
+4. Reason Codes / Explainability Layer
+Examples:
+- “They frequently ask follow-up questions”
+- “They respond faster than their usual pace”
+- “They continue your topics naturally”
+- “There is not enough data yet”
+- “Signals are mixed”
+
+==================================================
+STAGE DEFINITIONS
+==================================================
+
+Propose implementation logic for stage detection such as:
+
+Opening:
+- fewer than 30 total turns OR within the first 72 hours
+
+Discovery:
+- 30 to 120 turns AND no clear progression event yet
+
+Escalation:
+- call suggestion, date suggestion, concrete availability sharing, or strong next-step planning signals
+
+You may refine the thresholds based on the current data model.
+
+==================================================
+FEATURE GROUPS
+==================================================
+
+Design the system around these signal groups:
+
+1. Responsiveness
+- follow-up question rate
+- contingent reply score
+- validation / acknowledgment score
+
+2. Reciprocity
+- reciprocal self-disclosure
+- disclosure balance
+- partner re-initiation after silence
+
+3. Linguistic Matching
+- language style matching
+- topic alignment
+- communication format accommodation
+
+4. Temporal Engagement
+- baseline-adjusted reply speed
+- reply consistency
+
+5. Warmth / Other-Focus / Authenticity
+- other-focus score
+- warmth score
+- authenticity score
+
+6. Progression
+- future orientation
+- availability sharing
+- call or date acceptance / openness
+
+7. Penalty Signals
+- early oversharing
+- excessive self-promotion
+- generic/template-like replies
+- non-contingent topic switching
+- scam-risk-related behavior
+
+==================================================
+INITIAL STAGE-WEIGHTING LOGIC
+==================================================
+
+Use this as the initial concept:
+
+Opening:
+PRS_raw =
+  0.26 * Responsiveness
++ 0.22 * Reciprocity
++ 0.18 * TemporalEngagement
++ 0.14 * Warmth
++ 0.12 * LinguisticMatching
++ 0.08 * Progression
+- Penalty
+
+Discovery:
+PRS_raw =
+  0.22 * Reciprocity
++ 0.18 * LinguisticMatching
++ 0.18 * Responsiveness
++ 0.14 * TemporalEngagement
++ 0.14 * Progression
++ 0.14 * Warmth
+- Penalty
+
+Escalation:
+PRS_raw =
+  0.28 * Progression
++ 0.20 * TemporalEngagement
++ 0.18 * Reciprocity
++ 0.14 * Responsiveness
++ 0.10 * LinguisticMatching
++ 0.10 * Warmth
+- Penalty
+
+Penalty:
+Penalty =
+  0.30 * EarlyOversharePenalty
++ 0.25 * SelfPromotionPenalty
++ 0.20 * GenericTemplatePenalty
++ 0.15 * NonContingentTopicSwitchPenalty
++ 0.10 * ScamRiskPenalty
+
+Clamp to 0..1 and convert to 0..100.
+
+Do not assume these weights are final.
+Treat them as v1 product priors.
+
+==================================================
+IMPORTANT MODELING RULES
+==================================================
+
+1. Do NOT use absolute reply speed only
+Use:
+- the partner’s own baseline
+- time-of-day / day-of-week context if available
+
+2. Do NOT treat more self-disclosure as always better
+Measure:
+- reciprocal disclosure
+- balanced turn-taking
+- stage-appropriateness
+
+3. Do NOT use a single hard-coded cultural stereotype
+Instead:
+- support locale-pair calibration
+- examples: KR-KR, KR-JP, JP-KR, JP-JP
+
+4. Do NOT show score if confidence is too low
+Examples:
+- too few partner messages
+- too few sessions
+- low semantic clarity
+- long inactivity gaps
+- unreliable translation context
+
+==================================================
+REQUIRED DELIVERABLES
+==================================================
+
+First, analyze the current codebase and propose:
+
+1. Where this feature should live in the current architecture
+2. What backend services or modules are needed
+3. What database/schema additions are needed
+4. What event tracking is required
+5. What front-end components are needed
+6. What should run synchronously vs asynchronously
+7. What can be implemented in MVP vs later
+8. What current components/files are likely affected
+9. How to avoid breaking existing chat logic
+10. How to preserve privacy and avoid creepy UX
+
+Then provide:
+
+A. Recommended architecture
+B. Data model proposal
+C. API / service design
+D. Scoring pipeline design
+E. UI integration plan
+F. Low-risk implementation sequence
+
+Do NOT modify code yet.
+Analyze first and explain.
+Before any code changes:
+- list the files/components involved
+- explain the minimal change plan
+- keep everything modular
