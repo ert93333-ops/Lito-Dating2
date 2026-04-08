@@ -314,11 +314,11 @@ export default function ProfileScreen() {
               <Feather name="cpu" size={12} color={colors.rose} />
             </View>
             <Text style={[styles.aiCardTitle, { color: colors.rose }]}>
-              {lang === "ko" ? "AI 문화 궁합" : "AIカルチャーフィット"}
+              {lang === "ko" ? "AI 문화 공감" : "AIカルチャーフィット"}
             </Text>
           </View>
           <Text style={[styles.aiCardBody, { color: colors.charcoalMid }]}>
-            {profile.aiStyleSummary}
+            {profile.aiStyleSummary[lang]}
           </Text>
         </View>
       ) : null}
