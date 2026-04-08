@@ -19,9 +19,10 @@
 import { extractInterestFeatureWindow } from "./prsSignals";
 import type {
   Message,
-  CalibrationProfile,
   ConversationInterestSnapshot,
   LowConfidenceState,
+  PenaltyFeatures,
+  ReasonCode,
 } from "../types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -71,23 +72,6 @@ function isCacheFresh(entry: CacheEntry, currentMessageCount: number): boolean {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function buildCalibrationProfile(
-  myCountry: "KR" | "JP",
-  partnerCountry: "KR" | "JP"
-): CalibrationProfile {
-  const localePair = `${partnerCountry}-${myCountry}` as CalibrationProfile["localePair"];
-  return {
-    localePair,
-    fastReplyThresholdMs: 5 * 60_000,   // 5 min
-    slowReplyThresholdMs: 60 * 60_000,  // 1 hr
-    sessionGapMs: 4 * 60 * 60_000,     // 4 hr
-    openingMaxTurns: 30,
-    openingMaxHours: 72,
-    discoveryMaxTurns: 120,
-    scoringWeightsVersion: "1.0.0",
-  };
-}
 
 function localiseNotReadyReason(
   state: Exclude<LowConfidenceState, null>,
@@ -141,8 +125,6 @@ export async function getConversationInterestSnapshot(
     apiBase,
   } = input;
 
-  const partnerMessages = messages.filter((m) => m.sender !== myUserId);
-
   // Step 1: Cache check
   const cached = _snapshotCache.get(conversationId);
   if (cached && isCacheFresh(cached, messages.length)) {
@@ -150,8 +132,15 @@ export async function getConversationInterestSnapshot(
   }
 
   // Step 2: Feature extraction (client-side, pure)
-  const calibration = buildCalibrationProfile(myCountry, partnerCountry);
-  const featureWindow = extractInterestFeatureWindow(messages, calibration, myUserId);
+  // Signature: (messages, conversationId, myUserId, partnerUserId, myCountry, partnerCountry)
+  const featureWindow = extractInterestFeatureWindow(
+    messages,
+    conversationId,
+    myUserId,
+    partnerUserId,
+    myCountry,
+    partnerCountry
+  );
 
   // Step 3: Attach identity metadata
   const enrichedFeatureWindow = {
@@ -203,8 +192,14 @@ export async function getConversationInterestSnapshot(
       progression: 0.5,
       penaltyTotal: 0,
     },
-    penaltyBreakdown: (raw.penaltyBreakdown as Record<string, number>) ?? {},
-    reasonCodes: Array.isArray(raw.reasonCodes) ? (raw.reasonCodes as string[]) : [],
+    penaltyBreakdown: (raw.penaltyBreakdown as PenaltyFeatures) ?? {
+      earlyOversharePenalty: 0,
+      selfPromotionPenalty: 0,
+      genericTemplatePenalty: 0,
+      nonContingentTopicSwitchPenalty: 0,
+      scamRiskPenalty: 0,
+    },
+    reasonCodes: Array.isArray(raw.reasonCodes) ? (raw.reasonCodes as ReasonCode[]) : [],
     generatedInsights: Array.isArray(raw.generatedInsights)
       ? (raw.generatedInsights as ConversationInterestSnapshot["generatedInsights"])
       : [],

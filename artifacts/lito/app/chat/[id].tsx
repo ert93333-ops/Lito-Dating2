@@ -22,11 +22,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CountryFlag } from "@/components/CountryFlag";
 import { ProfileImage } from "@/components/ProfileImage";
+import { PRSInsightCard, type PRSCardState } from "@/components/PRSInsightCard";
 import { useApp } from "@/context/AppContext";
 import { useGrowth } from "@/context/GrowthContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 import { AI_COACH_PACKS } from "@/services/monetization";
+import { getConversationInterestSnapshot } from "@/services/prsScoring";
 import { Message } from "@/types";
 
 const CURRENT_USER_ID = "me";
@@ -820,6 +822,10 @@ export default function ChatDetailScreen() {
   // L6 FIX: track whether user has ever tapped translate — to show/hide first-use hint
   const [hasUsedTranslation, setHasUsedTranslation] = useState(false);
 
+  // ── PRS Insight Card state (isolated — no changes to existing chat logic) ──
+  const [prsCardState, setPrsCardState] = useState<PRSCardState>({ status: "loading" });
+  const [prsExpanded, setPrsExpanded] = useState(false);
+
   const [inputText, setInputText] = useState("");
   const sendBtnScale = useRef(new Animated.Value(1)).current;
 
@@ -839,6 +845,58 @@ export default function ChatDetailScreen() {
   const convMessages = messages[id || "conv1"] || [];
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+
+  // ── PRS: fetch conversation interest snapshot ─────────────────────────────
+  // Runs once when the chat opens (and again if message count grows by ≥3).
+  // Completely isolated: touches only prsCardState — zero changes to existing state.
+  const prevMsgCountRef = useRef(0);
+  useEffect(() => {
+    if (!conversation) return;
+
+    const lang: "ko" | "ja" = profile.country === "KR" ? "ko" : "ja";
+    const partnerCountry = conversation.user.country === "JP" ? "JP" : "KR";
+    const myCountry: "KR" | "JP" = profile.country === "JP" ? "JP" : "KR";
+
+    // Re-fetch when message count grows by ≥ 3 (de-bounced via ref)
+    const newCount = convMessages.length;
+    if (newCount > 0 && Math.abs(newCount - prevMsgCountRef.current) < 3 && prevMsgCountRef.current > 0) {
+      return;
+    }
+    prevMsgCountRef.current = newCount;
+
+    // Require at least 4 total messages before running PRS
+    if (newCount < 4) {
+      setPrsCardState({ status: "not_enough_data", lang });
+      return;
+    }
+
+    setPrsCardState({ status: "loading" });
+
+    getConversationInterestSnapshot({
+      messages: convMessages,
+      conversationId: id || "conv1",
+      myUserId: CURRENT_USER_ID,
+      partnerUserId: conversation.user.id ?? "partner",
+      myCountry,
+      partnerCountry,
+      viewerLang: lang,
+      apiBase: API_BASE,
+    })
+      .then((outcome) => {
+        if (outcome.ready) {
+          setPrsCardState({ status: "ready", snapshot: outcome, lang });
+        } else if (outcome.lowConfidenceState === "not_enough_data") {
+          setPrsCardState({ status: "not_enough_data", lang });
+        } else {
+          setPrsCardState({ status: "low_confidence", lang });
+        }
+      })
+      .catch(() => {
+        // Silently hide on error — don't show broken state to user
+        setPrsCardState({ status: "hidden" });
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, convMessages.length]);
 
   if (!conversation) {
     return (
@@ -1147,6 +1205,13 @@ export default function ChatDetailScreen() {
           <Text style={[styles.unlockText, { color: colors.green }]}>{t("chat.unlocked")}</Text>
         </View>
       )}
+
+      {/* ── PRS Insight Card — between banner and messages, isolated ──── */}
+      <PRSInsightCard
+        state={prsCardState}
+        expanded={prsExpanded}
+        onToggle={() => setPrsExpanded((v) => !v)}
+      />
 
       {/* ── Message list ────────────────────────────────────────────────── */}
       <FlatList

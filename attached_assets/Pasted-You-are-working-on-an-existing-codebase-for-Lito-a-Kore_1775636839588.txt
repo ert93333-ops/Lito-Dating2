@@ -1,0 +1,188 @@
+You are working on an existing codebase for Lito, a Korean-Japanese cross-border dating app.
+
+IMPORTANT:
+- Do NOT rewrite the whole app
+- Do NOT break the current chat flow
+- Do NOT redesign unrelated screens
+- Keep all UI changes modular and reversible
+- Before changing code, inspect the current chat / AI coach UI structure first
+- List affected files/components before editing
+- Explain the minimal integration plan first
+
+Your task:
+Integrate the AI Mutual Interest Signal system into the front-end UI in a safe, non-creepy, explanation-first way.
+
+The feature must NOT be shown as:
+- “They like you 87%”
+- “Love score”
+- “Romance probability”
+- “They definitely like you”
+
+Instead, the UI must present:
+- signal strength
+- confidence-aware interpretation
+- concise reasons
+- optional coaching context
+
+==================================================
+GOAL OF THIS STEP
+==================================================
+
+Implement the UI display layer for:
+1. PRS state presentation
+2. Confidence-aware display rules
+3. Stage-aware insight presentation
+4. Reason-based explanation rendering
+
+Do NOT build the full coaching logic in this step.
+Only integrate the score/insight presentation layer.
+
+==================================================
+UI DISPLAY RULES
+==================================================
+
+Use non-creepy, non-overclaiming language.
+
+Preferred display states:
+- “Interest signals are strong”
+- “Interest signals are mixed”
+- “Still too early to tell”
+- “Not enough data yet”
+
+Example explanation items:
+- “They often ask follow-up questions”
+- “They reply faster than their usual pace”
+- “They keep your topics going”
+- “There are not enough signals yet”
+- “Warmth is high, but next-step signals are still weak”
+
+Do NOT expose raw internal formulas directly in the main UI.
+
+==================================================
+CONFIDENCE-AWARE RENDERING
+==================================================
+
+Implement UI rules such as:
+
+If confidence is high:
+- show signal state
+- show concise reasons
+- optionally show stage context
+
+If confidence is medium:
+- show softer interpretation
+- show that signals are still forming
+
+If confidence is low:
+- hide hard score presentation
+- show “Not enough data yet” or “Signals are still forming”
+
+Support a clean fallback UI for:
+- loading state
+- unavailable data
+- newly started conversations
+- mixed-signal conversations
+
+==================================================
+SUGGESTED UI PLACEMENT
+==================================================
+
+Integrate naturally into the existing AI coach / chat context area.
+
+Possible placements:
+- inside the chat side panel / helper panel
+- inside a conversation insights card
+- inside an expandable “AI Coach” module
+- inside a non-intrusive conversation analysis card
+
+Do NOT interrupt chat composition.
+Do NOT create manipulative popups.
+Do NOT make the UI addictive or gamified.
+
+==================================================
+UX PRINCIPLES
+==================================================
+
+The UI should feel:
+- calm
+- premium
+- safe
+- explainable
+- useful
+- not creepy
+- not overly deterministic
+
+The UI should not:
+- pressure the user
+- imply certainty
+- encourage emotional overdependence on the app
+- encourage manipulative messaging
+
+==================================================
+COMPONENT REQUIREMENTS
+==================================================
+
+Implement or update UI components such as:
+- InterestSignalCard
+- ConfidenceAwareInsightBlock
+- ConversationStageBadge
+- ReasonCodeList / ReasonInsightList
+- LowConfidenceFallbackState
+
+Use the current design system and component conventions if they already exist.
+
+==================================================
+STATE REQUIREMENTS
+==================================================
+
+Support:
+- loading
+- empty / not enough data
+- high-confidence strong signals
+- medium-confidence mixed signals
+- low-confidence hidden score
+- temporarily unavailable data
+
+Make sure repeated refreshes do not create flicker or inconsistent rendering.
+
+==================================================
+CONTENT RULES
+==================================================
+
+The UI copy should be soft, helpful, and non-absolute.
+
+Good examples:
+- “The conversation looks engaged so far”
+- “They seem responsive right now”
+- “Signals are still forming”
+- “They appear interested in continuing the conversation”
+
+Avoid:
+- “They are definitely into you”
+- “High romantic attraction”
+- “Guaranteed interest”
+- “This person likes you”
+
+==================================================
+DELIVERABLES
+==================================================
+
+Before writing code:
+1. inspect the current chat / AI helper UI
+2. list affected files/components
+3. explain where the new insight UI should live
+
+Then implement:
+4. UI components for PRS/CS presentation
+5. low-confidence fallback states
+6. reason-based explanation rendering
+7. loading / empty / mixed states
+
+After implementation, explain:
+8. how the UI behaves under different confidence levels
+9. how the UI avoids creepy or manipulative wording
+10. what can be enhanced later in v2
+
+Do not implement unrelated redesigns.
+Do not rewrite the entire chat screen.
+Keep UI changes isolated and low-risk.
