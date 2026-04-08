@@ -20,6 +20,7 @@ interface AppContextType {
   logout: () => void;
   likeUser: (userId: string) => void;
   passUser: (userId: string) => void;
+  blockUser: (userId: string) => void;
   sendMessage: (conversationId: string, text: string) => void;
   toggleTranslation: (conversationId: string) => void;
   unlockExternalContact: (conversationId: string) => void;
@@ -80,6 +81,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsLoggedIn(false);
     setHasCompletedOnboarding(false);
     setHasCompletedProfileSetupState(false);
+    setProfile(myProfile);
+    setDiscoverUsers(mockUsers);
+    setMatches(mockMatches);
+    setConversations(mockConversations);
+    setMessages({ conv1: mockMessages, conv2: [], conv3: mockMessagesConv3 });
     AsyncStorage.multiRemove([
       "lito_logged_in",
       "lito_onboarding",
@@ -95,6 +101,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const passUser = useCallback((userId: string) => {
     setDiscoverUsers((prev) => prev.filter((u) => u.id !== userId));
     // TODO: In production, call Supabase to record the pass
+  }, []);
+
+  const blockUser = useCallback((userId: string) => {
+    setDiscoverUsers((prev) => prev.filter((u) => u.id !== userId));
+    setMatches((prev) => prev.filter((m) => m.userId !== userId));
+    setConversations((prev) => prev.filter((c) => c.user.id !== userId));
+    // TODO: In production, POST /api/blocks { blockerId, blockedUserId }
   }, []);
 
   const sendMessage = useCallback((conversationId: string, text: string) => {
@@ -168,6 +181,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         logout,
         likeUser,
         passUser,
+        blockUser,
         sendMessage,
         toggleTranslation,
         unlockExternalContact,

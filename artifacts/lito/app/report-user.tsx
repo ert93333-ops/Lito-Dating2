@@ -43,6 +43,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 import type { UserReportCategory } from "@/types";
@@ -177,6 +178,7 @@ export default function ReportUserScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { lang } = useLocale();
+  const { blockUser } = useApp();
   const params = useLocalSearchParams<{ userId: string; nickname: string }>();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -219,8 +221,7 @@ export default function ReportUserScreen() {
           text: lang === "ko" ? "차단" : "ブロック",
           style: "destructive",
           onPress: () => {
-            // TODO: POST /api/blocks { blockerId, blockedUserId }
-            // Remove from local discover/match lists immediately
+            if (params.userId) blockUser(params.userId);
             router.back();
           },
         },

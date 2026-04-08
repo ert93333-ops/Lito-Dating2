@@ -126,10 +126,13 @@ export default function ProfileSetupScreen() {
   const [intro, setIntro] = useState("");
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
 
-  const step1CanContinue = nickname.trim().length >= 2;
+  const parsedAge = parseInt(age);
+  const ageValid = age === "" || (parsedAge >= 18 && parsedAge <= 99);
+  const step1CanContinue = nickname.trim().length >= 2 && (age === "" || ageValid);
 
   const handleStep1Continue = () => {
     if (!step1CanContinue) return;
+    if (age !== "" && !ageValid) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setStep(2);
   };
@@ -144,12 +147,14 @@ export default function ProfileSetupScreen() {
   };
 
   const handleFinish = () => {
+    const trimmedIntro = intro.trim();
     updateProfile({
       nickname: nickname.trim() || "User",
-      age: parseInt(age) || 25,
+      age: parsedAge >= 18 && parsedAge <= 99 ? parsedAge : 25,
       country: profile.country,
       language: lang,
-      intro: intro.trim() || undefined,
+      intro: trimmedIntro || undefined,
+      bio: trimmedIntro || undefined,
       interests: selectedInterests.length > 0 ? selectedInterests : undefined,
     });
     completeProfileSetup();
@@ -285,6 +290,11 @@ export default function ProfileSetupScreen() {
                 {lang === "ko" ? "세" : "歳"}
               </Text>
             </View>
+            {age !== "" && !ageValid && (
+              <Text style={[s.fieldHint, { color: colors.rose }]}>
+                {lang === "ko" ? "18~99세 사이로 입력해주세요" : "18〜99歳の範囲で入力してください"}
+              </Text>
+            )}
           </View>
 
           {/* Intro field */}

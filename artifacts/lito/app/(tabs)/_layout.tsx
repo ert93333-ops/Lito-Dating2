@@ -8,25 +8,27 @@ import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
+import { useLocale } from "@/hooks/useLocale";
 
 function NativeTabLayout() {
+  const { lang } = useLocale();
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="discover">
         <Icon sf={{ default: "flame", selected: "flame.fill" }} />
-        <Label>Discover</Label>
+        <Label>{lang === "ko" ? "발견" : "発見"}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="matches">
         <Icon sf={{ default: "heart", selected: "heart.fill" }} />
-        <Label>Matches</Label>
+        <Label>{lang === "ko" ? "매칭" : "マッチ"}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="chats">
         <Icon sf={{ default: "message", selected: "message.fill" }} />
-        <Label>Chats</Label>
+        <Label>{lang === "ko" ? "채팅" : "チャット"}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person.circle", selected: "person.circle.fill" }} />
-        <Label>Profile</Label>
+        <Label>{lang === "ko" ? "프로필" : "プロフィール"}</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -34,6 +36,7 @@ function NativeTabLayout() {
 
 function ClassicTabLayout() {
   const colors = useColors();
+  const { lang } = useLocale();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
@@ -73,7 +76,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="discover"
         options={{
-          title: "Discover",
+          title: lang === "ko" ? "발견" : "発見",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="flame" tintColor={color} size={24} />
@@ -85,7 +88,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="matches"
         options={{
-          title: "Matches",
+          title: lang === "ko" ? "매칭" : "マッチ",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="heart" tintColor={color} size={24} />
@@ -97,7 +100,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="chats"
         options={{
-          title: "Chats",
+          title: lang === "ko" ? "채팅" : "チャット",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="message" tintColor={color} size={24} />
@@ -109,7 +112,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: lang === "ko" ? "프로필" : "プロフィール",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="person.circle" tintColor={color} size={24} />

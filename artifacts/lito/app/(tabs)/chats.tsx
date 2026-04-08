@@ -38,7 +38,7 @@ function ConversationRow({ conversation }: { conversation: Conversation }) {
     >
       <View style={styles.avatarWrap}>
         <ProfileImage photoKey={conversation.user.photos[0]} size={56} />
-        {conversation.user.lastActive === "방금 전" && (
+        {conversation.user.isOnline && (
           <View style={[styles.onlineDot, { backgroundColor: colors.green, borderColor: colors.white }]} />
         )}
       </View>

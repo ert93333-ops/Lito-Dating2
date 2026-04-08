@@ -227,6 +227,7 @@ export interface User {
   trustProfile: TrustProfile;
   riskProfile?: RiskProfile;   // Optional — populated by backend; absent = assumed safe
   lastActive: string;
+  isOnline?: boolean;          // true = currently online / active within ~5 min
   studyingLanguage?: boolean;  // true = actively studying the other language (KR↔JP)
   languageLevel?: "beginner" | "intermediate" | "advanced";
   interests?: string[];        // Hobbies/interests for cultural matching
@@ -276,4 +277,5 @@ export interface MyProfile {
   photos: string[];
   aiStyleSummary: string;
   trustProfile: TrustProfile;
+  languageLevel?: "beginner" | "intermediate" | "advanced";
 }

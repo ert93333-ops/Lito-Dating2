@@ -31,7 +31,7 @@ export default function LoginScreen() {
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   const handleEmailLogin = async () => {
-    if (!email.trim()) return;
+    if (!emailReady) return;
     setLoading(true);
     // TODO: Integrate with Supabase Auth
     await new Promise((r) => setTimeout(r, 800));
@@ -47,7 +47,7 @@ export default function LoginScreen() {
     // Navigation is handled by RootNavigator in _layout.tsx
   };
 
-  const emailReady = email.trim().length > 0;
+  const emailReady = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   return (
     <KeyboardAvoidingView

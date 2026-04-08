@@ -27,7 +27,7 @@ function MatchCard({ match }: { match: Match }) {
   const trustScore = computeTrustScore(match.user.trustProfile);
 
   const goToChat = () => {
-    router.push(`/chat/conv1`);
+    router.push(`/chat/${match.id.replace("match", "conv")}` as any);
   };
 
   return (

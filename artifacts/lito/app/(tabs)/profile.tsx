@@ -241,7 +241,7 @@ export default function ProfileScreen() {
         {/* Level indicator */}
         <View style={[styles.levelRow, { borderTopColor: colors.border }]}>
           {(["beginner", "intermediate", "advanced"] as const).map((level) => {
-            const myLevel = (profile as any).languageLevel ?? "beginner";
+            const myLevel = profile.languageLevel ?? "beginner";
             const levelIdx = ["beginner", "intermediate", "advanced"].indexOf(level);
             const myIdx = ["beginner", "intermediate", "advanced"].indexOf(myLevel);
             const isActive = levelIdx <= myIdx;
