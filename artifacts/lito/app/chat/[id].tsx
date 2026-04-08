@@ -1075,10 +1075,15 @@ export default function ChatDetailScreen() {
         text: m.originalText,
       }));
       const targetLang = conversation.user.country === "JP" ? "ja" : "ko";
+      // Pass cached PRS snapshot as coaching context when available.
+      // The server injects it into the LLM prompt for signal-aware suggestions.
+      // Backward compatible: server gracefully ignores absent/null prsContext.
+      const prsContext =
+        prsCardState.status === "ready" ? prsCardState.snapshot : null;
       const response = await fetch(`${API_BASE}/api/ai/coach`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: recentMessages, targetLang }),
+        body: JSON.stringify({ messages: recentMessages, targetLang, prsContext }),
       });
       if (!response.ok) throw new Error(`API ${response.status}`);
 

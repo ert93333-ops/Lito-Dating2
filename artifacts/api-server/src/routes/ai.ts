@@ -5,6 +5,7 @@ import {
   computeConfidenceScore,
   type SemanticScores,
 } from "../lib/prsScoring.js";
+import { runPrsCoaching } from "../lib/prsCoaching.js";
 
 const router = Router();
 
@@ -149,7 +150,7 @@ Rules:
     });
 
     const raw = completion.choices[0]?.message?.content?.trim() ?? "";
-    const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
+    const lines = raw.split("\n").map((l: string) => l.trim()).filter(Boolean);
 
     const translation = lines[0] ?? "";
     const pronunciation = lines[1] ?? "";
@@ -177,9 +178,11 @@ Rules:
  */
 router.post("/ai/coach", async (req, res) => {
   try {
-    const { messages, targetLang } = req.body as {
+    const { messages, targetLang, prsContext } = req.body as {
       messages: Array<{ sender: string; text: string }>;
       targetLang?: "ko" | "ja";
+      /** Optional: ConversationInterestSnapshot from the client's cached PRS state. */
+      prsContext?: Record<string, unknown> | null;
     };
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -193,6 +196,31 @@ router.post("/ai/coach", async (req, res) => {
       .join("\n");
 
     const lang = targetLang === "ko" ? "Korean" : "Japanese";
+
+    // ── PRS Coaching Context Block ────────────────────────────────────────────
+    // If the client sent a cached PRS snapshot, run the rule engine to build a
+    // coaching context block. This is injected into the LLM system prompt as
+    // structured, manipulation-free coaching guidance.
+    // Falls back gracefully if prsContext is absent or malformed.
+    let coachingContextBlock = "";
+    let primaryDirective = "";
+
+    if (prsContext && typeof prsContext === "object") {
+      try {
+        const coachingOutput = runPrsCoaching(
+          prsContext as unknown as Parameters<typeof runPrsCoaching>[0],
+          recent
+        );
+        coachingContextBlock = coachingOutput.coachingContextBlock;
+        primaryDirective = coachingOutput.primaryDirective;
+        console.log(
+          `[ai/coach] PRS coaching active — directive: ${primaryDirective}` +
+          ` rules: ${coachingOutput.activatedRules.map((r) => r.ruleId).join(",")}`
+        );
+      } catch (e) {
+        console.warn("[ai/coach] PRS coaching rule evaluation failed, ignoring:", e);
+      }
+    }
 
     const systemPrompt = `You are a conversation coach for a Korean-Japanese dating app.
 Analyse the conversation and return ONLY a valid JSON object — no markdown, no explanation, no code fences.
@@ -227,7 +255,8 @@ Rules:
 - tone emoji and label: keep exactly as shown above (😊 편하게, 🔥 적극적으로, 😏 가볍게)
 - suggestions: write in ${lang} — 2 natural, warm, genuine replies per tone, each 1-2 sentences
 - tip: 1 brief practical coaching tip per tone, in Korean, e.g. "이모지를 넣으면 더 가볍게 느껴져요"
-- Return ONLY the raw JSON object, nothing else`;
+- Return ONLY the raw JSON object, nothing else
+${coachingContextBlock ? `\n${coachingContextBlock}` : ""}`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-5.2",

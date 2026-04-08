@@ -1,0 +1,220 @@
+You are working on an existing codebase for Lito, a Korean-Japanese cross-border dating app.
+
+IMPORTANT:
+- Do NOT rewrite the whole app
+- Do NOT modify unrelated systems
+- Preserve the existing chat functionality
+- Keep the implementation modular
+- Before changing code, inspect the current AI helper / suggestion system first
+- List affected files/components before editing
+- Explain the minimal integration plan first
+
+Your task:
+Implement the AI coaching recommendation layer on top of the existing AI Mutual Interest Signal system.
+
+This layer should provide practical, safe, non-manipulative conversation guidance based on:
+- Partner Receptivity Score (PRS)
+- Confidence Score (CS)
+- conversation stage
+- reason codes
+- recent chat patterns
+
+This is NOT a manipulation engine.
+It must help the user communicate better, more clearly, and more appropriately.
+
+==================================================
+GOAL OF THIS STEP
+==================================================
+
+Implement a coaching layer that generates useful next-step suggestions such as:
+- when to ask a follow-up question
+- when to keep it light
+- when not to send a long message
+- when progression signals are still too weak
+- when a voice call suggestion may be better later
+- when warmth is strong but direction is unclear
+
+==================================================
+COACHING OUTPUT TYPES
+==================================================
+
+Support coaching outputs such as:
+
+1. Timing guidance
+- “Now is a good time to ask a light follow-up question”
+- “Wait before pushing to the next step”
+
+2. Message style guidance
+- “Keep your next message shorter”
+- “A specific question may work better than a long paragraph”
+- “They seem to respond well to personal but light questions”
+
+3. Progression guidance
+- “Warmth is high, but progression signals are still weak”
+- “They seem open to continuing, but it may be too early for a date suggestion”
+- “This may be a reasonable time to suggest a voice call”
+
+4. Caution guidance
+- “Signals are mixed right now”
+- “There is not enough data yet”
+- “Avoid over-investing too quickly”
+
+==================================================
+COACHING RULES
+==================================================
+
+The coaching layer must be:
+- reason-based
+- confidence-aware
+- stage-aware
+- safe
+- non-manipulative
+- non-creepy
+
+Do NOT generate:
+- pressure tactics
+- guilt-based tactics
+- pickup-artist style advice
+- deceptive strategies
+- certainty claims
+- emotionally coercive suggestions
+
+==================================================
+INPUTS FOR COACHING
+==================================================
+
+Use:
+- PRS
+- CS
+- stage
+- reason codes
+- recent message length patterns
+- partner response patterns
+- progression signals
+- penalty signals
+- locale / cross-language context where relevant
+
+==================================================
+EXAMPLE DECISION LOGIC
+==================================================
+
+Examples:
+
+Case 1:
+- high responsiveness
+- high follow-up questions
+- high warmth
+- low progression
+Suggestion:
+- recommend a light, specific follow-up question
+- do not recommend a date suggestion yet
+
+Case 2:
+- high progression
+- high confidence
+- repeated availability cues
+Suggestion:
+- suggest a call or low-pressure date invitation
+
+Case 3:
+- low confidence
+- few partner messages
+Suggestion:
+- “It’s still too early to draw conclusions”
+
+Case 4:
+- high warmth but generic replies
+Suggestion:
+- recommend waiting for more specific engagement before escalating
+
+Case 5:
+- mixed signals + long delays + weak topic continuity
+Suggestion:
+- recommend reducing effort and sending a short, low-pressure message
+
+==================================================
+CULTURAL / LANGUAGE CONTEXT
+==================================================
+
+This is a Korean-Japanese app.
+
+So:
+- do not hardcode stereotypes
+- be careful with escalation advice in cross-cultural contexts
+- allow softer recommendations in ambiguous situations
+- consider translation reliability when generating semantic coaching
+- avoid suggesting aggressive directness when the signal quality is uncertain
+
+==================================================
+UI / CONTENT REQUIREMENTS
+==================================================
+
+The coaching text should be:
+- concise
+- helpful
+- emotionally calm
+- non-absolute
+- compatible with the existing AI coach UI
+
+Good examples:
+- “A short follow-up question may work well here.”
+- “The conversation seems warm, but it may be too early to push for a call.”
+- “They respond better to specific questions than long messages.”
+- “Signals are still forming, so keep things light for now.”
+
+Avoid:
+- “They definitely like you.”
+- “Push harder now.”
+- “You should make them commit.”
+- “You are winning them over.”
+
+==================================================
+IMPLEMENTATION REQUIREMENTS
+==================================================
+
+Implement or scaffold:
+- coaching rule engine
+- coaching suggestion generator
+- optional suggestion priority ranking
+- low-confidence fallback suggestions
+- stage-aware suggestion selection
+
+If the app already has AI suggestion infrastructure, integrate with it instead of inventing a conflicting system.
+
+==================================================
+TEST CASES
+==================================================
+
+Add tests or test scaffolding for:
+1. early-stage not-enough-data case
+2. high-warmth low-progression case
+3. strong-progression case
+4. mixed-signal case
+5. overly long user-message pattern case
+6. repeated partner follow-up question case
+7. translation-heavy KR-JP conversation case
+8. low-confidence ambiguous case
+
+==================================================
+DELIVERABLES
+==================================================
+
+Before writing code:
+1. inspect the existing AI helper/coaching infrastructure
+2. list affected files/components
+3. explain the minimal integration plan
+
+Then implement:
+4. coaching rule logic
+5. coaching text generation
+6. confidence-aware fallback behavior
+7. safe integration into the existing AI coach area
+
+After implementation, explain:
+8. how suggestions are generated
+9. how manipulative guidance is avoided
+10. what is rule-based now vs what could use stronger ML/LLM support later
+
+Do not redesign the whole chat UI.
+Do not create manipulative or creepy product behavior.
+Keep changes modular and low-risk.
