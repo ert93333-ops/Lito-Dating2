@@ -179,6 +179,52 @@ export const mockUsers: User[] = [
   },
 ];
 
+// ── AI Test Personas (TEST ONLY — delete before launch) ───────────────────────
+export const aiTestUsers: User[] = [
+  {
+    id: "ai_mio_jp",
+    nickname: "미오 (Mio)",
+    age: 23,
+    country: "JP",
+    language: "ja",
+    city: "大阪 · Osaka",
+    bio: "大阪出身のフリーランスイラストレーターです。K-POPが大好きで、特にNewJeansとaespaにハマっています。韓国語を一生懸命勉強中！いつかソウルに住みたいな。\n\nFreelance illustrator from Osaka. I'm a huge K-pop fan — totally obsessed with NewJeans and aespa. Studying Korean hard every day. I dream of living in Seoul someday!",
+    instagramHandle: "@mio.draws",
+    photos: ["profile3"],
+    compatibilityScore: 96,
+    compatibilityReasons: ["K-pop fans", "Creative souls", "Language learners", "Cultural bridge"],
+    trustProfile: TRUST_FULL,
+    lastActive: "방금 전",
+    isOnline: true,
+    studyingLanguage: true,
+    languageLevel: "beginner",
+    interests: ["K-Pop", "Illustration", "Korean Food", "Anime", "Travel", "Cafe"],
+    isAI: true,
+    personaId: "ai_mio_jp",
+  },
+  {
+    id: "ai_jia_kr",
+    nickname: "지아 (Jia)",
+    age: 24,
+    country: "KR",
+    language: "ko",
+    city: "서울 · Seoul",
+    bio: "서울에 사는 프리랜서 번역가예요. 일본 애니메이션과 문화에 완전히 빠져있어요. 귀멸의 칼날, 너의 이름은... 다 좋아해요. 일본어 공부 중이고 일본 친구 사귀고 싶어요!\n\nFreelance translator in Seoul. Obsessed with Japanese anime and culture. Demon Slayer, Your Name... love them all. Studying Japanese and would love to make Japanese friends!",
+    instagramHandle: "@jia.translates",
+    photos: ["profile5"],
+    compatibilityScore: 95,
+    compatibilityReasons: ["Anime lovers", "Language learners", "Cultural curiosity", "Creative minds"],
+    trustProfile: TRUST_FULL,
+    lastActive: "2분 전",
+    isOnline: true,
+    studyingLanguage: true,
+    languageLevel: "intermediate",
+    interests: ["Anime", "Japanese Culture", "Translation", "K-Drama", "Cooking", "Reading"],
+    isAI: true,
+    personaId: "ai_jia_kr",
+  },
+];
+
 export const mockMatches: Match[] = [
   {
     id: "match1",
@@ -206,6 +252,25 @@ export const mockMatches: Match[] = [
     user: mockUsers[2],
     iceBreaker: "교토 출신 사진작가님! 필름 카메라로 찍은 사진 있으면 보고 싶어요 📷",
     iceBreakerJa: "京都出身のフォトグラファーさんですね！フィルムカメラの写真があれば見てみたいです 📷",
+  },
+  // ── AI Test Persona Matches (TEST ONLY) ─────────────────────────────────────
+  {
+    id: "match_ai_mio",
+    userId: "ai_mio_jp",
+    matchedAt: "2026-04-08T09:00:00Z",
+    isNew: false,
+    user: aiTestUsers[0],
+    iceBreaker: "서로 언어를 교환하면서 친해지면 어떨까요? 저 한국어 배우고 싶어요!",
+    iceBreakerJa: "お互いに言語交換しながら仲良くなりませんか？韓国語を学びたいです！",
+  },
+  {
+    id: "match_ai_jia",
+    userId: "ai_jia_kr",
+    matchedAt: "2026-04-08T10:00:00Z",
+    isNew: false,
+    user: aiTestUsers[1],
+    iceBreaker: "일본 애니메이션 좋아하신다고요? 같이 얘기해요!",
+    iceBreakerJa: "日本のアニメがお好きだとか？一緒に語りましょう！",
   },
 ];
 
@@ -460,6 +525,35 @@ export const mockMessagesConv3: Message[] = [
   },
 ];
 
+// ── AI Persona initial messages (TEST ONLY) ───────────────────────────────────
+export const mockMessagesAiMio: Message[] = [
+  {
+    id: "ai_mio_msg1",
+    conversationId: "conv_ai_mio",
+    senderId: "ai_mio_jp",
+    originalText: "はじめまして！マッチありがとうございます。私、ずっと韓国語を勉強してるんですけど、一緒に練習してもいいですか？",
+    originalLanguage: "ja",
+    translatedText: "처음 뵙겠습니다! 매칭 감사해요. 저 계속 한국어 공부 중인데, 같이 연습해도 될까요?",
+    translatedLanguage: "ko",
+    createdAt: "2026-04-08T09:05:00Z",
+    isRead: true,
+  },
+];
+
+export const mockMessagesAiJia: Message[] = [
+  {
+    id: "ai_jia_msg1",
+    conversationId: "conv_ai_jia",
+    senderId: "ai_jia_kr",
+    originalText: "안녕하세요! 매칭됐네요. 일본 분이시군요! 저 일본 문화 너무 좋아해서 반가워요. 좋아하는 애니메이션 있으세요?",
+    originalLanguage: "ko",
+    translatedText: "はじめまして！マッチしましたね。日本の方なんですね！私は日本文化がとても好きなので嬉しいです。好きなアニメはありますか？",
+    translatedLanguage: "ja",
+    createdAt: "2026-04-08T10:05:00Z",
+    isRead: true,
+  },
+];
+
 export const mockConversations: Conversation[] = [
   {
     id: "conv1",
@@ -487,6 +581,25 @@ export const mockConversations: Conversation[] = [
     unreadCount: 1,
     externalUnlocked: false,
     translationEnabled: false,
+  },
+  // ── AI Test Persona Conversations (TEST ONLY) ──────────────────────────────
+  {
+    id: "conv_ai_mio",
+    matchId: "match_ai_mio",
+    user: aiTestUsers[0],
+    lastMessage: mockMessagesAiMio[0],
+    unreadCount: 1,
+    externalUnlocked: false,
+    translationEnabled: true,
+  },
+  {
+    id: "conv_ai_jia",
+    matchId: "match_ai_jia",
+    user: aiTestUsers[1],
+    lastMessage: mockMessagesAiJia[0],
+    unreadCount: 1,
+    externalUnlocked: false,
+    translationEnabled: true,
   },
 ];
 

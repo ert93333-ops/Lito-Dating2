@@ -1,8 +1,22 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
-import { mockConversations, mockMatches, mockMessages, mockMessagesConv3, mockUsers, myProfile } from "@/data/mockData";
+import {
+  aiTestUsers,
+  mockConversations,
+  mockMatches,
+  mockMessages,
+  mockMessagesAiJia,
+  mockMessagesAiMio,
+  mockMessagesConv3,
+  mockUsers,
+  myProfile,
+} from "@/data/mockData";
 import { Conversation, Match, Message, MyProfile, User } from "@/types";
+
+const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+  : "http://localhost:8080";
 
 interface AppContextType {
   hasCompletedOnboarding: boolean;
@@ -30,24 +44,37 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | null>(null);
 
+const INITIAL_MESSAGES = {
+  conv1: mockMessages,
+  conv2: [],
+  conv3: mockMessagesConv3,
+  conv_ai_mio: mockMessagesAiMio,
+  conv_ai_jia: mockMessagesAiJia,
+};
+
+const INITIAL_DISCOVER = [...mockUsers, ...aiTestUsers];
+const INITIAL_MATCHES = mockMatches;
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [hasCompletedProfileSetup, setHasCompletedProfileSetupState] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [profile, setProfile] = useState<MyProfile>(myProfile);
-  const [discoverUsers, setDiscoverUsers] = useState<User[]>(mockUsers);
-  const [matches, setMatches] = useState<Match[]>(mockMatches);
+  const [discoverUsers, setDiscoverUsers] = useState<User[]>(INITIAL_DISCOVER);
+  const [matches, setMatches] = useState<Match[]>(INITIAL_MATCHES);
   const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
-  const [messages, setMessages] = useState<Record<string, Message[]>>({
-    conv1: mockMessages,
-    conv2: [],
-    conv3: mockMessagesConv3,
-  });
+  const [messages, setMessages] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
   const [activeConversationId, setActiveConversation] = useState<string | null>(null);
 
-  // Keep a ref to profile so callbacks don't go stale
+  // Keep refs to avoid stale closures
   const profileRef = useRef(profile);
   useEffect(() => { profileRef.current = profile; }, [profile]);
+
+  const messagesRef = useRef(messages);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  const conversationsRef = useRef(conversations);
+  useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
 
   useEffect(() => {
     AsyncStorage.multiGet([
@@ -82,10 +109,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setHasCompletedOnboarding(false);
     setHasCompletedProfileSetupState(false);
     setProfile(myProfile);
-    setDiscoverUsers(mockUsers);
-    setMatches(mockMatches);
+    setDiscoverUsers(INITIAL_DISCOVER);
+    setMatches(INITIAL_MATCHES);
     setConversations(mockConversations);
-    setMessages({ conv1: mockMessages, conv2: [], conv3: mockMessagesConv3 });
+    setMessages(INITIAL_MESSAGES);
     AsyncStorage.multiRemove([
       "lito_logged_in",
       "lito_onboarding",
@@ -110,6 +137,60 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // TODO: In production, POST /api/blocks { blockerId, blockedUserId }
   }, []);
 
+  // ── AI Persona auto-reply ────────────────────────────────────────────────────
+  const triggerAiReply = useCallback(async (conversationId: string, personaId: string) => {
+    await new Promise((r) => setTimeout(r, 1200 + Math.random() * 800));
+
+    const currentMsgs = messagesRef.current[conversationId] || [];
+    const history = currentMsgs.slice(-10).map((m) => ({
+      role: (m.senderId === "me" ? "user" : "assistant") as "user" | "assistant",
+      text: m.originalText,
+    }));
+
+    try {
+      const res = await fetch(`${API_BASE}/api/ai/persona`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          personaId,
+          history,
+          myLanguage: profileRef.current.language,
+        }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const replyText: string = data.reply ?? "";
+      if (!replyText) return;
+
+      const conv = conversationsRef.current.find((c) => c.id === conversationId);
+      const partnerLang = conv?.user.language ?? "ja";
+
+      const aiMsg: Message = {
+        id: `ai_${Date.now()}`,
+        conversationId,
+        senderId: personaId,
+        originalText: replyText,
+        originalLanguage: partnerLang,
+        createdAt: new Date().toISOString(),
+        isRead: false,
+      };
+
+      setMessages((prev) => ({
+        ...prev,
+        [conversationId]: [...(prev[conversationId] || []), aiMsg],
+      }));
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === conversationId
+            ? { ...c, lastMessage: aiMsg, unreadCount: (c.unreadCount || 0) + 1 }
+            : c
+        )
+      );
+    } catch {
+      // silently ignore network errors in test mode
+    }
+  }, []);
+
   const sendMessage = useCallback((conversationId: string, text: string) => {
     const newMsg: Message = {
       id: `msg_${Date.now()}`,
@@ -129,8 +210,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         c.id === conversationId ? { ...c, lastMessage: newMsg } : c
       )
     );
+
+    // Auto-reply if this is an AI persona conversation
+    const conv = conversationsRef.current.find((c) => c.id === conversationId);
+    if (conv?.user.isAI && conv.user.personaId) {
+      triggerAiReply(conversationId, conv.user.personaId);
+    }
     // TODO: In production, send to Supabase and trigger OpenAI translation
-  }, []);
+  }, [triggerAiReply]);
 
   const toggleTranslation = useCallback((conversationId: string) => {
     setConversations((prev) =>

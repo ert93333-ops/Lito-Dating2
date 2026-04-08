@@ -565,6 +565,57 @@ ${recentMsgs || "(no messages yet)"}`;
   }
 });
 
+// ── AI Persona Chat (TEST ONLY — delete before launch) ────────────────────────
+//
+// POST /api/ai/persona
+// Generates an in-character reply from a test AI persona.
+// Body: { personaId: string; history: {role:"user"|"assistant"; text:string}[]; myLanguage: "ko"|"ja" }
+
+const PERSONA_PROMPTS: Record<string, string> = {
+  ai_mio_jp: `You are Mio (미오), a 23-year-old Japanese woman from Osaka.
+Personality: warm, playful, curious, sometimes shy. You love K-pop (especially NewJeans and aespa), Korean food (tteokbokki is your favourite), and you're actively learning Korean.
+Speaking style: Reply in Japanese (your native language). When the other person writes in Korean, reply in Japanese but add occasional simple Korean phrases (e.g. 맞아요, 정말요, 너무 좋아요) to show you're learning. Keep replies short (1-3 sentences) and natural — like a real chat message, not an essay. Never break character.`,
+
+  ai_jia_kr: `You are Jia (지아), a 24-year-old Korean woman from Seoul.
+Personality: bright, cheerful, thoughtful, loves deep conversations. You are obsessed with anime (Demon Slayer, Your Lie in April) and Japanese culture, and you're studying Japanese — you can write simple Japanese.
+Speaking style: Reply in Korean (your native language). When the other person writes in Japanese, reply in Korean but sprinkle in occasional simple Japanese (e.g. そうですね, すごい, 本当に) to show your enthusiasm. Keep replies short (1-3 sentences) and natural — like a real chat message. Never break character.`,
+};
+
+router.post("/ai/persona", async (req, res) => {
+  try {
+    const { personaId, history, myLanguage } = req.body as {
+      personaId: string;
+      history: { role: "user" | "assistant"; text: string }[];
+      myLanguage: "ko" | "ja";
+    };
+
+    const systemPrompt = PERSONA_PROMPTS[personaId];
+    if (!systemPrompt) {
+      return res.status(400).json({ error: `Unknown personaId: ${personaId}` });
+    }
+
+    const contextNote = myLanguage === "ko"
+      ? "The user you are chatting with is Korean."
+      : "The user you are chatting with is Japanese.";
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        { role: "system", content: `${systemPrompt}\n\n${contextNote}` },
+        ...history.map((m) => ({ role: m.role, content: m.text })),
+      ],
+      max_tokens: 150,
+      temperature: 0.85,
+    });
+
+    const reply = completion.choices[0]?.message?.content?.trim() ?? "";
+    return res.json({ reply });
+  } catch (err) {
+    console.error("[ai/persona] error:", err);
+    return res.status(500).json({ error: "Failed to generate persona reply" });
+  }
+});
+
 // ── Admin / Debug endpoints ────────────────────────────────────────────────────
 //
 // These endpoints are for internal admin/debug use only.

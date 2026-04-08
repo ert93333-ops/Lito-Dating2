@@ -231,6 +231,8 @@ export interface User {
   studyingLanguage?: boolean;  // true = actively studying the other language (KR↔JP)
   languageLevel?: "beginner" | "intermediate" | "advanced";
   interests?: string[];        // Hobbies/interests for cultural matching
+  isAI?: boolean;              // TEST ONLY — AI-powered persona, delete before launch
+  personaId?: string;          // TEST ONLY — identifier for persona system prompt
 }
 
 export interface Match {
