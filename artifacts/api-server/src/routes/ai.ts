@@ -6,6 +6,12 @@ import {
   type SemanticScores,
 } from "../lib/prsScoring.js";
 import { runPrsCoaching } from "../lib/prsCoaching.js";
+import {
+  trackPrsEvent,
+  getAggregates,
+  getRecentEvents,
+  type LocalePair,
+} from "../lib/prsAnalytics.js";
 
 const router = Router();
 
@@ -461,6 +467,73 @@ ${recentMsgs || "(no messages yet)"}`;
       `locale=${localePair}`
     );
 
+    // ── Telemetry ─────────────────────────────────────────────────────────────
+    const hasScamSignal = snapshot.reasonCodes.includes("SCAM_RISK_DETECTED");
+    const hasProgressionSignal =
+      snapshot.reasonCodes.includes("CALL_DATE_SIGNAL") ||
+      snapshot.reasonCodes.includes("AVAILABILITY_SHARED");
+    const translationRate = Number(
+      (featureWindow.translation as Record<string, unknown>)?.translatedMessageRate ?? 1
+    );
+
+    trackPrsEvent({
+      kind: "interest_snapshot_generated",
+      ts: Date.now(),
+      conversationId: snapshot.conversationId,
+      modelVersion: "v1",
+      featureVersion: "v1",
+      prsScore: snapshot.prsScore,
+      confidenceScore,
+      stage: snapshot.stage as "opening" | "discovery" | "escalation",
+      localePair: (String(localePair)) as LocalePair,
+      lowConfidenceState: snapshot.lowConfidenceState,
+      reasonCodeCount: snapshot.reasonCodes.length,
+      hasScamSignal,
+      hasProgressionSignal,
+      translationRate,
+    });
+
+    if (hasScamSignal) {
+      trackPrsEvent({
+        kind: "scam_penalty_triggered",
+        ts: Date.now(),
+        conversationId: snapshot.conversationId,
+        modelVersion: "v1",
+        scamRiskPenalty: Number(
+          (featureWindow.penalties as Record<string, unknown>)?.scamRiskPenalty ?? 0
+        ),
+      });
+    }
+
+    if (translationRate < 0.4) {
+      trackPrsEvent({
+        kind: "translation_reliability_low",
+        ts: Date.now(),
+        conversationId: snapshot.conversationId,
+        modelVersion: "v1",
+        translatedRate: translationRate,
+        localePair: (String(localePair)) as LocalePair,
+      });
+    }
+
+    if (snapshot.lowConfidenceState === "mixed_signals") {
+      trackPrsEvent({
+        kind: "mixed_signals_detected",
+        ts: Date.now(),
+        conversationId: snapshot.conversationId,
+        modelVersion: "v1",
+      });
+    }
+
+    if (snapshot.lowConfidenceState === "low_confidence_hidden_score") {
+      trackPrsEvent({
+        kind: "low_confidence_hidden_score",
+        ts: Date.now(),
+        conversationId: snapshot.conversationId,
+        modelVersion: "v1",
+      });
+    }
+
     // ── Response ──────────────────────────────────────────────────────────────
     // Returns the full ConversationInterestSnapshot PLUS legacy-compat fields
     // so existing callers (PRSInsightCard) continue to work without breaking.
@@ -490,6 +563,24 @@ ${recentMsgs || "(no messages yet)"}`;
     console.error("[ai/prs] error:", err);
     res.status(500).json({ error: "Failed to compute PRS" });
   }
+});
+
+// ── Admin / Debug endpoints ────────────────────────────────────────────────────
+//
+// These endpoints are for internal admin/debug use only.
+// In production, add an admin middleware guard (e.g. check an ADMIN_TOKEN header
+// or a session role). For now they are unguarded — for MVP/internal use.
+//
+// GET /api/admin/prs/aggregates — live telemetry aggregates
+// GET /api/admin/prs/events     — last 50 raw telemetry events
+
+router.get("/admin/prs/aggregates", (_req, res) => {
+  res.json(getAggregates());
+});
+
+router.get("/admin/prs/events", (req, res) => {
+  const n = Math.min(Number(req.query.n ?? 50), 200);
+  res.json({ events: getRecentEvents(n) });
 });
 
 export default router;

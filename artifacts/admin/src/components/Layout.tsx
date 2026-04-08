@@ -9,6 +9,10 @@ const NAV_ITEMS = [
   { path: "/appeals", label: "이의 신청", icon: "⚖️" },
 ];
 
+const INTERNAL_NAV_ITEMS = [
+  { path: "/prs-debug", label: "AI 신호 디버거", icon: "🔬" },
+];
+
 function NavItem({ path, label, icon, badge, exact }: {
   path: string; label: string; icon: string; badge?: boolean; exact?: boolean;
 }) {
@@ -42,6 +46,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     "/verification": "인증 큐",
     "/risk-flags": "위험 플래그",
     "/appeals": "이의 신청",
+    "/prs-debug": "AI 신호 디버거",
   };
 
   const baseTitle = Object.keys(PAGE_TITLES)
@@ -65,10 +70,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
-          {NAV_ITEMS.map(item => (
-            <NavItem key={item.path} {...item} />
-          ))}
+        <nav className="flex-1 px-2 py-4 overflow-y-auto">
+          <div className="space-y-0.5">
+            {NAV_ITEMS.map(item => (
+              <NavItem key={item.path} {...item} />
+            ))}
+          </div>
+
+          {/* Internal tools divider */}
+          <div className="mt-4 mb-2 px-3">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-px bg-slate-700" />
+              <span className="text-slate-600 text-[10px] font-semibold uppercase tracking-wider flex-shrink-0">내부 도구</span>
+              <div className="flex-1 h-px bg-slate-700" />
+            </div>
+          </div>
+          <div className="space-y-0.5">
+            {INTERNAL_NAV_ITEMS.map(item => (
+              <NavItem key={item.path} {...item} />
+            ))}
+          </div>
         </nav>
 
         {/* Moderator badge */}

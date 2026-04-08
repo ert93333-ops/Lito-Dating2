@@ -1,0 +1,236 @@
+You are working on an existing codebase for Lito, a Korean-Japanese cross-border dating app.
+
+IMPORTANT:
+- Do NOT rewrite the whole app
+- Do NOT redesign unrelated product areas
+- Do NOT change the public user experience unless necessary for debug access control
+- Focus only on internal admin/debug/analytics support for the AI Mutual Interest Signal system
+- Keep all changes modular and restricted to internal/admin tooling
+- Before changing code, inspect the current architecture first
+- List affected files/components before editing
+- Explain the minimal implementation plan first
+
+Your task:
+Implement an internal admin/debug/analytics layer for the AI Mutual Interest Signal system.
+
+This system already includes:
+1. feature extraction
+2. Partner Receptivity Score (PRS)
+3. Confidence Score (CS)
+4. stage detection
+5. reason codes
+6. UI integration
+7. coaching suggestions
+
+Now create the internal tools needed to inspect, validate, tune, and monitor this system safely.
+
+==================================================
+GOAL OF THIS STEP
+==================================================
+
+Build internal visibility for:
+- why a score was generated
+- which signals contributed most
+- which penalties were applied
+- what stage was detected
+- how confidence was computed
+- where unstable or suspicious outputs appear
+- how this system performs across real usage patterns
+
+This is for internal/admin/debug use, not public user-facing UI.
+
+==================================================
+REQUIRED INTERNAL DEBUG FEATURES
+==================================================
+
+Implement or scaffold an internal debug/admin view for a conversation-level interest snapshot.
+
+For each conversation, admins/internal reviewers should be able to inspect:
+
+1. Basic context
+- conversationId
+- userId
+- partnerId
+- locale pair
+- createdAt / lastActiveAt
+- total turns
+- partner message count
+- current detected stage
+
+2. Output summary
+- PRS
+- Confidence Score
+- current public-facing state (strong / mixed / not enough data)
+- model version
+- feature version
+
+3. Feature breakdown
+- Responsiveness score
+- Reciprocity score
+- Linguistic Matching score
+- Temporal Engagement score
+- Warmth score
+- Progression score
+
+4. Penalty breakdown
+- EarlyOversharePenalty
+- SelfPromotionPenalty
+- GenericTemplatePenalty
+- NonContingentTopicSwitchPenalty
+- ScamRiskPenalty
+
+5. Reason codes / generated insights
+- structured reason codes
+- natural-language explanations currently used by UI
+
+6. Confidence components
+- message volume factor
+- session count factor
+- signal consistency factor
+- recentness factor
+- translation reliability factor
+
+7. Raw or near-raw signal indicators where useful
+- follow-up question rate
+- topic continuity signal
+- disclosure balance proxy
+- partner re-initiation count
+- baseline-adjusted reply speed
+- availability-sharing detection
+- progression trigger detection
+
+==================================================
+ADMIN / DEBUG UI REQUIREMENTS
+==================================================
+
+Create or scaffold an internal-only debug interface.
+
+Possible forms:
+- admin route/page
+- internal dashboard panel
+- expandable developer-only debug card
+- restricted moderator/admin tool
+
+The debug UI must:
+- be access-controlled
+- not be visible to normal users
+- be easy to inspect per conversation
+- show score reasoning clearly
+- allow fast diagnosis of incorrect outputs
+
+Do not expose private raw content more than necessary.
+If message previews are shown, keep them limited and privacy-conscious.
+
+==================================================
+ANALYTICS / TELEMETRY REQUIREMENTS
+==================================================
+
+Add analytics / logging / instrumentation for this system.
+
+Track events such as:
+- interest_snapshot_generated
+- prs_score_bucket_assigned
+- confidence_score_bucket_assigned
+- low_confidence_hidden_score
+- stage_detected
+- reason_code_generated
+- coaching_suggestion_generated
+- coaching_suggestion_shown
+- coaching_suggestion_clicked_or_used if relevant
+- interest_snapshot_refresh_triggered
+- scam_penalty_triggered
+- translation_reliability_low
+
+Also define monitoring-friendly aggregates such as:
+- distribution of PRS buckets
+- distribution of Confidence Score buckets
+- stage distribution
+- % of hidden-score cases due to low confidence
+- % of conversations with mixed signals
+- % of conversations with progression signals
+- % of conversations with scam penalty signals
+
+==================================================
+TUNING SUPPORT
+==================================================
+
+Add support for internal tuning and diagnostics.
+
+The internal tooling should help answer:
+- which feature groups are over-dominating the score?
+- which penalties are firing too often?
+- are thresholds too aggressive?
+- are KR-JP conversations behaving differently from KR-KR or JP-JP?
+- are translation-heavy chats causing low-confidence spikes?
+- are progression triggers too easy or too rare?
+
+Support:
+- score bucket inspection
+- stage threshold visibility
+- modelVersion / featureVersion visibility
+- localePair segmentation
+- optional comparison of multiple snapshots over time for the same conversation
+
+==================================================
+OPTIONAL TIME-SERIES / HISTORY SUPPORT
+==================================================
+
+If practical in the current architecture, support snapshot history such as:
+- score over time
+- confidence over time
+- stage changes over time
+- major reason-code changes over time
+
+This can help detect unstable jumps and debugging issues.
+
+If full history is too heavy right now, scaffold it cleanly for later.
+
+==================================================
+BUG DIAGNOSIS SUPPORT
+==================================================
+
+The admin/debug tooling should make it easy to diagnose:
+- wrong speaker attribution
+- wrong reply-speed baseline
+- wrong stage transitions
+- penalty overfiring
+- confidence staying too high in low-data cases
+- conflicting reason codes
+- translation ambiguity issues
+- progression misclassification
+- scam penalty false positives
+
+==================================================
+ACCESS CONTROL REQUIREMENTS
+==================================================
+
+This tool must be internal-only.
+
+Use existing admin/moderator access control if available.
+If no internal access control exists yet, scaffold a minimal safe restriction mechanism and clearly explain what should be hardened later.
+
+==================================================
+DELIVERABLES
+==================================================
+
+Before writing code:
+1. inspect the current architecture
+2. identify where admin/debug tooling should live
+3. list affected files/components
+4. explain the minimal implementation plan
+
+Then implement:
+5. internal debug data view or admin page
+6. feature/penalty/reason breakdown rendering
+7. analytics/logging instrumentation
+8. model/version visibility
+9. optional snapshot history or scaffolding
+
+After implementation, explain:
+10. how internal teams can use this debug tooling
+11. how analytics can help tune the model
+12. what remains missing for a full production-grade observability layer
+
+Do not perform a full rewrite.
+Do not expose this tooling to end users.
+Keep everything modular, internal, and low-risk.

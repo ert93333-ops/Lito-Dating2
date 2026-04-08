@@ -10,6 +10,7 @@ import UserDetail from "@/pages/UserDetail";
 import Verification from "@/pages/Verification";
 import RiskFlags from "@/pages/RiskFlags";
 import Appeals from "@/pages/Appeals";
+import PrsDebug from "@/pages/PrsDebug";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ function Router() {
         <Route path="/verification" component={Verification} />
         <Route path="/risk-flags" component={RiskFlags} />
         <Route path="/appeals" component={Appeals} />
+        <Route path="/prs-debug" component={PrsDebug} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
