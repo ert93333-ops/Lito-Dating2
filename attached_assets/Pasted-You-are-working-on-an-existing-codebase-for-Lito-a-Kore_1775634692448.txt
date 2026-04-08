@@ -1,0 +1,201 @@
+You are working on an existing codebase for Lito, a Korean-Japanese cross-border dating app.
+
+IMPORTANT:
+- Do NOT rewrite the whole app
+- Do NOT modify unrelated systems
+- Preserve the current chat flow, onboarding flow, and profile system
+- Keep all changes modular and isolated
+- Before changing code, analyze the current architecture first
+- List affected files/components before editing
+- Explain the minimal implementation plan first
+
+Your task:
+Implement the data foundation and feature extraction layer for an MVP “AI Mutual Interest Signal” system.
+
+This feature is NOT a love detector.
+It is a probabilistic signal system that estimates current partner receptivity based on conversation patterns.
+
+==================================================
+GOAL OF THIS STEP
+==================================================
+
+In this step, only implement:
+
+1. data structures / schema additions
+2. event access / conversation access logic
+3. feature extraction pipeline
+4. feature snapshot storage or computation scaffolding
+
+Do NOT implement the final UI yet.
+Do NOT implement the full coaching UI yet.
+Do NOT overbuild the final scoring presentation yet.
+
+==================================================
+FEATURE GROUPS TO EXTRACT
+==================================================
+
+Create an MVP-ready feature extraction layer for the following groups:
+
+1. Responsiveness
+- FollowUpQuestionRate
+- ContingentReplyScore
+- ValidationScore
+
+2. Reciprocity
+- DisclosureTurnTaking
+- DisclosureBalance
+- PartnerReinitiation
+
+3. Linguistic Matching
+- LSM or an MVP proxy
+- TopicAlignment
+- FormatAccommodation
+
+4. Temporal Engagement
+- BaselineAdjustedReplySpeed
+- ReplyConsistency
+
+5. Warmth / Other-Focus / Authenticity
+- OtherFocusScore
+- WarmthScore
+- AuthenticityScore
+
+6. Progression
+- FutureOrientation
+- AvailabilitySharing
+- CallOrDateAcceptance
+
+7. Penalty Signals
+- EarlyOversharePenalty
+- SelfPromotionPenalty
+- GenericTemplatePenalty
+- NonContingentTopicSwitchPenalty
+- ScamRiskPenalty
+
+==================================================
+MVP IMPLEMENTATION RULES
+==================================================
+
+For MVP:
+- prefer practical heuristics over overengineered NLP
+- create clean abstractions so v2 can improve later
+- use current message data, timestamps, sender identity, translation state, and chat metadata if available
+- where full semantic understanding is unavailable, create reasonable proxy functions
+
+Examples:
+- FollowUpQuestionRate:
+  detect partner questions that reference the previous message or continue a known topic
+
+- ContingentReplyScore:
+  detect whether partner replies continue the previous semantic thread
+
+- DisclosureBalance:
+  estimate whether both sides are sharing at roughly similar depth
+
+- PartnerReinitiation:
+  detect whether the partner starts again after a silence gap
+
+- BaselineAdjustedReplySpeed:
+  compare recent reply speed against the partner’s own historical baseline
+
+- TopicAlignment:
+  semantic or keyword/topic overlap across adjacent turns
+
+- OtherFocusScore:
+  partner-focused language, direct reference to the other person, name use, interest cues
+
+- WarmthScore:
+  validating, kind, supportive, emotionally warm language
+
+- AuthenticityScore:
+  specific, non-generic content vs empty/generic template content
+
+- AvailabilitySharing:
+  explicit timing openness such as weekend, after work, specific days
+
+- GenericTemplatePenalty:
+  repeated generic expressions, duplicated patterns, low-specificity replies
+
+==================================================
+DATA MODEL REQUIREMENTS
+==================================================
+
+Add or scaffold data structures compatible with the existing codebase style.
+
+Suggested entities:
+
+1. ConversationInterestFeatureWindow
+- conversationId
+- userId
+- partnerId
+- timeWindowStart
+- timeWindowEnd
+- responsivenessMetrics
+- reciprocityMetrics
+- linguisticMetrics
+- temporalMetrics
+- warmthMetrics
+- progressionMetrics
+- penaltyMetrics
+- translationReliabilityMetrics
+- computedAt
+- featureVersion
+
+2. CalibrationProfile
+- localePair
+- replyTimeBaselineConfig
+- stageThresholds
+- scoringWeightsVersion
+
+3. Optional:
+Feature extraction utilities / services / domain modules
+- extractResponsivenessFeatures(...)
+- extractReciprocityFeatures(...)
+- extractTemporalFeatures(...)
+- extractPenaltyFeatures(...)
+
+Use the existing project conventions for schema, types, services, and file organization.
+
+==================================================
+CONVERSATION CONTEXT RULES
+==================================================
+
+The app supports Korean-Japanese conversations.
+
+So:
+- do not rely only on raw untranslated text when translation state exists
+- consider translation reliability / ambiguity when extracting semantic features
+- support locale-pair awareness:
+  - KR-KR
+  - KR-JP
+  - JP-KR
+  - JP-JP
+
+Do NOT hardcode stereotypes.
+Use baseline/calibration-friendly logic.
+
+==================================================
+DELIVERABLES
+==================================================
+
+Before writing code:
+1. inspect the current codebase
+2. identify where message data and metadata currently live
+3. identify where this feature extraction logic should live
+4. list affected files/components
+5. explain the minimal-change implementation plan
+
+Then implement:
+6. data model / schema additions or scaffolding
+7. feature extraction modules
+8. feature snapshot logic or compute scaffolding
+9. clear comments for placeholder heuristics
+
+After implementation, explain:
+10. what features are implemented
+11. what is heuristic-based
+12. what data is still missing for stronger v2 performance
+
+Do not build the final UI in this step.
+Do not rewrite chat components.
+Keep the implementation isolated and production-conscious.

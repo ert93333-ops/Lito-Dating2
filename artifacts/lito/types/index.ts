@@ -280,3 +280,164 @@ export interface MyProfile {
   trustProfile: TrustProfile;
   languageLevel?: "beginner" | "intermediate" | "advanced";
 }
+
+// ── PRS (Partner Receptivity Score) types ─────────────────────────────────────
+//
+// The PRS system estimates how positively a conversation partner is engaging,
+// based on observable conversation signals — NOT as a "love detector" or
+// certainty engine, but as a probabilistic, explanation-first insight system.
+//
+// Architecture:
+//   Message[] → prsSignals.ts (heuristic extraction) → InterestFeatureWindow
+//   InterestFeatureWindow → POST /api/ai/prs (LLM semantic features)
+//   → PRSResult (prs, confidence, stage, reasons)
+
+/** Supported locale pairs for cross-cultural calibration. */
+export type LocalePair = "KR-KR" | "KR-JP" | "JP-KR" | "JP-JP";
+
+/** Conversation phase — drives stage-specific scoring weights. */
+export type ConversationStage = "opening" | "discovery" | "escalation";
+
+// ── Per-group feature interfaces (all values normalized 0–1) ─────────────────
+
+export interface ResponsivenessFeatures {
+  /** HEURISTIC — fraction of partner messages that contain a question mark or known question words */
+  followUpQuestionRate: number;
+  /** HEURISTIC — fraction of partner messages that share a keyword with the immediately preceding message */
+  contingentReplyScore: number;
+  /** HEURISTIC — fraction of partner messages that contain known acknowledgment/validation cues */
+  validationScore: number;
+}
+
+export interface ReciprocityFeatures {
+  /** HEURISTIC — how evenly turns alternate between partners (1 = perfect, 0 = fully one-sided) */
+  disclosureTurnTaking: number;
+  /** HEURISTIC — ratio of average partner message length to average my message length, clamped 0–1 */
+  disclosureBalance: number;
+  /** HEURISTIC — fraction of "sessions" (gaps > threshold) where partner sent the first new message */
+  partnerReinitiation: number;
+}
+
+export interface LinguisticMatchingFeatures {
+  /** HEURISTIC — proxy: do both sides use similar message length brackets (short/medium/long)? */
+  lsmProxy: number;
+  /** HEURISTIC — keyword overlap between adjacent message turns */
+  topicAlignment: number;
+  /** HEURISTIC — emoji and punctuation mirroring between partners */
+  formatAccommodation: number;
+}
+
+export interface TemporalFeatures {
+  /** HEURISTIC — partner's recent reply gaps vs their own early baseline (faster = higher score) */
+  baselineAdjustedReplySpeed: number;
+  /** HEURISTIC — how consistent partner reply gaps are (low variance = higher score) */
+  replyConsistency: number;
+}
+
+export interface WarmthFeatures {
+  /** HEURISTIC — fraction of partner messages referencing the other person by name or "you" words */
+  otherFocusScore: number;
+  /** HEURISTIC/SEMANTIC — presence of warm, kind, validating language cues */
+  warmthScore: number;
+  /** HEURISTIC/SEMANTIC — specificity vs generic/template-like content */
+  authenticityScore: number;
+}
+
+export interface ProgressionFeatures {
+  /** HEURISTIC — presence of future-orientation words (다음에, 언제, 今度, いつか, etc.) */
+  futureOrientation: number;
+  /** HEURISTIC — explicit availability sharing (주말, 내일, 週末, etc.) */
+  availabilitySharing: number;
+  /** HEURISTIC — call/meeting acceptance cues (전화, 만나다, 電話, 会いたい, etc.) */
+  callOrDateAcceptance: number;
+}
+
+export interface PenaltyFeatures {
+  /** HEURISTIC — heavy personal disclosure in the first 5 messages */
+  earlyOversharePenalty: number;
+  /** HEURISTIC — excessive self-centered language (I/me/나/私 ratio) */
+  selfPromotionPenalty: number;
+  /** HEURISTIC — low-specificity or repeated-pattern replies */
+  genericTemplatePenalty: number;
+  /** HEURISTIC — abrupt topic changes with no shared context to prior message */
+  nonContingentTopicSwitchPenalty: number;
+  /** HEURISTIC — URL, money, overseas emergency, or urgent-transfer keywords */
+  scamRiskPenalty: number;
+}
+
+export interface TranslationReliabilityMetrics {
+  /** Fraction of all messages that have a translatedText field */
+  translatedMessageRate: number;
+  /** Locale pair derived from sender/partner country fields */
+  localePair: LocalePair;
+  /** Whether the two sides write in different languages */
+  crossBorderConversation: boolean;
+}
+
+/**
+ * A feature snapshot for a single conversation window.
+ * Computed client-side from Message[] and then sent to /api/ai/prs
+ * for the LLM semantic feature pass.
+ */
+export interface InterestFeatureWindow {
+  conversationId: string;
+  myUserId: string;
+  partnerUserId: string;
+  /** ISO timestamp of the earliest message in this window */
+  timeWindowStart: string;
+  /** ISO timestamp of the latest message in this window */
+  timeWindowEnd: string;
+  totalMessages: number;
+  partnerMessages: number;
+  myMessages: number;
+  /** Recent messages (last 10) sent to LLM for semantic scoring */
+  recentMessages: Array<{ sender: "me" | "them"; text: string; createdAt: string }>;
+  responsiveness: ResponsivenessFeatures;
+  reciprocity: ReciprocityFeatures;
+  linguistic: LinguisticMatchingFeatures;
+  temporal: TemporalFeatures;
+  warmth: WarmthFeatures;
+  progression: ProgressionFeatures;
+  penalties: PenaltyFeatures;
+  translation: TranslationReliabilityMetrics;
+  stage: ConversationStage;
+  /** Semver-style version string for reproducibility */
+  featureVersion: string;
+  computedAt: string;
+}
+
+/**
+ * Calibration constants per locale pair.
+ * Allows adjusting thresholds for cultural communication norms
+ * without hardcoding stereotypes — these are PRODUCT PRIORS, not assertions.
+ */
+export interface CalibrationProfile {
+  localePair: LocalePair;
+  /** Reply gap below which partner is considered "fast" (ms) */
+  fastReplyThresholdMs: number;
+  /** Reply gap above which partner is considered "slow" (ms) */
+  slowReplyThresholdMs: number;
+  /** Gap (ms) between messages that defines a new "session" */
+  sessionGapMs: number;
+  /** Stage detection thresholds */
+  openingMaxTurns: number;
+  openingMaxHours: number;
+  discoveryMaxTurns: number;
+  scoringWeightsVersion: string;
+}
+
+/** Final output returned by /api/ai/prs. */
+export interface PRSResult {
+  /** Partner Receptivity Score — 0 to 100 */
+  prs: number;
+  /** Confidence Score — 0 to 100. If below ~35, score should be hidden. */
+  confidence: number;
+  stage: ConversationStage;
+  /** Localized explanation codes shown to user */
+  reasons: string[];
+  /** Human-readable low-confidence explanation if confidence < 40 */
+  lowConfidenceReason?: string;
+  /** The feature window that generated this result (for debugging/logging) */
+  featureWindow?: InterestFeatureWindow;
+  computedAt: string;
+}

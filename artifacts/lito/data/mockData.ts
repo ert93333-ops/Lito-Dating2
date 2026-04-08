@@ -209,7 +209,12 @@ export const mockMatches: Match[] = [
   },
 ];
 
+// ── Conv1 messages — expanded for PRS feature testing ───────────────────────
+// Timestamps are realistic (reply gaps 5-15 min in-session, 8h gap between days)
+// Covers: questions, validation, topic continuation, warmth, future orientation.
+// Locale pair: JP (me) ↔ KR (user1)
 export const mockMessages: Message[] = [
+  // ── Day 1 Session 1 (11:00 ~ 12:15) ────────────────────────────────────────
   {
     id: "msg1",
     conversationId: "conv1",
@@ -230,6 +235,7 @@ export const mockMessages: Message[] = [
     createdAt: "2025-01-05T11:05:00Z",
     isRead: true,
   },
+  // user1 follows up with a question + validation → followUpQuestionRate ↑, validationScore ↑
   {
     id: "msg3",
     conversationId: "conv1",
@@ -238,7 +244,7 @@ export const mockMessages: Message[] = [
     originalLanguage: "ko",
     translatedText: "わあ、すごいですね！韓国語はお上手ですか？私も日本語を学びたいです。",
     translatedLanguage: "ja",
-    createdAt: "2025-01-05T11:10:00Z",
+    createdAt: "2025-01-05T11:12:00Z",
     isRead: true,
   },
   {
@@ -247,30 +253,180 @@ export const mockMessages: Message[] = [
     senderId: CURRENT_USER_ID,
     originalText: "まだ初心者ですが、一緒に練習しませんか？🌸",
     originalLanguage: "ja",
-    createdAt: "2025-01-05T11:15:00Z",
+    createdAt: "2025-01-05T11:18:00Z",
     isRead: true,
   },
+  // user1 responds quickly + warmth cue + future orientation → warmthScore ↑, futureOrientation ↑
   {
     id: "msg5",
     conversationId: "conv1",
     senderId: "user1",
-    originalText: "물론이죠! 언어 교환 파트너가 되면 좋겠어요 ✨",
+    originalText: "물론이죠! 언어 교환 파트너가 되면 좋겠어요 ✨ 다음에 같이 공부해요!",
     originalLanguage: "ko",
-    translatedText: "もちろんです！言語交換パートナーになれたら嬉しいです ✨",
+    translatedText: "もちろんです！言語交換パートナーになれたら嬉しいです ✨ 今度一緒に勉強しましょう！",
     translatedLanguage: "ja",
-    createdAt: "2025-01-05T12:00:00Z",
+    createdAt: "2025-01-05T11:23:00Z",
     isRead: true,
   },
   {
     id: "msg6",
     conversationId: "conv1",
-    senderId: "user1",
-    originalText: "아직 초보자이지만, 같이 연습하지 않으실래요?",
-    originalLanguage: "ko",
-    translatedText: "まだ初心者ですが、一緒に練習しませんか？",
-    translatedLanguage: "ja",
-    createdAt: "2025-01-05T12:05:00Z",
+    senderId: CURRENT_USER_ID,
+    originalText: "嬉しいです！どんな勉強法が好きですか？私はドラマで覚えるのが好きです。",
+    originalLanguage: "ja",
+    createdAt: "2025-01-05T11:29:00Z",
     isRead: true,
+  },
+  // user1 continues topic + asks back → contingentReplyScore ↑, topicAlignment ↑
+  {
+    id: "msg7",
+    conversationId: "conv1",
+    senderId: "user1",
+    originalText: "저도요! 드라마로 배우는 게 제일 재밌어요. 요즘 좋아하는 드라마 있어요?",
+    originalLanguage: "ko",
+    translatedText: "私もです！ドラマで学ぶのが一番楽しいです。最近好きなドラマはありますか？",
+    translatedLanguage: "ja",
+    createdAt: "2025-01-05T11:36:00Z",
+    isRead: true,
+  },
+  {
+    id: "msg8",
+    conversationId: "conv1",
+    senderId: CURRENT_USER_ID,
+    originalText: "「이상한 변호사 우영우」が大好きです！見ましたか？",
+    originalLanguage: "ja",
+    createdAt: "2025-01-05T11:42:00Z",
+    isRead: true,
+  },
+  // user1 references drama title directly → contingentReplyScore ↑
+  {
+    id: "msg9",
+    conversationId: "conv1",
+    senderId: "user1",
+    originalText: "우영우 저도 봤어요! 너무 감동적이지 않았나요? 그 펭수 장면은 진짜 웃겼어요 😂",
+    originalLanguage: "ko",
+    translatedText: "ウヨンウ私も見ました！すごく感動的じゃなかったですか？ペンスのシーンは本当に面白かったです 😂",
+    translatedLanguage: "ja",
+    createdAt: "2025-01-05T11:48:00Z",
+    isRead: true,
+  },
+  {
+    id: "msg10",
+    conversationId: "conv1",
+    senderId: CURRENT_USER_ID,
+    originalText: "ほんとに！鯨のシーンも好きでした。他に好きな韓国のコンテンツはありますか？",
+    originalLanguage: "ja",
+    createdAt: "2025-01-05T11:55:00Z",
+    isRead: true,
+  },
+  {
+    id: "msg11",
+    conversationId: "conv1",
+    senderId: "user1",
+    originalText: "K-pop도 많이 들어요! BTS 좋아하시나요? 아니면 다른 그룹?",
+    originalLanguage: "ko",
+    translatedText: "K-popもよく聴きます！BTSはお好きですか？それとも他のグループ？",
+    translatedLanguage: "ja",
+    createdAt: "2025-01-05T12:02:00Z",
+    isRead: true,
+  },
+  {
+    id: "msg12",
+    conversationId: "conv1",
+    senderId: CURRENT_USER_ID,
+    originalText: "BTSも好きですが、最近はNewJeansにはまっています！",
+    originalLanguage: "ja",
+    createdAt: "2025-01-05T12:08:00Z",
+    isRead: true,
+  },
+  // user1 re-engages after a short gap — session continues
+  {
+    id: "msg13",
+    conversationId: "conv1",
+    senderId: "user1",
+    originalText: "오 NewJeans 최고예요! 'Ditto'는 너무 좋아요 🎵 혹시 서울 오시면 연락해요!",
+    originalLanguage: "ko",
+    translatedText: "NewJeansは最高です！'Ditto'はすごく好きです 🎵 もしソウルに来たら連絡してください！",
+    translatedLanguage: "ja",
+    createdAt: "2025-01-05T12:15:00Z",
+    isRead: true,
+  },
+
+  // ── Day 2 Session 2 — user1 re-initiates after 8h gap ──────────────────────
+  // partnerReinitiation ↑ (partner opens new session)
+  {
+    id: "msg14",
+    conversationId: "conv1",
+    senderId: "user1",
+    originalText: "안녕하세요! 오늘 하루 어땠어요? 저는 일본어 공부 좀 했어요 😊",
+    originalLanguage: "ko",
+    translatedText: "こんにちは！今日はどうでしたか？私は日本語の勉強をしました 😊",
+    translatedLanguage: "ja",
+    createdAt: "2025-01-06T09:10:00Z",
+    isRead: true,
+  },
+  {
+    id: "msg15",
+    conversationId: "conv1",
+    senderId: CURRENT_USER_ID,
+    originalText: "こんにちは！私も昨日の韓国語の単語を復習しました。何を勉強しましたか？",
+    originalLanguage: "ja",
+    createdAt: "2025-01-06T09:22:00Z",
+    isRead: true,
+  },
+  // availability sharing → availabilitySharing ↑
+  {
+    id: "msg16",
+    conversationId: "conv1",
+    senderId: "user1",
+    originalText: "어제 배운 단어들 연습했어요! 주말에 시간 되면 같이 언어 교환 어때요?",
+    originalLanguage: "ko",
+    translatedText: "昨日習った単語を練習しました！週末に時間があれば一緒に言語交換はどうですか？",
+    translatedLanguage: "ja",
+    createdAt: "2025-01-06T09:30:00Z",
+    isRead: true,
+  },
+  {
+    id: "msg17",
+    conversationId: "conv1",
+    senderId: CURRENT_USER_ID,
+    originalText: "いいですね！週末の午後なら大丈夫です。ビデオ通話で話しましょうか？",
+    originalLanguage: "ja",
+    createdAt: "2025-01-06T09:38:00Z",
+    isRead: true,
+  },
+  // call acceptance → callOrDateAcceptance ↑
+  {
+    id: "msg18",
+    conversationId: "conv1",
+    senderId: "user1",
+    originalText: "영상통화 좋아요! 토요일 오후 3시 어때요? 그때 서울은 괜찮을 것 같아요.",
+    originalLanguage: "ko",
+    translatedText: "ビデオ通話いいですね！土曜日の午後3時はいかがですか？その時間ソウルは大丈夫そうです。",
+    translatedLanguage: "ja",
+    createdAt: "2025-01-06T09:45:00Z",
+    isRead: true,
+  },
+  {
+    id: "msg19",
+    conversationId: "conv1",
+    senderId: CURRENT_USER_ID,
+    originalText: "土曜日の午後3時、完璧です！楽しみにしています 🌸",
+    originalLanguage: "ja",
+    createdAt: "2025-01-06T09:52:00Z",
+    isRead: true,
+  },
+  // user1 warmth + specificity → warmthScore ↑, authenticityScore ↑
+  {
+    id: "msg20",
+    conversationId: "conv1",
+    senderId: "user1",
+    originalText: "저도 기대돼요! 그때까지 더 열심히 일본어 공부할게요 💪 감사해요!",
+    originalLanguage: "ko",
+    translatedText: "私も楽しみです！それまでもっと頑張って日本語を勉強します 💪 ありがとうございます！",
+    translatedLanguage: "ja",
+    createdAt: "2025-01-06T09:58:00Z",
+    isRead: false,
   },
 ];
 
