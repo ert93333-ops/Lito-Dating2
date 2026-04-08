@@ -65,3 +65,9 @@ id = "RLZYz-MwddCrmGWEKMllM"
 uri = "file://lito-closed-beta-plan.md"
 type = "text"
 title = "Lito Closed Beta Test Plan v1.0"
+
+[[outputs]]
+id = "kFjc9vdoqu1HKg_tk6FsV"
+uri = "file://lito-prelaunch-plan.md"
+type = "text"
+title = "Lito Pre-Launch Improvement Plan v1.0"
