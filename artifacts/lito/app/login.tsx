@@ -13,7 +13,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { LitoMark } from "@/components/LitoMark";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
@@ -66,9 +65,6 @@ export default function LoginScreen() {
 
         {/* Logo section */}
         <View style={styles.logoSection}>
-          <View style={{ marginBottom: 20 }}>
-            <LitoMark size={72} withBadge />
-          </View>
           <Text style={[styles.appName, { color: colors.charcoal }]}>lito</Text>
           <Text style={[styles.tagline, { color: colors.charcoalLight }]}>
             한국과 일본을 잇는 인연

@@ -15,7 +15,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { LitoMark } from "@/components/LitoMark";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
@@ -166,7 +165,6 @@ export default function ProfileSetupScreen() {
   const Header = () => (
     <View style={[shared.header, { paddingTop: topPad + 14 }]}>
       <View style={shared.logoRow}>
-        <LitoMark size={28} />
         <Text style={[shared.logo, { color: colors.charcoal }]}>lito</Text>
       </View>
       <View style={shared.stepBadge}>
