@@ -12,7 +12,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
@@ -207,14 +210,18 @@ export default function ProfileSetupScreen() {
   // ══════════════════════════════════════════════════════════════════════════
   if (step === 1) {
     return (
-      <View style={[s.container, { backgroundColor: colors.white }]}>
+      <KeyboardAvoidingView
+        style={[s.container, { backgroundColor: colors.white }]}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
         <Header />
         <ProgressBar />
 
-        <ScrollView
+        <KeyboardAwareScrollViewCompat
           contentContainerStyle={[s.scroll, { paddingBottom: bottomPad + 130 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          bottomOffset={80}
         >
           {/* Country context */}
           <View style={s.pillRow}>
@@ -341,7 +348,7 @@ export default function ProfileSetupScreen() {
                 : "正直な自己紹介が良い縁を生みます。ありのままの自分を見せてください。"}
             </Text>
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollViewCompat>
 
         {/* Sticky CTA */}
         <View style={[s.stickyFooter, { paddingBottom: bottomPad + 14, borderTopColor: colors.border, backgroundColor: colors.white }]}>
@@ -351,7 +358,7 @@ export default function ProfileSetupScreen() {
             disabled={!step1CanContinue}
           />
         </View>
-      </View>
+      </KeyboardAvoidingView>
     );
   }
 
