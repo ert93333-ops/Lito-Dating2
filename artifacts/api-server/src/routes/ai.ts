@@ -1,5 +1,10 @@
 import { Router } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import {
+  generateConversationInterestSnapshot,
+  computeConfidenceScore,
+  type SemanticScores,
+} from "../lib/prsScoring.js";
 
 const router = Router();
 
@@ -285,185 +290,22 @@ Rules:
 // POST /api/ai/prs
 //
 // Accepts a pre-computed InterestFeatureWindow (heuristic features extracted
-// client-side by prsSignals.ts), runs an LLM pass to score the semantic
-// features that heuristics cannot capture well (Warmth, Authenticity,
-// Linguistic Matching), then computes the final stage-weighted PRS.
+// client-side by services/prsSignals.ts), runs an LLM pass to extract the
+// three semantic features heuristics cannot capture well (Warmth, Authenticity,
+// Linguistic Matching), then delegates ALL scoring logic to lib/prsScoring.ts.
 //
-// Body: { featureWindow: InterestFeatureWindow, viewerLang: "ko" | "ja" }
-// Response: { prs, confidence, stage, reasons[], lowConfidenceReason? }
+// Body:     { featureWindow: InterestFeatureWindow, viewerLang?: "ko" | "ja" }
+// Response: ConversationInterestSnapshot + legacy compat fields (prs, confidence,
+//           stage, reasons, lowConfidenceReason)
 //
 // Design notes:
-//  • LLM is used ONLY as a semantic feature extractor, not as the final scorer.
-//  • The scoring formula runs deterministically on the server from LLM outputs.
-//  • Framing must avoid overclaiming — we surface signals, not certainties.
-
-// ── Stage-weighted scoring formula ────────────────────────────────────────────
-//
-// V1 product priors (subject to A/B tuning). Weights sum to 1.0 per stage.
-
-const STAGE_WEIGHTS = {
-  opening: {
-    responsiveness: 0.26,
-    reciprocity: 0.22,
-    temporal: 0.18,
-    warmth: 0.14,
-    linguistic: 0.12,
-    progression: 0.08,
-  },
-  discovery: {
-    reciprocity: 0.22,
-    linguistic: 0.18,
-    responsiveness: 0.18,
-    temporal: 0.14,
-    progression: 0.14,
-    warmth: 0.14,
-  },
-  escalation: {
-    progression: 0.28,
-    temporal: 0.20,
-    reciprocity: 0.18,
-    responsiveness: 0.14,
-    linguistic: 0.10,
-    warmth: 0.10,
-  },
-} as const;
-
-const PENALTY_WEIGHTS = {
-  earlyOversharePenalty: 0.30,
-  selfPromotionPenalty: 0.25,
-  genericTemplatePenalty: 0.20,
-  nonContingentTopicSwitchPenalty: 0.15,
-  scamRiskPenalty: 0.10,
-} as const;
+//  • Route handler: I/O + LLM call ONLY. No formula logic here.
+//  • lib/prsScoring.ts: deterministic scoring (no network, no side effects).
+//  • LLM is a semantic feature extractor, not the final decision maker.
+//  • Language: "engagement signals" only — never "love", "attraction", "certainty".
 
 /** Clamp to [0, 1]. */
 const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
-
-/** Weighted average of a feature group's fields given a weights object. */
-function weightedAvg(values: Record<string, number>, weights: Record<string, number>): number {
-  let sum = 0;
-  let wSum = 0;
-  for (const [k, w] of Object.entries(weights)) {
-    if (k in values) {
-      sum += (values[k] ?? 0) * w;
-      wSum += w;
-    }
-  }
-  return wSum > 0 ? sum / wSum : 0;
-}
-
-/** Generate localized reason codes from the feature window + semantic scores. */
-function buildReasonCodes(
-  featureWindow: Record<string, unknown>,
-  semanticScores: { warmth: number; authenticity: number; linguisticMatch: number },
-  viewerLang: "ko" | "ja",
-  confidence: number
-): { reasons: string[]; lowConfidenceReason?: string } {
-  const reasons: string[] = [];
-
-  // Helper: extract nested numeric field safely
-  const field = (group: string, key: string): number => {
-    const g = (featureWindow as Record<string, Record<string, number>>)[group];
-    return g?.[key] ?? 0;
-  };
-
-  const ko = viewerLang === "ko";
-
-  // ── Low confidence override ────────────────────────────────────────────────
-  if (confidence < 40) {
-    return {
-      reasons: [],
-      lowConfidenceReason: ko
-        ? "아직 대화 데이터가 충분하지 않아요. 더 대화를 나눠보세요."
-        : "まだ会話データが十分ではありません。もう少し話してみましょう。",
-    };
-  }
-
-  // ── Positive signals ───────────────────────────────────────────────────────
-  if (field("responsiveness", "followUpQuestionRate") > 0.5) {
-    reasons.push(
-      ko
-        ? "상대방이 자주 질문을 이어가고 있어요"
-        : "相手が頻繁に質問を続けています"
-    );
-  }
-  if (field("responsiveness", "contingentReplyScore") > 0.5) {
-    reasons.push(
-      ko
-        ? "상대방이 대화 맥락을 자연스럽게 이어가고 있어요"
-        : "相手が会話の文脈を自然に続けています"
-    );
-  }
-  if (field("responsiveness", "validationScore") > 0.4) {
-    reasons.push(
-      ko ? "상대방이 공감과 반응을 잘 표현해요" : "相手が共感と反応をよく示しています"
-    );
-  }
-  if (field("reciprocity", "partnerReinitiation") > 0.5) {
-    reasons.push(
-      ko
-        ? "상대방이 먼저 대화를 다시 시작한 적이 있어요"
-        : "相手が会話を再び始めたことがあります"
-    );
-  }
-  if (field("temporal", "baselineAdjustedReplySpeed") > 0.65) {
-    reasons.push(
-      ko
-        ? "상대방이 초반보다 더 빠르게 답장하고 있어요"
-        : "相手は最初より速く返信しています"
-    );
-  }
-  if (field("progression", "availabilitySharing") > 0.5) {
-    reasons.push(
-      ko ? "상대방이 구체적인 시간 가능 여부를 공유했어요" : "相手が具体的な空き時間を共有しました"
-    );
-  }
-  if (field("progression", "callOrDateAcceptance") > 0.5) {
-    reasons.push(
-      ko ? "통화나 만남에 긍정적인 신호가 있어요" : "通話や会いたいという前向きなサインがあります"
-    );
-  }
-  if (semanticScores.warmth > 0.6) {
-    reasons.push(
-      ko ? "대화 전반에 따뜻한 분위기가 느껴져요" : "会話全体に温かい雰囲気が感じられます"
-    );
-  }
-  if (semanticScores.authenticity > 0.65) {
-    reasons.push(
-      ko
-        ? "상대방의 메시지가 구체적이고 진실된 느낌이에요"
-        : "相手のメッセージが具体的で誠実な感じがします"
-    );
-  }
-
-  // ── Cautionary / mixed signals ─────────────────────────────────────────────
-  if (field("reciprocity", "disclosureTurnTaking") < 0.4) {
-    reasons.push(
-      ko ? "대화가 한쪽으로 치우쳐져 있어요" : "会話が一方的になっています"
-    );
-  }
-  if (field("penalties", "scamRiskPenalty") > 0.5) {
-    reasons.push(
-      ko ? "⚠️ 주의 필요한 표현이 감지됐어요" : "⚠️ 注意が必要な表現が検出されました"
-    );
-  }
-  if (field("temporal", "replyConsistency") < 0.35) {
-    reasons.push(
-      ko ? "상대방의 답장 패턴이 불규칙해요" : "相手の返信パターンが不規則です"
-    );
-  }
-
-  // Default if nothing triggered
-  if (reasons.length === 0) {
-    reasons.push(
-      ko
-        ? "아직 명확한 신호를 파악하기 어려워요"
-        : "まだ明確なシグナルを把握するのが難しいです"
-    );
-  }
-
-  return { reasons: reasons.slice(0, 4) };
-}
 
 router.post("/ai/prs", async (req, res) => {
   try {
@@ -478,15 +320,15 @@ router.post("/ai/prs", async (req, res) => {
     }
 
     const lang = viewerLang ?? "ko";
-    const stage = (featureWindow.stage as string) ?? "opening";
-    const confidence = typeof featureWindow.confidence === "number"
-      ? featureWindow.confidence
-      : 50;
+
+    const localePair = (
+      featureWindow.translation as Record<string, unknown>
+    )?.localePair ?? "KR-JP";
 
     // ── LLM semantic feature extraction ─────────────────────────────────────
-    // Uses the last N messages to score warmth, authenticity, and linguistic match.
-    // These are the three signals that heuristics handle poorly.
-    // LLM returns normalised 0–1 scores, NOT the final PRS.
+    // Uses the last 8 partner messages to score the three features heuristics
+    // handle poorly. LLM returns normalised 0–1 scores, NOT the final PRS.
+    // On failure we fall back to neutral 0.5 (calibrated to be non-penalising).
 
     const recentMsgs = Array.isArray(featureWindow.recentMessages)
       ? (featureWindow.recentMessages as Array<{ sender: string; text: string }>)
@@ -494,10 +336,6 @@ router.post("/ai/prs", async (req, res) => {
           .map((m) => `${m.sender === "me" ? "Me" : "Partner"}: ${m.text}`)
           .join("\n")
       : "";
-
-    const localePair = (
-      featureWindow.translation as Record<string, unknown>
-    )?.localePair ?? "KR-JP";
 
     const semanticPrompt = `You are analyzing a conversation on a Korean-Japanese dating app.
 Locale pair: ${localePair}. Language for reasoning: ${lang === "ko" ? "Korean" : "Japanese"}.
@@ -507,15 +345,15 @@ Return ONLY a JSON object (no markdown, no explanation) with these three fields:
 - authenticity: float 0.0-1.0 (how specific and genuine is the PARTNER's writing vs generic/template-like?)
 - linguisticMatch: float 0.0-1.0 (how much does the PARTNER adapt their style/length/tone to mirror the other person?)
 
-IMPORTANT FRAMING RULES:
+IMPORTANT:
 - Score the PARTNER's messages only (lines starting with "Partner:")
-- 0.0 = very low, 0.5 = neutral, 1.0 = very high
-- Do NOT output anything other than the JSON object
+- 0.0 = very low, 0.5 = neutral/unknown, 1.0 = very high
+- Output ONLY the JSON object
 
 Conversation:
 ${recentMsgs || "(no messages yet)"}`;
 
-    let semanticScores = { warmth: 0.5, authenticity: 0.5, linguisticMatch: 0.5 };
+    let semanticScores: SemanticScores = { warmth: 0.5, authenticity: 0.5, linguisticMatch: 0.5 };
 
     try {
       const completion = await openai.chat.completions.create({
@@ -528,7 +366,9 @@ ${recentMsgs || "(no messages yet)"}`;
       });
 
       const raw = completion.choices[0]?.message?.content?.trim() ?? "";
-      const parsed = JSON.parse(raw.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/i, "").trim()) as Record<string, unknown>;
+      const parsed = JSON.parse(
+        raw.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/i, "").trim()
+      ) as Record<string, unknown>;
 
       semanticScores = {
         warmth: typeof parsed.warmth === "number" ? clamp01(parsed.warmth) : 0.5,
@@ -539,82 +379,44 @@ ${recentMsgs || "(no messages yet)"}`;
       console.warn("[ai/prs] LLM semantic extraction failed, using defaults:", e);
     }
 
-    // ── Inject semantic scores into feature groups ────────────────────────────
-    const fw = featureWindow as Record<string, Record<string, number>>;
-    const warmthGroup = {
-      otherFocusScore: fw.warmth?.otherFocusScore ?? 0.5,
-      warmthScore: semanticScores.warmth,          // LLM score
-      authenticityScore: semanticScores.authenticity, // LLM score
-    };
-    const linguisticGroup = {
-      lsmProxy: fw.linguistic?.lsmProxy ?? 0.5,
-      topicAlignment: fw.linguistic?.topicAlignment ?? 0.5,
-      formatAccommodation: fw.linguistic?.formatAccommodation ?? 0.5,
-      linguisticMatch: semanticScores.linguisticMatch, // LLM score
-    };
+    // ── Scoring engine (pure, deterministic) ─────────────────────────────────
+    // All formula logic lives in lib/prsScoring.ts.
+    const snapshot = generateConversationInterestSnapshot(featureWindow, semanticScores);
 
-    // ── Stage-weighted PRS formula ────────────────────────────────────────────
-    const weights = STAGE_WEIGHTS[stage as keyof typeof STAGE_WEIGHTS] ?? STAGE_WEIGHTS.opening;
+    // ── Confidence score ──────────────────────────────────────────────────────
+    // Re-derive from feature window (client may have sent a stale value).
+    const { score: confidenceScore } = computeConfidenceScore(featureWindow);
 
-    const groupAvg = (group: Record<string, number>) =>
-      Object.values(group).reduce((s, v) => s + v, 0) / Object.keys(group).length;
-
-    const responsivenessScore = groupAvg({
-      followUpQuestionRate: fw.responsiveness?.followUpQuestionRate ?? 0,
-      contingentReplyScore: fw.responsiveness?.contingentReplyScore ?? 0,
-      validationScore: fw.responsiveness?.validationScore ?? 0,
-    });
-    const reciprocityScore = groupAvg({
-      disclosureTurnTaking: fw.reciprocity?.disclosureTurnTaking ?? 0.5,
-      disclosureBalance: fw.reciprocity?.disclosureBalance ?? 0.5,
-      partnerReinitiation: fw.reciprocity?.partnerReinitiation ?? 0,
-    });
-    const linguisticScore = groupAvg(linguisticGroup);
-    const temporalScore = groupAvg({
-      baselineAdjustedReplySpeed: fw.temporal?.baselineAdjustedReplySpeed ?? 0.5,
-      replyConsistency: fw.temporal?.replyConsistency ?? 0.5,
-    });
-    const warmthScore = groupAvg(warmthGroup);
-    const progressionScore = groupAvg({
-      futureOrientation: fw.progression?.futureOrientation ?? 0,
-      availabilitySharing: fw.progression?.availabilitySharing ?? 0,
-      callOrDateAcceptance: fw.progression?.callOrDateAcceptance ?? 0,
-    });
-
-    const groupScores: Record<string, number> = {
-      responsiveness: responsivenessScore,
-      reciprocity: reciprocityScore,
-      linguistic: linguisticScore,
-      temporal: temporalScore,
-      warmth: warmthScore,
-      progression: progressionScore,
-    };
-
-    const prsRaw = weightedAvg(groupScores, weights as unknown as Record<string, number>);
-
-    // Compute penalty
-    const penalties = fw.penalties ?? {};
-    const penaltyRaw = weightedAvg(penalties as Record<string, number>, PENALTY_WEIGHTS as unknown as Record<string, number>);
-    const penaltyAdjusted = clamp01(prsRaw - penaltyRaw * 0.5);
-
-    const prs = Math.round(clamp01(penaltyAdjusted) * 100);
-
-    const { reasons, lowConfidenceReason } = buildReasonCodes(
-      featureWindow,
-      semanticScores,
-      lang,
-      confidence
+    console.log(
+      `[ai/prs] convId=${snapshot.conversationId} stage=${snapshot.stage} ` +
+      `prs=${snapshot.prsScore} cs=${confidenceScore} lowCs=${snapshot.lowConfidenceState} ` +
+      `locale=${localePair}`
     );
 
-    console.log(`[ai/prs] stage=${stage} prs=${prs} confidence=${confidence} locale=${localePair}`);
-
+    // ── Response ──────────────────────────────────────────────────────────────
+    // Returns the full ConversationInterestSnapshot PLUS legacy-compat fields
+    // so existing callers (PRSInsightCard) continue to work without breaking.
     res.json({
-      prs,
-      confidence,
-      stage,
-      reasons,
-      ...(lowConfidenceReason ? { lowConfidenceReason } : {}),
-      computedAt: new Date().toISOString(),
+      // Full snapshot (canonical)
+      ...snapshot,
+      confidenceScore,
+
+      // Legacy compat fields for any existing clients using the old PRSResult shape
+      prs: snapshot.prsScore,
+      confidence: confidenceScore,
+      stage: snapshot.stage,
+      reasons: snapshot.generatedInsights.map((i) =>
+        lang === "ko" ? i.textKo : i.textJa
+      ),
+      ...(snapshot.lowConfidenceState
+        ? {
+            lowConfidenceReason:
+              lang === "ko"
+                ? "아직 대화 데이터가 충분하지 않아요. 더 대화를 나눠보세요."
+                : "まだ会話データが十分ではありません。もう少し話してみましょう。",
+          }
+        : {}),
+      computedAt: snapshot.generatedAt,
     });
   } catch (err) {
     console.error("[ai/prs] error:", err);

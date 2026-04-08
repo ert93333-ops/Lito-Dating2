@@ -1,0 +1,227 @@
+You are working on an existing codebase for Lito, a Korean-Japanese cross-border dating app.
+
+IMPORTANT:
+- Do NOT rewrite the whole app
+- Do NOT modify unrelated systems
+- Preserve the existing chat functionality
+- Keep all changes modular
+- Before changing code, inspect the current feature extraction/data layer first
+- List affected files/components before editing
+- Explain the minimal implementation plan first
+
+Your task:
+Implement the scoring engine for the AI Mutual Interest Signal system.
+
+This step should convert extracted features into:
+1. Partner Receptivity Score (PRS)
+2. Confidence Score (CS)
+3. Conversation Stage
+4. Reason Codes
+
+Do NOT implement the final visual UI in this step.
+Do NOT overclaim certainty.
+Do NOT present this as mind-reading.
+
+==================================================
+GOAL OF THIS STEP
+==================================================
+
+Implement the backend/domain/service logic for:
+- stage detection
+- PRS computation
+- CS computation
+- reason-code generation
+- result snapshot generation
+
+==================================================
+STAGE DETECTION
+==================================================
+
+Implement configurable stage detection:
+
+Opening
+- fewer than 30 total turns OR within the first 72 hours
+
+Discovery
+- 30 to 120 turns AND no explicit progression signal yet
+
+Escalation
+- call suggestion, date suggestion, availability sharing, or strong next-step planning signal
+
+Use config/constants where possible.
+Do not hardcode thresholds in scattered places.
+
+==================================================
+PRS SCORING LOGIC
+==================================================
+
+Use the following v1 scoring prior.
+
+Opening:
+PRS_raw =
+  0.26 * Responsiveness
++ 0.22 * Reciprocity
++ 0.18 * TemporalEngagement
++ 0.14 * Warmth
++ 0.12 * LinguisticMatching
++ 0.08 * Progression
+- Penalty
+
+Discovery:
+PRS_raw =
+  0.22 * Reciprocity
++ 0.18 * LinguisticMatching
++ 0.18 * Responsiveness
++ 0.14 * TemporalEngagement
++ 0.14 * Progression
++ 0.14 * Warmth
+- Penalty
+
+Escalation:
+PRS_raw =
+  0.28 * Progression
++ 0.20 * TemporalEngagement
++ 0.18 * Reciprocity
++ 0.14 * Responsiveness
++ 0.10 * LinguisticMatching
++ 0.10 * Warmth
+- Penalty
+
+Penalty:
+Penalty =
+  0.30 * EarlyOversharePenalty
++ 0.25 * SelfPromotionPenalty
++ 0.20 * GenericTemplatePenalty
++ 0.15 * NonContingentTopicSwitchPenalty
++ 0.10 * ScamRiskPenalty
+
+Then:
+- clamp PRS_raw between 0 and 1
+- convert to 0..100
+- round appropriately
+- keep scoring weights configurable
+
+==================================================
+CONFIDENCE SCORE LOGIC
+==================================================
+
+Implement Confidence Score (CS) separately.
+
+CS should increase with:
+- enough partner messages
+- enough sessions
+- enough recent signal density
+- stable signal direction
+- reliable timestamps
+- usable translation context
+
+CS should decrease with:
+- too few partner messages
+- too few sessions
+- too many long inactivity gaps
+- conflicting signals
+- missing timestamps
+- high translation ambiguity
+
+Suggested CS input factors:
+- messageVolumeFactor
+- partnerMessageFactor
+- sessionCountFactor
+- signalConsistencyFactor
+- recentnessFactor
+- translationReliabilityFactor
+
+Make the formula configurable and documented.
+
+==================================================
+REASON CODES / EXPLAINABILITY
+==================================================
+
+Generate structured reason codes and human-readable reasons.
+
+Examples:
+- FOLLOW_UP_QUESTIONS_HIGH
+- REPLY_SPEED_ABOVE_BASELINE
+- TOPIC_CONTINUITY_STRONG
+- DISCLOSURE_IS_BALANCED
+- PROGRESSION_SIGNALS_WEAK
+- SIGNALS_MIXED
+- NOT_ENOUGH_DATA
+- TEMPLATE_REPLY_PENALTY
+
+Also generate short natural-language insight strings that can later be used by the UI.
+
+==================================================
+RESULT MODEL
+==================================================
+
+Add or scaffold a result structure such as:
+
+ConversationInterestSnapshot
+- conversationId
+- userId
+- partnerId
+- stage
+- prsScore
+- confidenceScore
+- featureBreakdown
+- penaltyBreakdown
+- reasonCodes
+- generatedInsights
+- generatedAt
+- modelVersion
+
+Keep it compatible with the current architecture.
+
+==================================================
+SERVICE REQUIREMENTS
+==================================================
+
+Create or scaffold services/functions such as:
+- detectConversationStage(...)
+- computePartnerReceptivityScore(...)
+- computeConfidenceScore(...)
+- generateInterestReasonCodes(...)
+- generateConversationInterestSnapshot(...)
+- getConversationInterestSnapshot(...)
+
+If the project already has service patterns, server actions, RPC, or API route conventions, follow them.
+
+==================================================
+LOW-CONFIDENCE RULES
+==================================================
+
+If confidence is low, the system should not expose a strong score for UI consumption.
+
+Support states like:
+- not_enough_data
+- mixed_signals
+- low_confidence_hidden_score
+
+This logic should be part of the scoring output contract.
+
+==================================================
+DELIVERABLES
+==================================================
+
+Before writing code:
+1. inspect the current data/feature extraction architecture
+2. list affected files/components
+3. explain the scoring engine integration plan
+
+Then implement:
+4. stage detection
+5. PRS computation
+6. CS computation
+7. reason-code generation
+8. snapshot generation / retrieval
+
+After implementation, explain:
+9. how PRS is calculated
+10. how CS is calculated
+11. how low-confidence cases are handled
+12. which parts are heuristic and should be improved in v2
+
+Do not build the final UI in this step.
+Do not rewrite the existing chat system.
+Keep all changes isolated and incremental.

@@ -441,3 +441,124 @@ export interface PRSResult {
   featureWindow?: InterestFeatureWindow;
   computedAt: string;
 }
+
+// ── Scoring engine types ───────────────────────────────────────────────────────
+//
+// These types model the output of the scoring engine (prsScoring service).
+// They are more structured than PRSResult and are the canonical internal
+// representation before being serialized for the API response.
+
+/**
+ * Machine-readable reason codes.
+ * These drive both the UI (icon + label) and can be used for analytics.
+ */
+export type ReasonCode =
+  // Positive signals
+  | "FOLLOW_UP_QUESTIONS_HIGH"      // Partner frequently asks follow-up questions
+  | "TOPIC_CONTINUITY_STRONG"       // Partner continues conversation topics naturally
+  | "REPLY_SPEED_ABOVE_BASELINE"    // Partner replies faster than their own baseline
+  | "REPLY_PATTERN_CONSISTENT"      // Partner's reply timing is predictable
+  | "DISCLOSURE_IS_BALANCED"        // Both sides share at similar depth
+  | "PARTNER_REINITIATES"           // Partner re-opens conversation after gaps
+  | "VALIDATION_PRESENT"            // Partner acknowledges and validates regularly
+  | "WARMTH_HIGH"                   // Warm, kind, emotionally supportive language
+  | "AUTHENTICITY_HIGH"             // Specific, genuine content (not template-like)
+  | "PROGRESSION_SIGNALS_PRESENT"   // Future plans or meeting signals detected
+  | "AVAILABILITY_SHARED"           // Partner explicitly shared timing availability
+  | "CALL_DATE_SIGNAL"              // Call or date acceptance signals found
+  // Neutral / mixed
+  | "SIGNALS_MIXED"                 // Positive and negative signals coexist
+  | "NOT_ENOUGH_DATA"               // Insufficient message volume for reliable estimate
+  | "TRANSLATION_CONTEXT_LIMITED"   // Cross-border conversation with low translation coverage
+  // Negative / penalty signals
+  | "FOLLOW_UP_QUESTIONS_LOW"       // Partner rarely asks follow-up questions
+  | "REPLY_SPEED_BELOW_BASELINE"    // Partner is replying slower than their baseline
+  | "REPLY_PATTERN_INCONSISTENT"    // High variance in partner reply timing
+  | "DISCLOSURE_IMBALANCED"         // One side dominates the conversation length
+  | "PROGRESSION_SIGNALS_WEAK"      // No forward-looking signals detected
+  | "TEMPLATE_REPLY_PENALTY"        // Partner messages appear generic or low-effort
+  | "SELF_PROMOTION_PENALTY"        // Partner focuses heavily on themselves
+  | "EARLY_OVERSHARE_PENALTY"       // Heavy personal disclosure in first few messages
+  | "SCAM_RISK_DETECTED";           // Red-flag keywords present — review recommended
+
+/** Sentiment polarity of a reason code for UI color coding. */
+export type ReasonPolarity = "positive" | "negative" | "neutral";
+
+/**
+ * A structured conversational insight:
+ * machine-readable code + bilingual human-readable text + polarity.
+ */
+export interface ConversationInsight {
+  code: ReasonCode;
+  textKo: string;
+  textJa: string;
+  polarity: ReasonPolarity;
+}
+
+/**
+ * Low-confidence state — determines how the UI should render the score.
+ * null = normal display; non-null = hide score / show explanation instead.
+ */
+export type LowConfidenceState =
+  | "not_enough_data"          // Too few partner messages or total turns
+  | "mixed_signals"            // Score exists but direction is unclear
+  | "low_confidence_hidden_score" // Score computed but below display threshold
+  | null;                      // Confident enough — display normally
+
+/** Per-group 0–1 scores after injecting semantic (LLM) overrides. */
+export interface GroupScoreBreakdown {
+  responsiveness: number;
+  reciprocity: number;
+  linguistic: number;
+  temporal: number;
+  warmth: number;
+  progression: number;
+  /** Weighted total of all penalty signals (0–1) */
+  penaltyTotal: number;
+}
+
+/** Six-factor confidence score breakdown for transparency / debugging. */
+export interface ConfidenceFactors {
+  /** 0–1: based on total message count */
+  messageVolumeFactor: number;
+  /** 0–1: based on partner-only message count */
+  partnerMessageFactor: number;
+  /** 0–1: based on number of detected "sessions" */
+  sessionCountFactor: number;
+  /** 0–1: signal direction consistency (positive vs negative reason ratio) */
+  signalConsistencyFactor: number;
+  /** 0–1: how recent the last message is */
+  recentnessFactor: number;
+  /** 0–1: translation reliability in cross-border conversations */
+  translationReliabilityFactor: number;
+}
+
+/**
+ * Full conversation interest snapshot — the canonical output of the scoring engine.
+ * This is what gets returned to the client and optionally cached.
+ */
+export interface ConversationInterestSnapshot {
+  conversationId: string;
+  myUserId: string;
+  partnerUserId: string;
+  /** Conversation phase at time of computation */
+  stage: ConversationStage;
+  /** Partner Receptivity Score 0–100 */
+  prsScore: number;
+  /** Confidence Score 0–100 */
+  confidenceScore: number;
+  /** Non-null when score should be hidden or modified in UI */
+  lowConfidenceState: LowConfidenceState;
+  /** Per-group scoring breakdown for transparency */
+  featureBreakdown: GroupScoreBreakdown;
+  /** Raw penalty signal values */
+  penaltyBreakdown: PenaltyFeatures;
+  /** Machine-readable reason codes (max 6) */
+  reasonCodes: ReasonCode[];
+  /** Structured bilingual insights (max 4 for UI) */
+  generatedInsights: ConversationInsight[];
+  /** ISO timestamp of when this snapshot was generated */
+  generatedAt: string;
+  /** Semver scoring engine version for reproducibility */
+  modelVersion: string;
+}
