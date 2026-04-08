@@ -53,3 +53,9 @@ id = "HlgGZxsqtK1Jypix25e4E"
 uri = "file://lito-trust-safety-policy.md"
 type = "text"
 title = "Lito Trust & Safety Policy Framework v1.0"
+
+[[outputs]]
+id = "qS5VqGlpEQt4aj9igXnAa"
+uri = "file://lito-analytics-kpi.md"
+type = "text"
+title = "Lito Analytics & KPI Instrumentation v1.0"
