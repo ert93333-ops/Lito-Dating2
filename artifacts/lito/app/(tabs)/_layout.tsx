@@ -74,6 +74,10 @@ function ClassicTabLayout() {
       }}
     >
       <Tabs.Screen
+        name="index"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
         name="discover"
         options={{
           title: lang === "ko" ? "발견" : "発見",

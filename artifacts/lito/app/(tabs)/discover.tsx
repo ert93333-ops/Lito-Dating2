@@ -573,7 +573,7 @@ export default function DiscoverScreen() {
   const { discoverUsers, likeUser, passUser, profile } = useApp();
   const { chemistryPicks, track } = useGrowth();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
-  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+  const TAB_BAR_H = Platform.OS === "web" ? 84 : 70;
 
   const handleLike = (userId: string) => { setTimeout(() => likeUser(userId), 240); };
   const handlePass = (userId: string) => { setTimeout(() => passUser(userId), 240); };
@@ -643,7 +643,7 @@ export default function DiscoverScreen() {
       </View>
 
       {/* ── Card stack ─────────────────────────────────────────────────── */}
-      <View style={[styles.stack, { bottom: bottomPad + 112 }]}>
+      <View style={[styles.stack, { bottom: TAB_BAR_H + 106 }]}>
         {discoverUsers.slice(0, 3).map((user, idx) => {
           const isTop = idx === 0;
           // Background cards: scale down, push back
@@ -679,7 +679,7 @@ export default function DiscoverScreen() {
       </View>
 
       {/* ── Action buttons ──────────────────────────────────────────────── */}
-      <View style={[styles.actionRow, { bottom: bottomPad + 26 }]}>
+      <View style={[styles.actionRow, { bottom: TAB_BAR_H + 16 }]}>
 
         {/* Pass — Light haptic, small scale */}
         <ActionButton
