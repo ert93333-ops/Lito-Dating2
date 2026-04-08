@@ -1,138 +1,76 @@
-import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 
 interface LitoMarkProps {
   size?: number;
+  /** Show the rounded-square icon wrapper (for hero / splash contexts). Default false. */
+  withBadge?: boolean;
 }
 
 /**
- * Lito — the official app symbol.
+ * Lito dual-tone heart mark.
  *
- * A circle with rose gradient.
- * Inside: two overlapping white teardrop petal shapes, tips pointing down,
- * forming a pair of arching petals that together suggest two people
- * drawing close — a quiet visual metaphor for Korean-Japanese connection.
+ * Left arc  → charcoal (#2B2D3A) — represents Korea
+ * Right arc → dusty rose (#C1808E) — represents Japan
  *
- * At small sizes (≤ 40px) it collapses to a simple rose circle with
- * a white "L" so it remains legible at tab-bar / header scale.
+ * The two strokes meet at the top center and the bottom tip,
+ * forming one unified heart outline — two cultures, one connection.
+ *
+ * withBadge=true renders the icon in a rounded-square badge
+ * (mirrors the App Store / Play Store icon layout).
  */
-export function LitoMark({ size = 80 }: LitoMarkProps) {
-  const radius = size / 2;
-  const isSmall = size <= 44;
+export function LitoMark({ size = 80, withBadge = false }: LitoMarkProps) {
+  const strokeW = Math.max(4, size * 0.115);
 
-  return (
-    <LinearGradient
-      colors={["#E8607A", "#B83058"]}
-      start={{ x: 0.15, y: 0 }}
-      end={{ x: 0.85, y: 1 }}
-      style={[
-        styles.circle,
-        {
-          width: size,
-          height: size,
-          borderRadius: radius,
-        },
-      ]}
+  const heart = (
+    <Svg
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
+      fill="none"
     >
-      {isSmall ? (
-        // Small: clean white "L" lettermark
-        <Text
-          style={[
-            styles.letterSmall,
-            { fontSize: size * 0.52, lineHeight: size * 0.62 },
-          ]}
-        >
-          L
-        </Text>
-      ) : (
-        // Full: two petal shapes forming the connection symbol
-        <PetalMark size={size} />
-      )}
-    </LinearGradient>
+      {/* Left arc — charcoal */}
+      <Path
+        d="M 50 80 C 18 60 7 48 7 34 C 7 18 18 11 29 11 C 40 11 47 20 50 28"
+        stroke="#2B2D3A"
+        strokeWidth={strokeW}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Right arc — dusty rose */}
+      <Path
+        d="M 50 28 C 53 20 60 11 71 11 C 82 11 93 18 93 34 C 93 48 82 60 50 80"
+        stroke="#C1808E"
+        strokeWidth={strokeW}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
   );
-}
 
-// ── Two-petal connection mark ─────────────────────────────────────────────────
-function PetalMark({ size }: { size: number }) {
-  // Each petal is a tall oval. They overlap at the center.
-  const petalW = size * 0.28;
-  const petalH = size * 0.46;
-  const overlap = size * 0.07;
-  const gap = size * 0.02; // gap between petal edges at widest
-  const totalW = petalW * 2 - overlap + gap;
-  const offsetY = size * 0.04; // push petals slightly upward from center
+  if (!withBadge) return heart;
+
+  const badgeSize = size * 1.5;
+  const badgeRadius = badgeSize * 0.22;
 
   return (
     <View
       style={{
-        position: "relative",
-        width: totalW,
-        height: petalH,
-        marginTop: -offsetY,
+        width: badgeSize,
+        height: badgeSize,
+        borderRadius: badgeRadius,
+        backgroundColor: "#FDF7F5",
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: "#2B2D3A",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 12,
+        elevation: 6,
       }}
     >
-      {/* Left petal */}
-      <View
-        style={[
-          styles.petal,
-          {
-            width: petalW,
-            height: petalH,
-            borderRadius: petalW / 2,
-            backgroundColor: "rgba(255,255,255,0.82)",
-            position: "absolute",
-            left: 0,
-          },
-        ]}
-      />
-      {/* Right petal */}
-      <View
-        style={[
-          styles.petal,
-          {
-            width: petalW,
-            height: petalH,
-            borderRadius: petalW / 2,
-            backgroundColor: "rgba(255,255,255,0.82)",
-            position: "absolute",
-            right: 0,
-          },
-        ]}
-      />
-      {/* Center overlap — brighter white, creates an intersection highlight */}
-      <View
-        style={{
-          position: "absolute",
-          width: overlap + 2,
-          height: petalH * 0.62,
-          borderRadius: (overlap + 2) / 2,
-          backgroundColor: "rgba(255,255,255,0.40)",
-          alignSelf: "center",
-          top: petalH * 0.12,
-        }}
-      />
+      {heart}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  circle: {
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#B83058",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.38,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  letterSmall: {
-    fontFamily: "Inter_700Bold",
-    color: "#ffffff",
-    includeFontPadding: false,
-    textAlignVertical: "center",
-  },
-  petal: {
-    // petals point downward — tall and narrow
-  },
-});

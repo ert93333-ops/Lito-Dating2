@@ -67,7 +67,7 @@ export default function LoginScreen() {
         {/* Logo section */}
         <View style={styles.logoSection}>
           <View style={{ marginBottom: 20 }}>
-            <LitoMark size={84} />
+            <LitoMark size={72} withBadge />
           </View>
           <Text style={[styles.appName, { color: colors.charcoal }]}>lito</Text>
           <Text style={[styles.tagline, { color: colors.charcoalLight }]}>
