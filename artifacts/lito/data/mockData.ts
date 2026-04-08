@@ -343,7 +343,7 @@ export const myProfile: MyProfile = {
   interests: ["K-Pop", "Korean Drama", "UI Design", "Photography", "Travel", "Coffee", "Cooking"],
   instagramHandle: "@alex.creates",
   photos: [],
-  aiStyleSummary: "Your profile radiates creative energy and cultural curiosity. You lead with authenticity — your love for cross-cultural connection comes through naturally. Tip: Adding a photo of your creative workspace could spark great conversation starters.",
+  aiStyleSummary: "プロフィールからはクリエイティブなエネルギーと文化への好奇心が伝わります。飾らない自分を出していて、異文化との繋がりへの情熱が自然に感じられます。ヒント：クリエイティブな作業スペースの写真を追加すると、話のきっかけが増えるかもしれません。",
   // humanVerified done · face/ID not started yet → user can go to verify-id screen to start
   trustProfile: {
     humanVerified: { status: "verified",     verifiedAt: "2025-01-10T00:00:00Z" },

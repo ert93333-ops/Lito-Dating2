@@ -113,6 +113,7 @@ export function computeCompatibility(
   viewer: MyProfile,
   candidate: User
 ): { score: number; breakdown: CompatibilityBreakdown; reasons: string[] } {
+  const lang = (viewer.language ?? "ja") as "ko" | "ja";
   const breakdown: CompatibilityBreakdown = {
     intentFit: scoreIntentFit(viewer, candidate),
     interestOverlap: scoreInterestOverlap(viewer, candidate),
@@ -129,7 +130,7 @@ export function computeCompatibility(
     breakdown.meetingFeasibility * WEIGHTS.meetingFeasibility
   );
 
-  const reasons = buildReasons(breakdown, viewer, candidate);
+  const reasons = buildReasons(breakdown, viewer, candidate, lang);
 
   return { score, breakdown, reasons };
 }
@@ -137,12 +138,14 @@ export function computeCompatibility(
 function buildReasons(
   breakdown: CompatibilityBreakdown,
   viewer: MyProfile,
-  candidate: User
+  candidate: User,
+  lang: "ko" | "ja"
 ): string[] {
   const reasons: string[] = [];
+  const isKo = lang === "ko";
 
   if (breakdown.intentFit >= 80) {
-    reasons.push("Similar age range and relationship stage");
+    reasons.push(isKo ? "비슷한 연령대와 연애 단계예요" : "似た年齢層と交際段階です");
   }
 
   const sharedInterests = (viewer.interests ?? []).filter((i) =>
@@ -151,21 +154,29 @@ function buildReasons(
     )
   );
   if (sharedInterests.length >= 2) {
-    reasons.push(`Shared interests: ${sharedInterests.slice(0, 2).join(", ")}`);
+    reasons.push(
+      isKo
+        ? `공통 관심사: ${sharedInterests.slice(0, 2).join(", ")}`
+        : `共通の趣味: ${sharedInterests.slice(0, 2).join("、")}`
+    );
   } else if (sharedInterests.length === 1) {
-    reasons.push(`Common interest: ${sharedInterests[0]}`);
+    reasons.push(
+      isKo
+        ? `공통 관심사: ${sharedInterests[0]}`
+        : `共通の趣味: ${sharedInterests[0]}`
+    );
   }
 
   if (breakdown.culturalFit >= 80 && viewer.country !== candidate.country) {
-    reasons.push("Strong Korean-Japanese cultural affinity");
+    reasons.push(isKo ? "한일 문화 친밀도가 높아요" : "韓日文化への親しみが強いです");
   }
 
   if (breakdown.conversationStyle >= 80) {
-    reasons.push("Compatible communication style");
+    reasons.push(isKo ? "소통 스타일이 잘 맞아요" : "コミュニケーションスタイルが合います");
   }
 
   if (reasons.length === 0) {
-    reasons.push("Good overall compatibility for Korean-Japanese connection");
+    reasons.push(isKo ? "한일 문화 교류에 좋은 궁합이에요" : "韓日交流に向いた相性です");
   }
 
   return reasons.slice(0, 3);
@@ -342,55 +353,72 @@ const DATING_TYPES = [
   {
     datingType: "The Curious Bridge",
     datingTypeBi: "호기심 많은 다리",
+    datingTypeJa: "好奇心の架け橋",
     emoji: "🌉",
-    description: "You connect through questions, cultural curiosity, and genuine interest in others' worlds.",
-    traits: ["Culturally open", "Great listener", "Thoughtful"],
-    compatibleWith: "The Warm Guide",
+    descriptionKo: "문화적 호기심과 진심 어린 관심으로 연결되어요. 질문을 통해 상대의 세계를 탐구해요.",
+    descriptionJa: "文化への好奇心と真剣な興味で繋がります。質問を通じて相手の世界を探求します。",
+    traitsKo: ["문화 개방성", "경청 능력", "사려 깊음"],
+    traitsJa: ["文化への開放性", "傾聴力", "思慮深さ"],
+    compatibleWithKo: "따뜻한 안내자",
+    compatibleWithJa: "温かいガイド",
   },
   {
     datingType: "The Warm Guide",
     datingTypeBi: "따뜻한 안내자",
+    datingTypeJa: "温かいガイド",
     emoji: "🌸",
-    description: "You create comfort and trust naturally. People feel safe sharing with you.",
-    traits: ["Empathetic", "Trustworthy", "Steady"],
-    compatibleWith: "The Curious Bridge",
+    descriptionKo: "자연스럽게 편안함과 신뢰를 만들어내요. 내 앞에서 사람들이 마음을 열어요.",
+    descriptionJa: "自然と安心感と信頼を生み出します。あなたの前では人は心を開きます。",
+    traitsKo: ["공감 능력", "신뢰감", "안정감"],
+    traitsJa: ["共感力", "信頼感", "安定感"],
+    compatibleWithKo: "호기심 많은 다리",
+    compatibleWithJa: "好奇心の架け橋",
   },
   {
     datingType: "The Creative Spark",
     datingTypeBi: "창의적인 불꽃",
+    datingTypeJa: "創造的な火花",
     emoji: "✨",
-    description: "You bring energy and ideas, finding connection through shared passions and adventures.",
-    traits: ["Energetic", "Imaginative", "Passionate"],
-    compatibleWith: "The Grounded One",
+    descriptionKo: "열정과 아이디어로 에너지를 불어넣어요. 공통 관심사와 새로운 경험으로 연결되어요.",
+    descriptionJa: "情熱とアイデアでエネルギーを与えます。共通の趣味と新しい体験で繋がります。",
+    traitsKo: ["에너지 넘침", "창의적", "열정적"],
+    traitsJa: ["エネルギッシュ", "創造的", "情熱的"],
+    compatibleWithKo: "안정적인 사람",
+    compatibleWithJa: "安定した人",
   },
   {
     datingType: "The Grounded One",
     datingTypeBi: "안정적인 사람",
+    datingTypeJa: "安定した人",
     emoji: "🍵",
-    description: "You value depth over breadth. Real connection comes through honest, slow-building trust.",
-    traits: ["Reliable", "Honest", "Deep thinker"],
-    compatibleWith: "The Creative Spark",
+    descriptionKo: "깊이를 추구해요. 진정한 연결은 천천히 쌓여가는 신뢰에서 나와요.",
+    descriptionJa: "深さを大切にします。本当の繋がりは、ゆっくりと積み重なる信頼から生まれます。",
+    traitsKo: ["신뢰성", "솔직함", "깊은 사고"],
+    traitsJa: ["誠実さ", "率直さ", "深い思考"],
+    compatibleWithKo: "창의적인 불꽃",
+    compatibleWithJa: "創造的な火花",
   },
 ];
 
 export function generateChemistryCard(profile: MyProfile): ChemistryCard {
   // Deterministic choice based on interests to feel personalized
+  const lang = (profile.language ?? "ja") as "ko" | "ja";
+  const isKo = lang === "ko";
   const interestStr = (profile.interests ?? []).join("").toLowerCase();
   const idx = Math.abs(interestStr.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % DATING_TYPES.length;
   const type = DATING_TYPES[idx];
 
-  const langVersion =
-    profile.language === "ko"
-      ? { bi: type.datingType, main: type.datingTypeBi }
-      : { bi: type.datingTypeBi, main: type.datingType };
+  const langVersion = isKo
+    ? { bi: type.datingType, main: type.datingTypeBi }
+    : { bi: type.datingTypeBi, main: type.datingTypeJa };
 
   return {
     datingType: langVersion.main,
     datingTypeBi: langVersion.bi,
     emoji: type.emoji,
-    description: type.description,
-    traits: type.traits,
-    compatibleWith: type.compatibleWith,
+    description: isKo ? type.descriptionKo : type.descriptionJa,
+    traits: isKo ? type.traitsKo : type.traitsJa,
+    compatibleWith: isKo ? type.compatibleWithKo : type.compatibleWithJa,
     generatedAt: new Date().toISOString(),
   };
 }

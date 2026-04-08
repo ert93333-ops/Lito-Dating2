@@ -23,6 +23,7 @@ export const PLANS: Plan[] = [
     id: "free",
     name: "Free",
     tagline: "Start your Korean-Japanese journey",
+    taglineKo: "한국-일본의 인연을 시작해요",
     taglineJa: "韓日の出会いを始めよう",
     price: { KRW: "₩0", JPY: "¥0", USD: "$0" },
     highlights: [
@@ -50,6 +51,7 @@ export const PLANS: Plan[] = [
     id: "plus",
     name: "Plus",
     tagline: "Accelerate your connections",
+    taglineKo: "더 깊은 연결을 만들어요",
     taglineJa: "つながりをもっと深めよう",
     price: { KRW: "₩12,900/월", JPY: "¥1,200/月", USD: "$9.99/mo" },
     highlights: [
@@ -86,6 +88,7 @@ export const PLANS: Plan[] = [
     id: "premium",
     name: "Premium",
     tagline: "The full Lito experience",
+    taglineKo: "Lito의 모든 경험을 누려요",
     taglineJa: "Litoのすべてを体験しよう",
     price: { KRW: "₩24,900/월", JPY: "¥2,200/月", USD: "$19.99/mo" },
     highlights: [

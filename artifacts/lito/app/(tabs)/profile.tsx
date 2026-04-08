@@ -343,7 +343,9 @@ export default function ProfileScreen() {
               {currentPlan.name} {lang === "ko" ? "멤버" : "メンバー"}
             </Text>
             <Text style={[styles.planTagline, { color: colors.charcoalLight }]}>
-              {currentPlan.tagline}
+              {lang === "ko"
+                ? (currentPlan.taglineKo ?? currentPlan.tagline)
+                : (currentPlan.taglineJa ?? currentPlan.tagline)}
             </Text>
           </View>
           {subscription.planId === "free" && (

@@ -27,6 +27,7 @@ export interface Plan {
   id: PlanId;
   name: string;
   tagline: string;
+  taglineKo?: string;
   taglineJa?: string;
   /** Display prices (not real billing) */
   price: { KRW: string; JPY: string; USD: string };
