@@ -103,7 +103,7 @@ function TranslatedBio({ user, viewerLang }: { user: User; viewerLang: "ko" | "j
 // ─── Card geometry ────────────────────────────────────────────────────────────
 const { width, height } = Dimensions.get("window");
 const CARD_WIDTH = width - 32;
-const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.52, height * 0.68);
+const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.52, height * 0.62);
 const SWIPE_THRESHOLD = 72;
 const MAX_ROTATION = 4; // degrees — restrained, premium
 
@@ -229,9 +229,9 @@ function DiscoverCard({
             onReport();
           }}
           activeOpacity={0.7}
-          hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+          hitSlop={{ top: 14, right: 14, bottom: 14, left: 14 }}
         >
-          <Feather name="flag" size={13} color="rgba(255,255,255,0.85)" />
+          <Feather name="flag" size={15} color="rgba(255,255,255,0.9)" />
         </TouchableOpacity>
       )}
 
@@ -483,20 +483,20 @@ const cardStyles = StyleSheet.create({
     color: "rgba(255,255,255,0.92)",
   },
 
-  // Report button — small translucent flag in top-right corner
+  // Report button — L4 FIX: increased to 38×38 for accessibility
   reportBtn: {
     position: "absolute",
     top: 14,
     right: 14,
     zIndex: 25,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(0,0,0,0.28)",
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(0,0,0,0.32)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.22)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.28)",
   },
 
   // Bio text — white on dark, small and quiet

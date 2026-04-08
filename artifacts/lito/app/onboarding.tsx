@@ -1,8 +1,9 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  BackHandler,
   Dimensions,
   FlatList,
   Platform,
@@ -110,17 +111,88 @@ function CtaButton({
   );
 }
 
+// ── LanguageCard ───────────────────────────────────────────────────────────────
+// L2 FIX: First screen forces explicit language/country selection.
+
+function LanguageCard({
+  lang,
+  isSelected,
+  onPress,
+}: {
+  lang: "ko" | "ja";
+  isSelected: boolean;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  const scale = useSharedValue(1);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.97, { damping: 20, stiffness: 380 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 14, stiffness: 280 });
+  };
+
+  const isKo = lang === "ko";
+  const accentColor = isKo ? "#D85870" : "#3B6FD4";
+  const bgColor = isKo ? "#FFF0F3" : "#EEF4FF";
+  const borderColor = isKo ? "#F2BDCA" : "#A8C4F5";
+
+  return (
+    <Animated.View style={[animStyle, { flex: 1 }]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={[
+          langCard.card,
+          {
+            borderColor: isSelected ? accentColor : colors.border,
+            backgroundColor: isSelected ? bgColor : colors.white,
+            shadowColor: isSelected ? accentColor : "#000",
+            shadowOpacity: isSelected ? 0.18 : 0.05,
+          },
+        ]}
+      >
+        {isSelected && (
+          <Animated.View
+            entering={FadeIn.duration(160)}
+            style={[langCard.checkBadge, { backgroundColor: accentColor }]}
+          >
+            <Text style={langCard.checkText}>✓</Text>
+          </Animated.View>
+        )}
+
+        <Text style={langCard.flag}>{isKo ? "🇰🇷" : "🇯🇵"}</Text>
+
+        <Text style={[langCard.langMain, { color: isSelected ? accentColor : colors.charcoal }]}>
+          {isKo ? "한국어" : "日本語"}
+        </Text>
+        <Text style={[langCard.langSub, { color: colors.charcoalLight }]}>
+          {isKo ? "Korean" : "Japanese"}
+        </Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 // ── CountryCard ───────────────────────────────────────────────────────────────
-// Large, tappable country card used in the country selection phase.
 
 function CountryCard({
   country,
   isSelected,
   onPress,
+  appLang,
 }: {
   country: "KR" | "JP";
   isSelected: boolean;
   onPress: () => void;
+  appLang: "ko" | "ja";
 }) {
   const colors = useColors();
   const scale = useSharedValue(1);
@@ -167,7 +239,9 @@ function CountryCard({
         <Text style={countryStyles.flag}>{isKR ? "🇰🇷" : "🇯🇵"}</Text>
 
         <Text style={[countryStyles.nameMain, { color: colors.charcoal }]}>
-          {isKR ? "한국" : "日本"}
+          {isKR
+            ? (appLang === "ko" ? "한국" : "韓国")
+            : (appLang === "ko" ? "일본" : "日本")}
         </Text>
         <Text style={[countryStyles.nameSub, { color: colors.charcoalLight }]}>
           {isKR ? "Korea" : "Japan"}
@@ -197,14 +271,19 @@ function CountryCard({
 }
 
 // ── OnboardingScreen ──────────────────────────────────────────────────────────
+// Flow: language (L2 fix) → slides → country → login
+// Back navigation (L1 fix):
+//   - "slides" phase: back → previous slide; if slide 0 → back to "language"
+//   - "country" phase: back → last slide in "slides"
+//   - "language" phase: back → exit app (default)
 
 export default function OnboardingScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { completeOnboarding, updateProfile } = useApp();
 
-  // "slides" — feature carousel. "country" — country selection before login.
-  const [phase, setPhase] = useState<"slides" | "country">("slides");
+  const [phase, setPhase] = useState<"language" | "slides" | "country">("language");
+  const [selectedLang, setSelectedLang] = useState<"ko" | "ja" | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedCountry, setSelectedCountry] = useState<"KR" | "JP" | null>(null);
   const flatRef = useRef<FlatList>(null);
@@ -212,28 +291,90 @@ export default function OnboardingScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  // Slides phase — advance or move to country selection
+  // ── L1 FIX: Android hardware back button handler ───────────────────────────
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+
+    const handler = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (phase === "country") {
+        // Go back to last slide
+        setPhase("slides");
+        const last = SLIDES.length - 1;
+        setCurrentIndex(last);
+        setTimeout(() => {
+          flatRef.current?.scrollToIndex({ index: last, animated: false });
+        }, 50);
+        return true;
+      }
+      if (phase === "slides") {
+        if (currentIndex > 0) {
+          const prev = currentIndex - 1;
+          flatRef.current?.scrollToIndex({ index: prev, animated: true });
+          setCurrentIndex(prev);
+          return true;
+        }
+        // First slide → go back to language selection
+        setPhase("language");
+        return true;
+      }
+      // Language phase → exit app (default BackHandler behavior)
+      return false;
+    });
+
+    return () => handler.remove();
+  }, [phase, currentIndex]);
+
+  // ── Slides helpers ─────────────────────────────────────────────────────────
   const goNext = () => {
     if (currentIndex < SLIDES.length - 1) {
       const next = currentIndex + 1;
       flatRef.current?.scrollToIndex({ index: next, animated: true });
       setCurrentIndex(next);
     } else {
-      // Last slide — transition to country selection instead of skipping to login
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setPhase("country");
     }
   };
 
-  const skip = () => {
+  const goPrev = () => {
+    if (currentIndex > 0) {
+      const prev = currentIndex - 1;
+      flatRef.current?.scrollToIndex({ index: prev, animated: true });
+      setCurrentIndex(prev);
+    } else {
+      setPhase("language");
+    }
+  };
+
+  const skipToCountry = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPhase("country");
   };
 
-  // Country phase — select a country, commit to AppContext, proceed
+  // ── Language selection helpers ─────────────────────────────────────────────
+  const handleLangSelect = (l: "ko" | "ja") => {
+    setSelectedLang(l);
+    updateProfile({
+      language: l,
+      country: l === "ko" ? "KR" : "JP",
+    });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleLangContinue = () => {
+    if (!selectedLang) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setCurrentIndex(0);
+    setTimeout(() => {
+      flatRef.current?.scrollToIndex({ index: 0, animated: false });
+    }, 50);
+    setPhase("slides");
+  };
+
+  // ── Country selection helpers ──────────────────────────────────────────────
   const handleCountrySelect = (c: "KR" | "JP") => {
     setSelectedCountry(c);
-    updateProfile({ country: c }); // sets profile.language automatically
+    updateProfile({ country: c, language: c === "KR" ? "ko" : "ja" });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
@@ -244,14 +385,13 @@ export default function OnboardingScreen() {
     router.replace("/login");
   };
 
+  const appLang: "ko" | "ja" = selectedLang ?? "ko";
   const slide = SLIDES[currentIndex];
 
-  // ── Country selection phase ────────────────────────────────────────────────
-  if (phase === "country") {
+  // ── Phase: language ────────────────────────────────────────────────────────
+  if (phase === "language") {
     return (
       <View style={[styles.container, { backgroundColor: colors.white }]}>
-
-        {/* Header */}
         <View style={[styles.header, { paddingTop: topPad + 16 }]}>
           <View style={styles.logoRow}>
             <LitoMark size={32} />
@@ -259,25 +399,110 @@ export default function OnboardingScreen() {
           </View>
         </View>
 
-        {/* Content */}
+        <Animated.View
+          entering={FadeInUp.duration(320).springify()}
+          style={[langStyles.content, { paddingBottom: bottomPad + 24 }]}
+        >
+          <View style={langStyles.headline}>
+            <Text style={[langStyles.title, { color: colors.charcoal }]}>
+              {"언어를 선택하세요\n言語を選択してください"}
+            </Text>
+            <Text style={[langStyles.sub, { color: colors.charcoalLight }]}>
+              {"Choose your language · 언어를 선택 / 言語選択"}
+            </Text>
+          </View>
+
+          <View style={langStyles.cardRow}>
+            {(["ko", "ja"] as const).map((l) => (
+              <LanguageCard
+                key={l}
+                lang={l}
+                isSelected={selectedLang === l}
+                onPress={() => handleLangSelect(l)}
+              />
+            ))}
+          </View>
+
+          <View style={langStyles.ctaWrap}>
+            <TouchableOpacity
+              style={[
+                langStyles.ctaBtn,
+                {
+                  backgroundColor: selectedLang ? colors.rose : colors.muted,
+                  borderColor: selectedLang ? colors.rose : colors.border,
+                },
+              ]}
+              onPress={handleLangContinue}
+              disabled={!selectedLang}
+              activeOpacity={0.85}
+            >
+              <Text
+                style={[
+                  langStyles.ctaBtnText,
+                  { color: selectedLang ? colors.white : colors.charcoalLight },
+                ]}
+              >
+                {selectedLang === "ko"
+                  ? "다음 →"
+                  : selectedLang === "ja"
+                  ? "次へ →"
+                  : "언어를 선택해주세요 · 言語を選んでください"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </View>
+    );
+  }
+
+  // ── Phase: country ─────────────────────────────────────────────────────────
+  if (phase === "country") {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.white }]}>
+        <View style={[styles.header, { paddingTop: topPad + 16 }]}>
+          <TouchableOpacity
+            onPress={() => {
+              setPhase("slides");
+              const last = SLIDES.length - 1;
+              setCurrentIndex(last);
+              setTimeout(() => {
+                flatRef.current?.scrollToIndex({ index: last, animated: false });
+              }, 50);
+            }}
+            style={styles.backBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Text style={[styles.backArrow, { color: colors.charcoalMid }]}>←</Text>
+          </TouchableOpacity>
+          <View style={styles.logoRow}>
+            <LitoMark size={32} />
+            <Text style={[styles.logo, { color: colors.charcoal }]}>lito</Text>
+          </View>
+          <View style={{ width: 36 }} />
+        </View>
+
         <Animated.View
           entering={FadeInUp.duration(320).springify()}
           style={[countryStyles.content, { paddingBottom: bottomPad + 24 }]}
         >
-          {/* Headline — trilingual since we don't know language yet */}
           <View style={countryStyles.headline}>
             <Text style={[countryStyles.headlineTitle, { color: colors.charcoal }]}>
-              {"어느 나라에서\n오셨나요?"}
+              {appLang === "ko"
+                ? "어느 나라에서\n오셨나요?"
+                : "どちらの国から\n来ましたか？"}
             </Text>
             <Text style={[countryStyles.headlineSub, { color: colors.charcoalMid }]}>
-              {"どちらの国から来ましたか？"}
+              {appLang === "ko"
+                ? "どちらの国から来ましたか？"
+                : "어느 나라에서 오셨나요?"}
             </Text>
             <Text style={[countryStyles.headlineHint, { color: colors.charcoalLight }]}>
-              {"This sets your language and translation direction"}
+              {appLang === "ko"
+                ? "번역 방향이 자동으로 설정됩니다"
+                : "翻訳方向が自動的に設定されます"}
             </Text>
           </View>
 
-          {/* Country cards — side by side */}
           <View style={countryStyles.cardRow}>
             {(["KR", "JP"] as const).map((c) => (
               <CountryCard
@@ -285,18 +510,19 @@ export default function OnboardingScreen() {
                 country={c}
                 isSelected={selectedCountry === c}
                 onPress={() => handleCountrySelect(c)}
+                appLang={appLang}
               />
             ))}
           </View>
 
-          {/* Language auto-set note */}
           <View style={[countryStyles.langNote, { borderColor: colors.border }]}>
             <Text style={[countryStyles.langNoteText, { color: colors.charcoalLight }]}>
-              🌐{"  "}앱 언어가 자동으로 설정됩니다 · アプリ言語が自動設定されます
+              {appLang === "ko"
+                ? "🌐  앱 언어가 자동으로 설정됩니다 · アプリ言語が自動設定されます"
+                : "🌐  アプリ言語が自動設定されます · 앱 언어가 자동으로 설정됩니다"}
             </Text>
           </View>
 
-          {/* Continue CTA */}
           <View style={countryStyles.ctaWrap}>
             <TouchableOpacity
               style={[
@@ -317,10 +543,10 @@ export default function OnboardingScreen() {
                 ]}
               >
                 {selectedCountry === "KR"
-                  ? "시작하기 →"
+                  ? (appLang === "ko" ? "시작하기 →" : "始める →")
                   : selectedCountry === "JP"
-                  ? "始める →"
-                  : "국가를 선택해주세요 · 国を選んでください"}
+                  ? (appLang === "ko" ? "시작하기 →" : "始める →")
+                  : (appLang === "ko" ? "국가를 선택해주세요" : "国を選んでください")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -329,22 +555,29 @@ export default function OnboardingScreen() {
     );
   }
 
-  // ── Slides phase ──────────────────────────────────────────────────────────
+  // ── Phase: slides ──────────────────────────────────────────────────────────
   return (
     <View style={[styles.container, { backgroundColor: colors.white }]}>
-
-      {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 16 }]}>
+        {/* L1 FIX: Back button navigates to previous slide or language phase */}
+        <TouchableOpacity
+          onPress={goPrev}
+          style={styles.backBtn}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Text style={[styles.backArrow, { color: colors.charcoalMid }]}>←</Text>
+        </TouchableOpacity>
         <View style={styles.logoRow}>
           <LitoMark size={32} />
           <Text style={[styles.logo, { color: colors.charcoal }]}>lito</Text>
         </View>
-        <TouchableOpacity onPress={skip} style={styles.skipBtn}>
-          <Text style={[styles.skip, { color: colors.charcoalLight }]}>건너뛰기 · スキップ</Text>
+        <TouchableOpacity onPress={skipToCountry} style={styles.skipBtn}>
+          <Text style={[styles.skip, { color: colors.charcoalLight }]}>
+            {appLang === "ko" ? "건너뛰기" : "スキップ"}
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Slide list */}
       <FlatList
         ref={flatRef}
         data={SLIDES}
@@ -355,7 +588,6 @@ export default function OnboardingScreen() {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={[styles.slide, { width }]}>
-
             <LinearGradient
               colors={item.gradientColors}
               style={styles.iconCircle}
@@ -364,7 +596,7 @@ export default function OnboardingScreen() {
             </LinearGradient>
 
             <Text style={[styles.title, { color: colors.charcoal }]}>
-              {item.titleKo}
+              {appLang === "ko" ? item.titleKo : item.titleJa}
             </Text>
 
             <View style={[styles.biTag, { backgroundColor: `${item.accentColor}14` }]}>
@@ -374,20 +606,17 @@ export default function OnboardingScreen() {
             </View>
 
             <Text style={[styles.body, { color: colors.charcoalLight }]}>
-              {item.bodyKo}
+              {appLang === "ko" ? item.bodyKo : item.bodyJa}
             </Text>
 
             <Text style={[styles.bodyNative, { color: colors.charcoalMid }]}>
-              {item.bodyJa}
+              {appLang === "ko" ? item.bodyJa : item.bodyKo}
             </Text>
           </View>
         )}
       />
 
-      {/* Footer */}
       <View style={[styles.footer, { paddingBottom: bottomPad + 24 }]}>
-
-        {/* Progress dots */}
         <View style={styles.dots}>
           {SLIDES.map((_, i) => (
             <View
@@ -409,8 +638,8 @@ export default function OnboardingScreen() {
           onPress={goNext}
           label={
             currentIndex === SLIDES.length - 1
-              ? "국가 선택하기 · 国を選ぶ"
-              : "다음 · 次へ"
+              ? (appLang === "ko" ? "국가 선택하기 →" : "国を選ぶ →")
+              : (appLang === "ko" ? "다음 →" : "次へ →")
           }
         />
 
@@ -424,6 +653,80 @@ export default function OnboardingScreen() {
   );
 }
 
+// ── Language phase styles ─────────────────────────────────────────────────────
+
+const langCard = StyleSheet.create({
+  card: {
+    borderRadius: 24,
+    borderWidth: 2,
+    paddingVertical: 32,
+    alignItems: "center",
+    gap: 8,
+    position: "relative",
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 14,
+    elevation: 4,
+  },
+  checkBadge: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkText: { color: "#fff", fontSize: 12, fontFamily: "Inter_700Bold" },
+  flag: { fontSize: 54 },
+  langMain: { fontFamily: "Inter_700Bold", fontSize: 22 },
+  langSub: { fontFamily: "Inter_400Regular", fontSize: 13 },
+});
+
+const langStyles = StyleSheet.create({
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    justifyContent: "center",
+  },
+  headline: { marginBottom: 36 },
+  title: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 28,
+    lineHeight: 38,
+    marginBottom: 8,
+  },
+  sub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    lineHeight: 21,
+    opacity: 0.8,
+  },
+  cardRow: {
+    flexDirection: "row",
+    gap: 14,
+    marginBottom: 28,
+  },
+  ctaWrap: { width: "100%" },
+  ctaBtn: {
+    borderRadius: 100,
+    paddingVertical: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  ctaBtnText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 17,
+    letterSpacing: 0.1,
+  },
+});
+
 // ── Country phase styles ──────────────────────────────────────────────────────
 
 const countryStyles = StyleSheet.create({
@@ -434,9 +737,7 @@ const countryStyles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  headline: {
-    marginBottom: 40,
-  },
+  headline: { marginBottom: 40 },
   headlineTitle: {
     fontFamily: "Inter_700Bold",
     fontSize: 32,
@@ -566,6 +867,17 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     fontSize: 22,
     letterSpacing: -0.8,
+  },
+  backBtn: {
+    width: 36,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    padding: 4,
+  },
+  backArrow: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 22,
+    lineHeight: 28,
   },
   skipBtn: { padding: 4 },
   skip: {

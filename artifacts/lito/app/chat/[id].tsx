@@ -75,9 +75,11 @@ interface BubbleProps {
   viewerLang: "ko" | "ja";
   /** Called when the user taps the received message bubble — toggles translation. */
   onToggleTranslation: () => void;
+  /** L6 FIX: Show visible first-use translation hint on this bubble */
+  showFirstUseHint?: boolean;
 }
 
-function MessageBubble({ msg, enrichment, viewerLang, onToggleTranslation }: BubbleProps) {
+function MessageBubble({ msg, enrichment, viewerLang, onToggleTranslation, showFirstUseHint = false }: BubbleProps) {
   const colors = useColors();
   const isMe = msg.senderId === CURRENT_USER_ID;
 
@@ -159,10 +161,19 @@ function MessageBubble({ msg, enrichment, viewerLang, onToggleTranslation }: Bub
             </>
           )}
 
-          {/* Subtle globe hint — only when no translation loaded yet */}
-          {!hasTranslation && !isTranslating && (
+          {/* L6 FIX: First-use hint — prominent callout when user hasn't translated yet */}
+          {!hasTranslation && !isTranslating && showFirstUseHint && (
+            <View style={[bubble.firstUseHint, { backgroundColor: colors.roseLight, borderColor: "#F2BDCA" }]}>
+              <Feather name="globe" size={12} color={colors.rose} />
+              <Text style={[bubble.firstUseHintText, { color: colors.rose }]}>
+                {viewerLang === "ko" ? "탭해서 번역" : "タップして翻訳"}
+              </Text>
+            </View>
+          )}
+          {/* Subtle globe hint — shown on all other untranslated messages */}
+          {!hasTranslation && !isTranslating && !showFirstUseHint && (
             <View style={bubble.translateHint}>
-              <Feather name="globe" size={10} color={colors.charcoalLight} style={{ opacity: 0.45 }} />
+              <Feather name="globe" size={11} color={colors.charcoalLight} style={{ opacity: 0.55 }} />
             </View>
           )}
         </View>
@@ -241,7 +252,24 @@ const bubble = StyleSheet.create({
     position: "absolute",
     bottom: 8,
     right: 10,
-    opacity: 0.4,
+  },
+
+  // L6 FIX: Visible first-use callout for translation discoverability
+  firstUseHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    alignSelf: "flex-start",
+    marginTop: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  firstUseHintText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11.5,
+    letterSpacing: 0.1,
   },
 
   textMe: {
@@ -789,6 +817,8 @@ export default function ChatDetailScreen() {
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [showCoachSheet, setShowCoachSheet] = useState(false);
   const [coachData, setCoachData] = useState<CoachResult | null>(null);
+  // L6 FIX: track whether user has ever tapped translate — to show/hide first-use hint
+  const [hasUsedTranslation, setHasUsedTranslation] = useState(false);
 
   const [inputText, setInputText] = useState("");
   const sendBtnScale = useRef(new Animated.Value(1)).current;
@@ -836,6 +866,9 @@ export default function ChatDetailScreen() {
     const sourceLang = msg.originalLanguage as "ko" | "ja";
     const targetLang: "ko" | "ja" = sourceLang === "ko" ? "ja" : "ko";
     const cacheKey = `${msg.id}:${targetLang}`;
+
+    // L6 FIX: mark translation as used on first tap — hides first-use hint from all bubbles
+    setHasUsedTranslation(true);
 
     // 1. Translation already in state — just toggle visibility
     const current = enrichmentMap[msg.id];
@@ -916,6 +949,16 @@ export default function ChatDetailScreen() {
   // ── renderItem ───────────────────────────────────────────────────────────
   // Each bubble receives its own enrichment slice and a stable per-message callback.
   // FlatList re-renders items when enrichmentMap changes (via extraData).
+  //
+  // L6 FIX: Find the first received message that hasn't been translated yet — show first-use hint.
+  const firstUntranslatedReceivedId = React.useMemo(() => {
+    if (hasUsedTranslation) return null;
+    const first = convMessages.find(
+      (m) => m.senderId !== CURRENT_USER_ID && !enrichmentMap[m.id]?.translatedText
+    );
+    return first?.id ?? null;
+  }, [convMessages, enrichmentMap, hasUsedTranslation]);
+
   const renderMessage = useCallback(
     ({ item }: { item: Message }) => {
       if (item.senderId === CURRENT_USER_ID) {
@@ -934,10 +977,11 @@ export default function ChatDetailScreen() {
           enrichment={enrichmentMap[item.id]}
           viewerLang={viewerLang}
           onToggleTranslation={() => handleTranslateMessage(item)}
+          showFirstUseHint={item.id === firstUntranslatedReceivedId}
         />
       );
     },
-    [enrichmentMap, viewerLang, handleTranslateMessage]
+    [enrichmentMap, viewerLang, handleTranslateMessage, firstUntranslatedReceivedId]
   );
 
   // ── Handlers ─────────────────────────────────────────────────────────────

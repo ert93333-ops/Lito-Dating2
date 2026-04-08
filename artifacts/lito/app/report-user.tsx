@@ -191,6 +191,12 @@ export default function ReportUserScreen() {
   const reportedNickname = params.nickname ?? (lang === "ko" ? "이 사용자" : "このユーザー");
   const selectedConfig = REPORT_CATEGORIES.find((c) => c.key === selected);
 
+  // L5 FIX: Generate a deterministic mock reference ID so users know report was received
+  const refId = React.useMemo(() => {
+    const base = Date.now().toString(36).toUpperCase().slice(-6);
+    return `LT-${base}`;
+  }, []);
+
   const handleSubmit = () => {
     if (!selected) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -201,6 +207,7 @@ export default function ReportUserScreen() {
     //   reportedUserId: params.userId,
     //   category: selected,
     //   details: details.trim() || undefined,
+    //   referenceId: refId,
     // }
     // On success → increment riskProfile.reportCount on backend
     // At ≥5 unique reporters → auto-flag "repeated_reports"
@@ -247,6 +254,15 @@ export default function ReportUserScreen() {
           <Text style={[s.thankYouTitle, { color: colors.charcoal }]}>
             {lang === "ko" ? "신고가 접수되었습니다" : "通報を受け付けました"}
           </Text>
+
+          {/* L5 FIX: Reference ID gives users confidence the report was sent */}
+          <View style={[s.refIdBadge, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+            <Text style={[s.refIdLabel, { color: colors.charcoalLight }]}>
+              {lang === "ko" ? "접수 번호" : "受付番号"}
+            </Text>
+            <Text style={[s.refIdValue, { color: colors.charcoal }]}>{refId}</Text>
+          </View>
+
           <Text style={[s.thankYouBody, { color: colors.charcoalMid }]}>
             {lang === "ko"
               ? "소중한 신고 감사합니다. 검토팀이 확인 후 필요한 조치를 취할 예정입니다.\n\n신고 내용은 익명으로 처리되며 상대방에게 공개되지 않습니다."
@@ -551,6 +567,13 @@ const s = StyleSheet.create({
   },
   thankYouTitle: { fontFamily: "Inter_700Bold", fontSize: 22, letterSpacing: -0.5, textAlign: "center" },
   thankYouBody: { fontFamily: "Inter_400Regular", fontSize: 14, lineHeight: 22, textAlign: "center" },
+  refIdBadge: {
+    borderRadius: 12, borderWidth: 1,
+    paddingVertical: 10, paddingHorizontal: 20,
+    alignItems: "center", gap: 3,
+  },
+  refIdLabel: { fontFamily: "Inter_400Regular", fontSize: 11, letterSpacing: 0.3 },
+  refIdValue: { fontFamily: "Inter_700Bold", fontSize: 15, letterSpacing: 1.2 },
   doneBtn: {
     alignSelf: "stretch", alignItems: "center",
     borderRadius: 16, paddingVertical: 16, marginTop: 8,

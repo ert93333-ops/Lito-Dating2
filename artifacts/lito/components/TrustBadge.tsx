@@ -164,7 +164,7 @@ export function TrustBadge({
                 },
               ]}
             >
-              <Feather name={isPending ? sc.icon : layer.icon} size={9} color={sc.color} />
+              <Feather name={isPending ? sc.icon : layer.icon} size={12} color={sc.color} />
             </View>
           );
         }
@@ -292,10 +292,10 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   smPill: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
   },
