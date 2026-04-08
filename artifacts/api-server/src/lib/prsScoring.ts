@@ -666,12 +666,21 @@ export function generateInterestReasonCodes(
 
   const codes: string[] = [];
 
-  // ── Scam risk (always first if present) ───────────────────────────────────
+  // ── Priority 1: Scam risk (always first — safety override) ────────────────
   if (get("penalties", "scamRiskPenalty") >= t.scamRiskPresent) {
     codes.push("SCAM_RISK_DETECTED");
   }
 
-  // ── Responsiveness signals ─────────────────────────────────────────────────
+  // ── Priority 2: Specific progression signals (high-value, must not be crowded out) ──
+  // These are moved before generic responsiveness codes so they survive the 6-cap.
+  // CALL_DATE_SIGNAL and AVAILABILITY_SHARED are the most actionable signals for the user.
+  if (get("progression", "callOrDateAcceptance") >= t.callDatePresent) {
+    codes.push("CALL_DATE_SIGNAL");
+  } else if (get("progression", "availabilitySharing") >= t.availabilityPresent) {
+    codes.push("AVAILABILITY_SHARED");
+  }
+
+  // ── Priority 3: Responsiveness signals ────────────────────────────────────
   if (get("responsiveness", "followUpQuestionRate") >= t.followUpHigh) {
     codes.push("FOLLOW_UP_QUESTIONS_HIGH");
   } else if (get("responsiveness", "followUpQuestionRate") < t.followUpLow) {
@@ -686,7 +695,7 @@ export function generateInterestReasonCodes(
     codes.push("VALIDATION_PRESENT");
   }
 
-  // ── Temporal signals ───────────────────────────────────────────────────────
+  // ── Priority 4: Temporal signals ──────────────────────────────────────────
   if (get("temporal", "baselineAdjustedReplySpeed") >= t.replySpeedAbove) {
     codes.push("REPLY_SPEED_ABOVE_BASELINE");
   } else if (get("temporal", "baselineAdjustedReplySpeed") <= t.replySpeedBelow) {
@@ -699,7 +708,7 @@ export function generateInterestReasonCodes(
     codes.push("REPLY_PATTERN_INCONSISTENT");
   }
 
-  // ── Reciprocity signals ────────────────────────────────────────────────────
+  // ── Priority 5: Reciprocity signals ───────────────────────────────────────
   if (get("reciprocity", "disclosureBalance") >= t.balanceGood) {
     codes.push("DISCLOSURE_IS_BALANCED");
   } else if (get("reciprocity", "disclosureBalance") < t.balancePoor) {
@@ -710,7 +719,7 @@ export function generateInterestReasonCodes(
     codes.push("PARTNER_REINITIATES");
   }
 
-  // ── Warmth + authenticity (semantic) ──────────────────────────────────────
+  // ── Priority 6: Warmth + authenticity (semantic) ──────────────────────────
   if (semanticScores.warmth >= t.warmthHigh) {
     codes.push("WARMTH_HIGH");
   }
@@ -718,13 +727,7 @@ export function generateInterestReasonCodes(
     codes.push("AUTHENTICITY_HIGH");
   }
 
-  // ── Progression signals ────────────────────────────────────────────────────
-  if (get("progression", "callOrDateAcceptance") >= t.callDatePresent) {
-    codes.push("CALL_DATE_SIGNAL");
-  } else if (get("progression", "availabilitySharing") >= t.availabilityPresent) {
-    codes.push("AVAILABILITY_SHARED");
-  }
-
+  // ── Priority 7: General progression presence / weakness ───────────────────
   const hasProgressionSignal =
     get("progression", "futureOrientation") >= t.progressionPresent ||
     get("progression", "availabilitySharing") >= t.availabilityPresent ||

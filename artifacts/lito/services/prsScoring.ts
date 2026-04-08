@@ -214,18 +214,18 @@ export async function getConversationInterestSnapshot(
     cachedAt: Date.now(),
   });
 
-  return toOutcome(snapshot);
+  return toOutcome(snapshot, viewerLang);
 }
 
-function toOutcome(snapshot: ConversationInterestSnapshot): PRSOutcome {
+function toOutcome(
+  snapshot: ConversationInterestSnapshot,
+  viewerLang: "ko" | "ja" = "ko"
+): PRSOutcome {
   if (snapshot.lowConfidenceState !== null) {
     return {
       ready: false,
       lowConfidenceState: snapshot.lowConfidenceState,
-      reasonText: localiseNotReadyReason(
-        snapshot.lowConfidenceState,
-        "ko" // caller can override by re-localising from lowConfidenceState
-      ),
+      reasonText: localiseNotReadyReason(snapshot.lowConfidenceState, viewerLang),
     };
   }
   return { ready: true, ...snapshot };

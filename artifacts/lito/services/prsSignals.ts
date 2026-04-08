@@ -415,8 +415,10 @@ export function extractReciprocityFeatures(
       }
     }
   }
+  // FIX: was 0.5 when no sessions detected — 0.5 contributed positively with no data.
+  // 0 = no information (not a negative signal), which is the correct neutral baseline.
   const partnerReinitiation =
-    sessions === 0 ? 0.5 : clamp01(safeDivide(partnerOpenedSessions, sessions));
+    sessions === 0 ? 0 : clamp01(safeDivide(partnerOpenedSessions, sessions));
 
   return { disclosureTurnTaking, disclosureBalance, partnerReinitiation };
 }
@@ -454,9 +456,28 @@ export function extractLinguisticFeatures(
   };
   const myBrackets = bracketCount(myMsgs);
   const partnerBrackets = bracketCount(partnerMsgs);
-  const myDominant = Object.entries(myBrackets).sort((a, b) => b[1] - a[1])[0][0];
-  const partnerDominant = Object.entries(partnerBrackets).sort((a, b) => b[1] - a[1])[0][0];
-  const lsmProxy = myDominant === partnerDominant ? 0.8 : 0.3;
+  // FIX: was a binary 0.8 / 0.3 based only on dominant bracket.
+  // Replace with a graded cosine-like overlap of the full bracket distributions.
+  // This rewards partial alignment (e.g. both skew medium-short) instead of all-or-nothing.
+  const total = (b: { short: number; medium: number; long: number }) =>
+    b.short + b.medium + b.long || 1;
+  const myNorm = {
+    short:  myBrackets.short  / total(myBrackets),
+    medium: myBrackets.medium / total(myBrackets),
+    long:   myBrackets.long   / total(myBrackets),
+  };
+  const pNorm = {
+    short:  partnerBrackets.short  / total(partnerBrackets),
+    medium: partnerBrackets.medium / total(partnerBrackets),
+    long:   partnerBrackets.long   / total(partnerBrackets),
+  };
+  // 1 - mean absolute deviation across 3 brackets (0 = identical, 1 = fully different)
+  const mad =
+    (Math.abs(myNorm.short - pNorm.short) +
+     Math.abs(myNorm.medium - pNorm.medium) +
+     Math.abs(myNorm.long - pNorm.long)) / 3;
+  // Map: 0 deviation → 0.85, 0.33 (max uniform deviation) → 0.4
+  const lsmProxy = clamp01(0.85 - mad * 1.35);
 
   // topicAlignment — for each partner message, overlap with the preceding my-message
   let overlapSum = 0;
@@ -659,8 +680,11 @@ export function extractProgressionFeatures(
       return words.some((w) => text.includes(w.toLowerCase()));
     });
 
-  // Binary signals converted to 0 or 1 (any occurrence = strong signal)
-  const futureOrientation: number = hasWord(FUTURE_WORDS) ? 0.8 : 0.1;
+  // FIX: futureOrientation reduced from 0.8 → 0.45 so that common time-reference words
+  // ("언제", "いつ", "또", "また") don't cross the 0.5 reason-code threshold alone.
+  // PROGRESSION_SIGNALS_PRESENT should only fire when availability or call signals are present.
+  // futureOrientation contributes to the group score but no longer single-handedly triggers codes.
+  const futureOrientation: number = hasWord(FUTURE_WORDS) ? 0.45 : 0.1;
   const availabilitySharing: number = hasWord(AVAILABILITY_WORDS) ? 0.9 : 0.05;
   const callOrDateAcceptance: number = hasWord(CALL_DATE_WORDS) ? 1.0 : 0.0;
 
@@ -721,22 +745,32 @@ export function extractPenaltyFeatures(
     ) / partnerMsgs.length;
   const selfPromotionPenalty = clamp01(selfWordDensity * 0.3);
 
-  // genericTemplatePenalty — messages under 15 chars
-  const shortMsgCount = partnerMsgs.filter(
-    (m) => (m.translatedText ?? m.originalText).trim().length < 15
-  ).length;
+  // FIX: genericTemplatePenalty — exclude natural short validation responses.
+  // Warm short responses like "네", "맞아요", "ありがとう", "そうですね" are genuine engagement,
+  // not template spam. Only penalise short messages that are NOT in the validation cue list.
+  const shortMsgCount = partnerMsgs.filter((m) => {
+    const text = (m.translatedText ?? m.originalText).trim();
+    if (text.length >= 15) return false;                          // not short
+    if (countKeywords(text, VALIDATION_CUES) > 0) return false;  // genuine short response
+    return true;
+  }).length;
   const genericTemplatePenalty = clamp01(safeDivide(shortMsgCount, partnerMsgs.length) * 0.7);
 
-  // nonContingentTopicSwitchPenalty
+  // FIX: nonContingentTopicSwitchPenalty — skip very short messages (< 15 chars) from comparison.
+  // Short messages like "네", "ㅎㅎ", "맞아요" carry too few tokens to assess topic continuity,
+  // and their zero overlap would unfairly penalise natural acknowledgment-heavy chat flows.
+  const substantivePartnerMsgs = partnerMsgs.filter(
+    (m) => (m.translatedText ?? m.originalText).trim().length >= 15
+  );
   let switchCount = 0;
-  for (let i = 1; i < partnerMsgs.length; i++) {
-    const prev = tokenise(partnerMsgs[i - 1].translatedText ?? partnerMsgs[i - 1].originalText);
-    const curr = tokenise(partnerMsgs[i].translatedText ?? partnerMsgs[i].originalText);
+  for (let i = 1; i < substantivePartnerMsgs.length; i++) {
+    const prev = tokenise(substantivePartnerMsgs[i - 1].translatedText ?? substantivePartnerMsgs[i - 1].originalText);
+    const curr = tokenise(substantivePartnerMsgs[i].translatedText ?? substantivePartnerMsgs[i].originalText);
     if (jaccardOverlap(prev, curr) < 0.02) switchCount++;
   }
   const nonContingentTopicSwitchPenalty =
-    partnerMsgs.length > 1
-      ? clamp01(safeDivide(switchCount, partnerMsgs.length - 1) * 0.5)
+    substantivePartnerMsgs.length > 1
+      ? clamp01(safeDivide(switchCount, substantivePartnerMsgs.length - 1) * 0.5)
       : 0;
 
   // scamRiskPenalty — binary: any hit = maximum penalty
