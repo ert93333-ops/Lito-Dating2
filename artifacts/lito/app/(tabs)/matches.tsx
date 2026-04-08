@@ -133,7 +133,7 @@ export default function MatchesScreen() {
       {newMatches.length > 0 && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.rose }]}>
-            {lang === "ko" ? "새 매칭 ✨" : "新しいマッチ ✨"}
+            {lang === "ko" ? "새 매칭" : "新しいマッチ"}
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.newMatchRow}>
             {newMatches.map((m) => (

@@ -201,7 +201,7 @@ export default function PaywallScreen() {
           <View style={[styles.successRow, { backgroundColor: "#EFFAF4" }]}>
             <Feather name="check-circle" size={18} color="#1A7A4A" />
             <Text style={[styles.successText, { color: "#1A7A4A" }]}>
-              {lang === "ko" ? "업그레이드 완료! 🎉" : "アップグレード完了！🎉"}
+              {lang === "ko" ? "업그레이드 완료!" : "アップグレード完了！"}
             </Text>
           </View>
         ) : (

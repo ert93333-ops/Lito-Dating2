@@ -1,4 +1,3 @@
-import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useRef, useState } from "react";
@@ -19,28 +18,13 @@ import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 
-// ── Interest tags with emoji ──────────────────────────────────────────────────
-const INTERESTS: { tag: string; emoji: string }[] = [
-  { tag: "K-Pop", emoji: "🎵" },
-  { tag: "K-Drama", emoji: "📺" },
-  { tag: "Anime", emoji: "✨" },
-  { tag: "Travel", emoji: "✈️" },
-  { tag: "Cooking", emoji: "🍳" },
-  { tag: "Coffee", emoji: "☕" },
-  { tag: "Photography", emoji: "📸" },
-  { tag: "Music", emoji: "🎶" },
-  { tag: "Books", emoji: "📚" },
-  { tag: "Fitness", emoji: "💪" },
-  { tag: "Gaming", emoji: "🎮" },
-  { tag: "Nature", emoji: "🌿" },
-  { tag: "Movies", emoji: "🎬" },
-  { tag: "Fashion", emoji: "👗" },
-  { tag: "Design", emoji: "🎨" },
-  { tag: "Language Exchange", emoji: "🗣️" },
-  { tag: "Food Tour", emoji: "🍜" },
-  { tag: "Hiking", emoji: "🏔️" },
-  { tag: "Art", emoji: "🖼️" },
-  { tag: "Tech", emoji: "💻" },
+// ── Interest tags ─────────────────────────────────────────────────────────────
+const INTERESTS: string[] = [
+  "K-Pop", "K-Drama", "Anime", "Travel",
+  "Cooking", "Coffee", "Photography", "Music",
+  "Books", "Fitness", "Gaming", "Nature",
+  "Movies", "Fashion", "Design", "Language Exchange",
+  "Food Tour", "Hiking", "Art", "Tech",
 ];
 
 // ── AnimatedPressable CTA ─────────────────────────────────────────────────────
@@ -390,7 +374,7 @@ export default function ProfileSetupScreen() {
 
         {/* Step hero */}
         <Text style={[s.heroTitle, { color: colors.charcoal }]}>
-          {lang === "ko" ? "관심사를 골라주세요 ✨" : "趣味を選んでください ✨"}
+          {lang === "ko" ? "관심사를 골라주세요" : "趣味を選んでください"}
         </Text>
         <View style={s.interestMeta}>
           <Text style={[s.heroSub, { color: colors.charcoalLight, marginBottom: 0 }]}>
@@ -407,7 +391,7 @@ export default function ProfileSetupScreen() {
 
         {/* Interest tags grid */}
         <View style={s.interestGrid}>
-          {INTERESTS.map(({ tag, emoji }) => {
+          {INTERESTS.map((tag) => {
             const picked = selectedInterests.includes(tag);
             const atMax = !picked && selectedInterests.length >= 8;
             return (
@@ -425,7 +409,6 @@ export default function ProfileSetupScreen() {
                 disabled={atMax}
                 activeOpacity={0.72}
               >
-                <Text style={s.tagEmoji}>{emoji}</Text>
                 <Text
                   style={[
                     s.tagText,
@@ -450,7 +433,7 @@ export default function ProfileSetupScreen() {
       {/* Sticky CTA */}
       <View style={[s.stickyFooter, { paddingBottom: bottomPad + 14, borderTopColor: colors.border, backgroundColor: colors.white }]}>
         <PrimaryButton
-          label={lang === "ko" ? "시작하기 🎉" : "始める 🎉"}
+          label={lang === "ko" ? "시작하기" : "始める"}
           onPress={handleFinish}
         />
       </View>
@@ -660,7 +643,6 @@ const s = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1.5,
   },
-  tagEmoji: { fontSize: 14 },
   tagText: {
     fontFamily: "Inter_500Medium",
     fontSize: 13.5,

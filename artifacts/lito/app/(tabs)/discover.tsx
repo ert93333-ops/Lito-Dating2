@@ -309,7 +309,7 @@ function DiscoverCard({
               : null}
             {user.compatibilityReasons.slice(0, user.interests ? 1 : 3).map((r) => (
               <View key={r} style={[cardStyles.chip, cardStyles.chipMatch]}>
-                <Text style={cardStyles.chipText}>✨ {r}</Text>
+                <Text style={cardStyles.chipText}>{r}</Text>
               </View>
             ))}
           </View>
@@ -590,7 +590,7 @@ export default function DiscoverScreen() {
           <Feather name="heart" size={32} color={colors.rose} />
         </View>
         <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>
-          {profile.language === "ko" ? "오늘의 추천을 모두 봤어요 🎉" : "今日のおすすめを全部見ました 🎉"}
+          {profile.language === "ko" ? "오늘의 추천을 모두 봤어요" : "今日のおすすめを全部見ました"}
         </Text>
         <Text style={[styles.emptySub, { color: colors.charcoalLight }]}>
           {profile.language === "ko"
@@ -618,7 +618,6 @@ export default function DiscoverScreen() {
               }}
               activeOpacity={0.8}
             >
-              <Text style={[styles.picksEmoji]}>✨</Text>
               <Text style={[styles.picksText, { color: colors.rose }]}>
                 {chemistryPicks.length} {profile.language === "ko" ? "픽" : "ピック"}
               </Text>

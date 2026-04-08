@@ -185,7 +185,6 @@ export default function ProfileCoachScreen() {
         {/* Suggestions */}
         {profileSuggestions.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={[styles.emptyEmoji]}>✨</Text>
             <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>
               {lang === "ko" ? "프로필이 잘 되어 있어요!" : "プロフィールはしっかりできています！"}
             </Text>
