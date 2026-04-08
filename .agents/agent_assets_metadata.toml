@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "u31TMP3FsIuXRXVtDleqN"
@@ -48,3 +47,9 @@ id = "L885DOOd34AGgtfpbyMBd"
 uri = "file://artifacts/lito/assets/images/profile6.png"
 type = "image"
 title = "generated_image"
+
+[[outputs]]
+id = "HlgGZxsqtK1Jypix25e4E"
+uri = "file://lito-trust-safety-policy.md"
+type = "text"
+title = "Lito Trust & Safety Policy Framework v1.0"
