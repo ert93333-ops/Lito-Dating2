@@ -178,9 +178,12 @@ Rules:
  */
 router.post("/ai/coach", async (req, res) => {
   try {
-    const { messages, targetLang, prsContext } = req.body as {
+    const { messages, targetLang, uiLang, prsContext } = req.body as {
       messages: Array<{ sender: string; text: string }>;
+      /** Language the viewer writes in — drives reply suggestion language. */
       targetLang?: "ko" | "ja";
+      /** UI language of the viewer — drives summary, tips, and tone labels. */
+      uiLang?: "ko" | "ja";
       /** Optional: ConversationInterestSnapshot from the client's cached PRS state. */
       prsContext?: Record<string, unknown> | null;
     };
@@ -195,7 +198,10 @@ router.post("/ai/coach", async (req, res) => {
       .map((m) => `${m.sender === "me" ? "Me" : "Them"}: ${m.text}`)
       .join("\n");
 
+    // lang = language for reply suggestions (what the viewer will type/send)
     const lang = targetLang === "ko" ? "Korean" : "Japanese";
+    // ui = viewer's UI language — drives summary, tips, and tone labels
+    const ui = (uiLang ?? targetLang ?? "ko") === "ja" ? "ja" : "ko";
 
     // ── PRS Coaching Context Block ────────────────────────────────────────────
     // If the client sent a cached PRS snapshot, run the rule engine to build a
@@ -222,39 +228,72 @@ router.post("/ai/coach", async (req, res) => {
       }
     }
 
+    // ── Language-aware prompt strings ─────────────────────────────────────────
+    // All user-visible coach text (summary, tip, tone labels) follows `ui`.
+    // Reply suggestions follow `lang` (= viewer's writing language).
+    const isJaUi = ui === "ja";
+
+    const toneLabels = isJaUi
+      ? [
+          { emoji: "😊", label: "自然に" },
+          { emoji: "🔥", label: "積極的に" },
+          { emoji: "😏", label: "気軽に" },
+        ]
+      : [
+          { emoji: "😊", label: "편하게" },
+          { emoji: "🔥", label: "적극적으로" },
+          { emoji: "😏", label: "가볍게" },
+        ];
+
+    const summaryInstruction = isJaUi
+      ? `"summary": "1-2文の要約（日本語）— 相手が何を伝えているか説明する。例: '相手はNewJeansの話や語学の話で盛り上がり、ビデオ通話を提案して期待感を表現しています'"`
+      : `"summary": "1-2 sentence summary in Korean (한국어) — explain what the other person is expressing, e.g. '상대가 호감을 보이며 같이 연습하자고 제안했어요'"`;
+
+    const tipInstruction = isJaUi
+      ? `tip: 1 brief practical coaching tip per tone, in Japanese (日本語), e.g. "絵文字を入れると軽い雰囲気になりますよ"`
+      : `tip: 1 brief practical coaching tip per tone, in Korean, e.g. "이모지를 넣으면 더 가볍게 느껴져요"`;
+
+    const summaryRule = isJaUi
+      ? "- summary: 自然で温かみのある日本語、簡潔に、相手が表現していることを説明する"
+      : "- summary: natural warm Korean, brief, describes what the other person is expressing";
+
+    const toneLabelRule = isJaUi
+      ? `- tone emoji and label: keep exactly as shown above (😊 自然に, 🔥 積極的に, 😏 気軽に)`
+      : `- tone emoji and label: keep exactly as shown above (😊 편하게, 🔥 적극적으로, 😏 가볍게)`;
+
     const systemPrompt = `You are a conversation coach for a Korean-Japanese dating app.
 Analyse the conversation and return ONLY a valid JSON object — no markdown, no explanation, no code fences.
 
 Return exactly this JSON structure:
 {
-  "summary": "1-2 sentence summary in Korean (한국어) — explain what the other person is expressing, e.g. '상대가 호감을 보이며 같이 연습하자고 제안했어요'",
+  ${summaryInstruction},
   "tones": [
     {
-      "emoji": "😊",
-      "label": "편하게",
+      "emoji": "${toneLabels[0].emoji}",
+      "label": "${toneLabels[0].label}",
       "suggestions": ["${lang} reply option 1", "${lang} reply option 2"],
-      "tip": "Korean coaching tip for this tone"
+      "tip": "${isJaUi ? "Japanese coaching tip for this tone" : "Korean coaching tip for this tone"}"
     },
     {
-      "emoji": "🔥",
-      "label": "적극적으로",
+      "emoji": "${toneLabels[1].emoji}",
+      "label": "${toneLabels[1].label}",
       "suggestions": ["${lang} reply option 1", "${lang} reply option 2"],
-      "tip": "Korean coaching tip for this tone"
+      "tip": "${isJaUi ? "Japanese coaching tip for this tone" : "Korean coaching tip for this tone"}"
     },
     {
-      "emoji": "😏",
-      "label": "가볍게",
+      "emoji": "${toneLabels[2].emoji}",
+      "label": "${toneLabels[2].label}",
       "suggestions": ["${lang} reply option 1", "${lang} reply option 2"],
-      "tip": "Korean coaching tip for this tone"
+      "tip": "${isJaUi ? "Japanese coaching tip for this tone" : "Korean coaching tip for this tone"}"
     }
   ]
 }
 
 Rules:
-- summary: natural warm Korean, brief, describes what the other person is expressing
-- tone emoji and label: keep exactly as shown above (😊 편하게, 🔥 적극적으로, 😏 가볍게)
+${summaryRule}
+${toneLabelRule}
 - suggestions: write in ${lang} — 2 natural, warm, genuine replies per tone, each 1-2 sentences
-- tip: 1 brief practical coaching tip per tone, in Korean, e.g. "이모지를 넣으면 더 가볍게 느껴져요"
+- ${tipInstruction}
 - Return ONLY the raw JSON object, nothing else
 ${coachingContextBlock ? `\n${coachingContextBlock}` : ""}`;
 
