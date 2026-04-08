@@ -1,0 +1,243 @@
+You are working on an existing codebase for Lito, a Korean-Japanese cross-border dating app.
+
+IMPORTANT:
+- Do NOT rewrite the whole app
+- Do NOT redesign unrelated systems
+- Do NOT add major new features in this step
+- Focus only on QA, validation, consistency checking, and bug fixing for the AI Mutual Interest Signal system
+- Preserve the existing chat experience
+- Before changing code, inspect the current implementation first
+- List affected files/components before editing
+- Explain the minimal QA/fix plan first
+
+Your task:
+Audit, validate, and stabilize the newly implemented AI Mutual Interest Signal system.
+
+This system includes:
+1. feature extraction
+2. PRS scoring
+3. Confidence Score (CS)
+4. stage detection
+5. reason codes
+6. UI integration
+7. AI coaching suggestions
+
+In this step, do NOT redesign the product.
+Only test, validate, fix bugs, and improve consistency.
+
+==================================================
+GOAL OF THIS STEP
+==================================================
+
+Perform a full QA and validation review of the AI Mutual Interest Signal system.
+
+You must verify:
+- whether the scoring logic behaves coherently
+- whether confidence handling is correct
+- whether reason codes match actual signals
+- whether UI wording is safe and non-creepy
+- whether the feature behaves correctly in low-data and mixed-signal situations
+- whether the system integrates safely with Korean-Japanese chat flows
+- whether existing chat functionality remains stable
+
+==================================================
+AUDIT AREAS
+==================================================
+
+Audit the system across these layers:
+
+1. Feature extraction correctness
+- Are features being extracted from the correct message windows?
+- Are partner/user roles handled correctly?
+- Are timestamps interpreted correctly?
+- Are silence gaps and re-initiation logic working correctly?
+- Are translation-heavy conversations handled safely?
+
+2. Stage detection correctness
+- Are Opening / Discovery / Escalation states assigned consistently?
+- Are thresholds configurable and applied correctly?
+- Are progression signals falsely triggering escalation?
+
+3. PRS computation correctness
+- Are weights applied correctly by stage?
+- Are penalties applied correctly?
+- Is score clamping working correctly?
+- Are there impossible or unstable outputs?
+
+4. Confidence Score correctness
+- Does confidence drop appropriately with low data?
+- Does confidence handle long inactivity correctly?
+- Does confidence handle conflicting signals correctly?
+- Are low-confidence states properly suppressing overconfident UI?
+
+5. Reason code quality
+- Do generated reasons actually reflect the underlying signals?
+- Are reason codes missing in important cases?
+- Are reasons contradictory in mixed-signal cases?
+
+6. UI integration quality
+- Is the UI calm, useful, and non-creepy?
+- Are strong claims avoided?
+- Are low-confidence and mixed-signal fallback states working?
+- Does repeated refresh cause flicker or inconsistent display?
+
+7. Coaching suggestion quality
+- Are suggestions based on actual signals?
+- Are suggestions too generic?
+- Are suggestions manipulative or overly deterministic?
+- Do suggestions respect stage and confidence?
+
+==================================================
+TEST SCENARIOS
+==================================================
+
+Audit the system against at least these scenarios:
+
+1. Very early conversation
+- only a few turns
+- little semantic depth
+Expected:
+- low confidence
+- no strong PRS display
+- “too early / not enough data” style output
+
+2. High responsiveness but shallow conversation
+- fast replies
+- low depth
+- low progression
+Expected:
+- moderate interest, not falsely high
+- coaching should not recommend aggressive escalation
+
+3. Warm and engaged conversation
+- follow-up questions
+- topic continuity
+- balanced participation
+Expected:
+- stronger PRS
+- good reason codes
+- safe coaching suggestions
+
+4. High warmth, low progression
+- kind tone
+- no next-step signals
+Expected:
+- UI should reflect warmth without overclaiming romantic intent
+- coaching should avoid pushing too early
+
+5. Strong progression case
+- availability sharing
+- call/date openness
+Expected:
+- escalation stage or clear progression signal
+- appropriate coaching suggestions
+
+6. Mixed signal case
+- slow replies
+- but good topic continuity
+- or warm tone with generic responses
+Expected:
+- mixed signal handling
+- confidence-aware interpretation
+
+7. Long silence + partner re-initiation
+Expected:
+- re-initiation should positively affect receptivity
+- score should not collapse incorrectly
+
+8. Oversharing or self-promotion case
+Expected:
+- penalties should activate appropriately
+- not over-penalize harmless detail
+
+9. Generic template reply case
+Expected:
+- genericity penalty should trigger
+- explanation should remain user-safe
+
+10. Translation-heavy KR-JP conversation
+Expected:
+- system should degrade gracefully when semantic confidence is lower
+- not hallucinate strong certainty
+
+11. High scam-risk pattern
+- off-platform push
+- suspicious repeated phrases
+Expected:
+- scam penalty support
+- coaching should not generate normal romance escalation advice
+
+==================================================
+BUG / RISK CHECKLIST
+==================================================
+
+Check for:
+- wrong speaker attribution
+- wrong windowing logic
+- broken baseline reply speed calculations
+- partner baseline being calculated from user messages by mistake
+- penalties overpowering all other signals
+- scores jumping too abruptly between refreshes
+- stage transitions happening too often
+- low-confidence cases still showing strong insight text
+- duplicated reason strings
+- contradictory UI messaging
+- missing loading / empty states
+- coaching suggestions ignoring confidence
+- translation ambiguity causing false certainty
+
+==================================================
+EXPECTED OUTPUT
+==================================================
+
+Before writing any code:
+1. inspect the current implementation
+2. list all affected files/components
+3. explain the QA and validation plan
+
+Then produce:
+4. a prioritized issue list
+5. severity for each issue
+6. recommended fixes
+7. what must be fixed before launch
+8. what can wait for v2
+
+If bugs or inconsistencies are found:
+9. implement only targeted fixes
+10. keep all changes minimal and isolated
+11. explain each fix clearly
+
+==================================================
+QUALITY STANDARDS
+==================================================
+
+The system should:
+- feel explainable
+- avoid emotional overclaiming
+- avoid creepy mind-reading vibes
+- degrade gracefully with uncertainty
+- produce stable outputs across similar conversations
+- remain useful without being manipulative
+
+The system should NOT:
+- claim certainty
+- create dependency
+- pressure the user
+- encourage deceptive tactics
+- break existing chat UX
+
+==================================================
+FINAL DELIVERABLES
+==================================================
+
+After QA and fixes, provide:
+1. summary of findings
+2. bug list
+3. fixed issues
+4. remaining limitations
+5. launch-readiness assessment for this feature
+6. recommended next improvements for v2
+
+Do not perform a full rewrite.
+Do not redesign unrelated product areas.
+Focus on validation, stabilization, and targeted bug fixing only.

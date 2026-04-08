@@ -461,7 +461,16 @@ export function computeConfidenceScore(fw: Record<string, unknown>): {
   };
 
   const rawScore = weightedSum(factors as unknown as Record<string, number>, PRS_SCORING_CONFIG.confidenceWeights);
-  const score = Math.round(clamp01(rawScore) * 100);
+  let score = Math.round(clamp01(rawScore) * 100);
+
+  // FIX B2: Safety override — when scam signals are present, cap confidence at 45.
+  // This prevents the UI from showing a "confident / positive" state alongside a scam warning.
+  // A charming scammer can generate high responsiveness scores; capping confidence forces
+  // the system into low_confidence_hidden_score mode regardless of other signals.
+  const penaltiesForScam = (fw.penalties ?? {}) as Record<string, number>;
+  if ((penaltiesForScam.scamRiskPenalty ?? 0) >= 0.5) {
+    score = Math.min(score, 45);
+  }
 
   return { score, factors };
 }
@@ -770,8 +779,17 @@ export function generateInterestReasonCodes(
   };
   uniqueCodes.sort((a, b) => priority(a) - priority(b));
 
-  // Cap at 6 reason codes for UI
-  const topCodes = uniqueCodes.slice(0, 6);
+  // FIX B1: SCAM_RISK_DETECTED must always be visible in the top 6 codes.
+  // The sort above puts negatives last, so when there are 6+ positive/neutral codes,
+  // the scam warning gets dropped by the slice — which is a safety failure.
+  // Solution: reserve a slot for SCAM_RISK_DETECTED by capping non-scam codes at 5
+  // when the scam code is present, guaranteeing the warning always surfaces.
+  const hasScamCode = uniqueCodes.includes("SCAM_RISK_DETECTED");
+  const nonScamCodes = hasScamCode ? uniqueCodes.filter(c => c !== "SCAM_RISK_DETECTED") : uniqueCodes;
+  const regularSlice = hasScamCode ? 5 : 6;
+  const topCodes = hasScamCode
+    ? [...nonScamCodes.slice(0, regularSlice), "SCAM_RISK_DETECTED"]
+    : nonScamCodes.slice(0, regularSlice);
 
   const generatedInsights: ConversationInsight[] = topCodes
     .map((code) => {
@@ -827,8 +845,17 @@ export function generateConversationInterestSnapshot(
   );
 
   // Step 6: Low confidence state
-  const positiveCount = generatedInsights.filter((i) => i.polarity === "positive").length;
-  const negativeCount = generatedInsights.filter((i) => i.polarity === "negative").length;
+  // FIX B3: Count polarity across ALL reasonCodes, not just the top-4 generatedInsights.
+  // Previously, negative codes at positions 5-6 were excluded from the mixed_signals check
+  // because generatedInsights is capped at 4. This caused mixed-signal conversations
+  // (fast replies + good topic continuity but slow/inconsistent temporal) to show lcs=null
+  // instead of the correct "mixed_signals" state.
+  const positiveCount = reasonCodes.filter(
+    (c) => INSIGHTS_CATALOG[c]?.polarity === "positive"
+  ).length;
+  const negativeCount = reasonCodes.filter(
+    (c) => INSIGHTS_CATALOG[c]?.polarity === "negative"
+  ).length;
   const lowConfidenceState = deriveLowConfidenceState(
     confidenceScore,
     positiveCount,
