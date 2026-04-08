@@ -239,7 +239,8 @@ export interface Match {
   matchedAt: string;
   isNew: boolean;
   user: User;
-  iceBreaker?: string;  // AI-suggested opening line based on shared compatibility
+  iceBreaker?: string;     // AI-suggested opening line (Korean)
+  iceBreakerJa?: string;   // AI-suggested opening line (Japanese)
 }
 
 export interface Message {

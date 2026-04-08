@@ -76,11 +76,13 @@ function MatchCard({ match }: { match: Match }) {
         </View>
 
         {/* Ice breaker or bio */}
-        {match.iceBreaker ? (
+        {(match.iceBreaker || match.iceBreakerJa) ? (
           <View style={[styles.iceBreakerRow, { backgroundColor: colors.roseLight, borderColor: "#F2BDCA" }]}>
             <Feather name="cpu" size={9} color={colors.rose} />
             <Text style={[styles.iceBreakerText, { color: colors.rose }]} numberOfLines={2}>
-              {match.iceBreaker}
+              {lang === "ja"
+                ? (match.iceBreakerJa ?? match.iceBreaker)
+                : (match.iceBreaker ?? match.iceBreakerJa)}
             </Text>
           </View>
         ) : (
@@ -181,12 +183,16 @@ export default function MatchesScreen() {
       <View style={[styles.referralNudge, { backgroundColor: "#FFF0F3", borderColor: "#F2BDCA" }]}>
         <View style={styles.referralNudgeLeft}>
           <Text style={[styles.referralNudgeTitle, { color: colors.charcoal }]}>
-            친구에게 Lito를 소개해요 🎁
+            {lang === "ko" ? "친구에게 Lito를 소개해요 🎁" : "友達にLitoを紹介しよう 🎁"}
           </Text>
           <Text style={[styles.referralNudgeSub, { color: colors.charcoalLight }]}>
             {referral.successfulReferrals > 0
-              ? `${referral.successfulReferrals}명 초대 완료 · 보상 확인하기`
-              : "초대하면 부스트 크레딧을 받아요"}
+              ? lang === "ko"
+                ? `${referral.successfulReferrals}명 초대 완료 · 보상 확인하기`
+                : `${referral.successfulReferrals}人を招待済み · 報酬を確認する`
+              : lang === "ko"
+                ? "초대하면 부스트 크레딧을 받아요"
+                : "紹介するとブーストクレジットがもらえます"}
           </Text>
         </View>
         <TouchableOpacity

@@ -187,6 +187,7 @@ export const mockMatches: Match[] = [
     isNew: false,
     user: mockUsers[0],
     iceBreaker: "둘 다 창의적인 직업이네요! 서로의 작업물을 보여주면 어떨까요? 🎨",
+    iceBreakerJa: "お互いクリエイティブなお仕事ですね！作品を見せ合いませんか？ 🎨",
   },
   {
     id: "match2",
@@ -195,6 +196,7 @@ export const mockMatches: Match[] = [
     isNew: true,
     user: mockUsers[4],
     iceBreaker: "일본 문학을 좋아하신다고요? 최근에 읽은 책이 있으신가요? 📖",
+    iceBreakerJa: "日本文学がお好きだとか？最近読んだ本はありますか？ 📖",
   },
   {
     id: "match3",
@@ -203,6 +205,7 @@ export const mockMatches: Match[] = [
     isNew: true,
     user: mockUsers[2],
     iceBreaker: "교토 출신 사진작가님! 필름 카메라로 찍은 사진 있으면 보고 싶어요 📷",
+    iceBreakerJa: "京都出身のフォトグラファーさんですね！フィルムカメラの写真があれば見てみたいです 📷",
   },
 ];
 
