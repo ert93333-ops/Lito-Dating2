@@ -5,6 +5,7 @@ import {
   Inter_700Bold,
   useFonts,
 } from "@expo-google-fonts/inter";
+import { Feather } from "@expo/vector-icons";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { setBaseUrl } from "@workspace/api-client-react";
 import { Stack, router } from "expo-router";
@@ -67,6 +68,8 @@ function FontLoader({ children }: { children: React.ReactNode }) {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
+    // Load Feather icon font explicitly — required on Android in Expo SDK 54+
+    ...Feather.font,
   });
 
   useEffect(() => {

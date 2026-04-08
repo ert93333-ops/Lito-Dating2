@@ -192,16 +192,33 @@ export default function ProfileSetupScreen() {
   );
 
   // Country context pill — shown in each step as a persistent reminder
-  const CountryPill = () => (
-    <View style={[shared.countryPill, { backgroundColor: colors.roseLight, borderColor: colors.roseSoft }]}>
-      <Text style={shared.countryFlag}>
-        {profile.country === "KR" ? "🇰🇷" : "🇯🇵"}
-      </Text>
-      <Text style={[shared.countryLabel, { color: colors.rose }]}>
-        {profile.country === "KR" ? "한국 · Korean" : "日本 · Japanese"}
-      </Text>
-    </View>
-  );
+  const CountryPill = () => {
+    const isKR = profile.country === "KR";
+    return (
+      <View style={[shared.countryPill, { backgroundColor: colors.roseLight, borderColor: colors.roseSoft }]}>
+        {/* View-based mini flag — Android-safe, no emoji dependency */}
+        <View style={{
+          width: 18, height: 18, borderRadius: 9, overflow: "hidden",
+          borderWidth: 0.5, borderColor: "#D0C8CA",
+        }}>
+          {isKR ? (
+            <View style={{ width: 18, height: 18, alignItems: "center", justifyContent: "center" }}>
+              <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 9, backgroundColor: "#C60C30" }} />
+              <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 9, backgroundColor: "#003478" }} />
+              <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: "#FFFFFF" }} />
+            </View>
+          ) : (
+            <View style={{ width: 18, height: 18, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" }}>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#BC002D" }} />
+            </View>
+          )}
+        </View>
+        <Text style={[shared.countryLabel, { color: colors.rose }]}>
+          {isKR ? "한국 · Korean" : "日本 · Japanese"}
+        </Text>
+      </View>
+    );
+  };
 
   // ══════════════════════════════════════════════════════════════════════════
   // STEP 1 — Identity (name / age / intro)

@@ -111,6 +111,64 @@ function CtaButton({
   );
 }
 
+// ── FlagBadge ──────────────────────────────────────────────────────────────────
+// View-based flag — no emoji dependency (Android compatibility)
+// KR: red top / blue bottom + white center (simplified Taeguk)
+// JP: white background + red circle (exact Japanese flag pattern)
+
+function FlagBadge({ country, size = 64 }: { country: "KR" | "JP"; size?: number }) {
+  const r = size / 2;
+
+  if (country === "JP") {
+    return (
+      <View
+        style={{
+          width: size, height: size, borderRadius: r,
+          backgroundColor: "#FFFFFF",
+          alignItems: "center", justifyContent: "center",
+          borderWidth: 1.5, borderColor: "#E0DADA",
+          shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
+        }}
+      >
+        <View
+          style={{
+            width: size * 0.54, height: size * 0.54,
+            borderRadius: size * 0.27,
+            backgroundColor: "#BC002D",
+          }}
+        />
+      </View>
+    );
+  }
+
+  // KR — simplified Taeguk: white circle, red top half, blue bottom half, white center
+  return (
+    <View
+      style={{
+        width: size, height: size, borderRadius: r,
+        backgroundColor: "#FFFFFF",
+        overflow: "hidden",
+        borderWidth: 1.5, borderColor: "#E0DADA",
+        shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
+      }}
+    >
+      <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+        <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: r, backgroundColor: "#C60C30" }} />
+        <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: r, backgroundColor: "#003478" }} />
+        <View
+          style={{
+            width: size * 0.38, height: size * 0.38,
+            borderRadius: size * 0.19,
+            backgroundColor: "#FFFFFF",
+          }}
+        />
+      </View>
+    </View>
+  );
+}
+
 // ── LanguageCard ───────────────────────────────────────────────────────────────
 // L2 FIX: First screen forces explicit language/country selection.
 
@@ -168,7 +226,7 @@ function LanguageCard({
           </Animated.View>
         )}
 
-        <Text style={langCard.flag}>{isKo ? "🇰🇷" : "🇯🇵"}</Text>
+        <FlagBadge country={isKo ? "KR" : "JP"} size={64} />
 
         <Text style={[langCard.langMain, { color: isSelected ? accentColor : colors.charcoal }]}>
           {isKo ? "한국어" : "日本語"}
@@ -236,7 +294,7 @@ function CountryCard({
           </Animated.View>
         )}
 
-        <Text style={countryStyles.flag}>{isKR ? "🇰🇷" : "🇯🇵"}</Text>
+        <FlagBadge country={country} size={64} />
 
         <Text style={[countryStyles.nameMain, { color: colors.charcoal }]}>
           {isKR
@@ -645,7 +703,7 @@ export default function OnboardingScreen() {
 
         {currentIndex === SLIDES.length - 1 && (
           <Text style={[styles.trustNote, { color: colors.charcoalLight }]}>
-            🇰🇷 한국 · 🇯🇵 일본 연결을 지원합니다
+            한국 · 일본 연결을 지원합니다
           </Text>
         )}
       </View>
