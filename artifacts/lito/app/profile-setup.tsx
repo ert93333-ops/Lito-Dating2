@@ -230,7 +230,7 @@ export default function ProfileSetupScreen() {
 
           {/* Step hero */}
           <Text style={[s.heroTitle, { color: colors.charcoal }]}>
-            {lang === "ko" ? "안녕하세요 👋" : "はじめまして 👋"}
+            {lang === "ko" ? "안녕하세요!" : "はじめまして！"}
           </Text>
           <Text style={[s.heroSub, { color: colors.charcoalLight }]}>
             {lang === "ko"
@@ -341,7 +341,6 @@ export default function ProfileSetupScreen() {
 
           {/* Soft tip card */}
           <View style={[s.tipCard, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-            <Text style={s.tipEmoji}>💡</Text>
             <Text style={[s.tipText, { color: colors.charcoalMid }]}>
               {lang === "ko"
                 ? "진솔한 소개가 좋은 인연을 만들어요. 있는 그대로의 나를 보여주세요."
@@ -602,16 +601,12 @@ const s = StyleSheet.create({
 
   // Tip card
   tipCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginTop: 4,
   },
-  tipEmoji: { fontSize: 16, marginTop: 1 },
   tipText: {
     fontFamily: "Inter_400Regular",
     fontSize: 13.5,

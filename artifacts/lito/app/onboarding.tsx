@@ -1,6 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
 import {
   BackHandler,
@@ -33,7 +34,7 @@ const { width } = Dimensions.get("window");
 const SLIDES = [
   {
     id: "1",
-    emoji: "🤝",
+    icon: "heart" as const,
     gradientColors: ["#FFF0F3", "#FAE0E5"] as const,
     accentColor: "#D85870",
     titleKo: "AI 문화 매칭",
@@ -44,7 +45,7 @@ const SLIDES = [
   },
   {
     id: "2",
-    emoji: "💬",
+    icon: "message-circle" as const,
     gradientColors: ["#EEF4FF", "#DCE8FF"] as const,
     accentColor: "#3B6FD4",
     titleKo: "실시간 번역",
@@ -55,7 +56,7 @@ const SLIDES = [
   },
   {
     id: "3",
-    emoji: "🛡️",
+    icon: "shield" as const,
     gradientColors: ["#EFFAF4", "#D8F5E5"] as const,
     accentColor: "#1A7A4A",
     titleKo: "안전한 신뢰 쌓기",
@@ -414,7 +415,7 @@ export default function OnboardingScreen() {
               colors={item.gradientColors}
               style={styles.iconCircle}
             >
-              <Text style={styles.emoji}>{item.emoji}</Text>
+              <Feather name={item.icon} size={52} color={item.accentColor} />
             </LinearGradient>
 
             <Text style={[styles.title, { color: colors.charcoal }]}>
@@ -608,7 +609,6 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 6,
   },
-  emoji: { fontSize: 64 },
   title: {
     fontFamily: "Inter_700Bold",
     fontSize: 28,

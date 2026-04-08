@@ -608,10 +608,10 @@ function AiCoachPopup({ visible, data, topOffset, onClose }: AiCoachPopupProps) 
               <Feather name="arrow-left" size={17} color={colors.charcoalLight} />
             </TouchableOpacity>
           ) : (
-            <Text style={popup.headerIcon}>⚡</Text>
+            <Feather name="zap" size={16} color={colors.charcoalLight} />
           )}
           <Text style={[popup.headerTitle, { color: colors.charcoal }]} numberOfLines={1}>
-            {tone ? `${tone.emoji} ${tone.label}` : "대화 코치"}
+            {tone ? tone.label : "대화 코치"}
           </Text>
           <TouchableOpacity onPress={onClose} style={popup.closeBtn} hitSlop={12}>
             <Feather name="x" size={18} color={colors.charcoalLight} />
@@ -641,7 +641,6 @@ function AiCoachPopup({ visible, data, topOffset, onClose }: AiCoachPopupProps) 
                       }}
                       style={[popup.tonePill, { backgroundColor: colors.muted, borderColor: colors.border }]}
                     >
-                      <Text style={popup.toneEmoji}>{t.emoji}</Text>
                       <Text style={[popup.toneLabel, { color: colors.charcoal }]}>{t.label}</Text>
                     </Pressable>
                   ))}
@@ -675,7 +674,7 @@ function AiCoachPopup({ visible, data, topOffset, onClose }: AiCoachPopupProps) 
             )}
             {tone.tip ? (
               <View style={[popup.tipWrap, { backgroundColor: colors.muted }]}>
-                <Text style={[popup.tipLabel, { color: "#D85870" }]}>💡 팁</Text>
+                <Text style={[popup.tipLabel, { color: "#D85870" }]}>팁</Text>
                 <Text style={[popup.tipText, { color: colors.charcoal }]}>{tone.tip}</Text>
               </View>
             ) : null}

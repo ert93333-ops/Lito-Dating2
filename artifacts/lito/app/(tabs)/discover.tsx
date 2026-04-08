@@ -290,8 +290,8 @@ function DiscoverCard({
             <View style={cardStyles.langBadge}>
               <Text style={cardStyles.langBadgeText}>
                 {user.language === "ja"
-                  ? (profile.language === "ko" ? "📚 한국어 공부 중" : "📚 韓国語勉強中")
-                  : (profile.language === "ko" ? "📚 일본어 공부 중" : "📚 日本語勉強中")}
+                  ? (profile.language === "ko" ? "한국어 공부 중" : "韓国語勉強中")
+                  : (profile.language === "ko" ? "일본어 공부 중" : "日本語勉強中")}
               </Text>
             </View>
           )}

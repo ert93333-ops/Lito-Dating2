@@ -59,7 +59,7 @@ function MatchCard({ match }: { match: Match }) {
           {match.user.studyingLanguage && (
             <View style={[styles.studyBadge, { backgroundColor: "#E8FAF4", borderColor: "#B8EDD8" }]}>
               <Text style={[styles.studyBadgeText, { color: "#1A7A4A" }]}>
-                {match.user.language === "ja" ? "📚 KR" : "📚 JP"}
+                {match.user.language === "ja" ? "KR 공부중" : "JP 공부중"}
               </Text>
             </View>
           )}

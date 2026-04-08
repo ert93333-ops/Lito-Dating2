@@ -90,7 +90,7 @@ function SuggestionCard({ suggestion }: { suggestion: ProfileSuggestion }) {
 
       {/* Reason */}
       <Text style={[styles.reason, { color: colors.charcoalLight }]}>
-        💡 {suggestion.reason}
+        {suggestion.reason}
       </Text>
 
       {/* CTA buttons */}
