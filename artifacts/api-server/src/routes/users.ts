@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, eq, notInArray, or, gte, lte } from "drizzle-orm";
+import { and, eq, notInArray, or, gte, lte, sql } from "drizzle-orm";
 import { db, users, userProfiles, swipeLikes, swipePasses, matchesTable } from "@workspace/db";
 import { optionalAuth, requireAuth } from "../middleware/auth";
 
@@ -291,10 +291,11 @@ router.get("/users/discover", optionalAuth, async (req, res) => {
         ...passedRows.map((r) => r.id),
       ];
 
-      // DB에서 다른 실제 사용자 조회 (프로필 완성된 사람만)
+      // DB에서 다른 실제 사용자 조회 (사진 1장 이상인 사람만)
+      const hasPhoto = sql`jsonb_array_length(${userProfiles.photos}) > 0`;
       const whereConditions = excludeIds.length > 0
-        ? and(notInArray(users.id, excludeIds))
-        : undefined;
+        ? and(notInArray(users.id, excludeIds), hasPhoto)
+        : and(hasPhoto);
 
       const dbRows = await db
         .select()
