@@ -30,10 +30,6 @@ export function CountryFlag({ country, size = 22 }: CountryFlagProps) {
         fill="#1B3F8B"
         transform="rotate(-45, 50, 50)"
       />
-      {/* 양 속 음점 */}
-      <Circle cx="50" cy="31" r="8" fill="#1B3F8B" transform="rotate(-45, 50, 50)" />
-      {/* 음 속 양점 */}
-      <Circle cx="50" cy="69" r="8" fill="#D42B3A" transform="rotate(-45, 50, 50)" />
     </Svg>
   );
 }
