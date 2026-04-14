@@ -35,7 +35,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **WebSocket 실시간 채팅**: `ws` 패키지 기반. `/ws` 경로. JWT 인증. 방(room) 기반 브로드캐스트. 메시지 DB 저장. 자동 재연결(3초). WS 미연결 시 HTTP 폴백
 - **채팅 DB 저장+로드**: `chat_messages` 테이블. 채팅방 열릴 때 서버에서 과거 메시지 로드. 앱 재시작 후 대화 복구
 - **Discovery JWT**: `/api/users/discover`, `/api/users/:id/like`, `/api/users/:id/pass` 모두 optionalAuth로 사용자별 스와이프 이력 분리
-- **TODO**: Discovery/Matches → 실제 DB 전환, Kakao/LINE OAuth, 사진 Object Storage
+- **Object Storage 사진 저장**: GCS 기반. `/api/storage/uploads/request-url` (JWT 필요) → presigned PUT URL → GCS 직접 업로드 → `/api/storage/objects/*` 서빙. 업로드 중 로딩 인디케이터 표시. `utils/photoUpload.ts`에 유틸리티 구현. profile-setup/profile-edit 양쪽에서 사진 선택 즉시 GCS 업로드
+- **TODO**: Discovery/Matches → 실제 DB 전환, Kakao/LINE OAuth
 
 ### Lito Admin — Trust & Safety Dashboard (`artifacts/admin`)
 - **Type**: data-visualization (React + Vite)

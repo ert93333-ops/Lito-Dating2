@@ -4,6 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Platform,
@@ -25,6 +26,7 @@ import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 import { INTERESTS_I18N } from "@/utils/interests";
+import { uploadPhotoToStorage } from "@/utils/photoUpload";
 
 // ── AnimatedPressable CTA ─────────────────────────────────────────────────────
 
@@ -109,6 +111,7 @@ export default function ProfileSetupScreen() {
   // Step 1 — Photos
   const [mainPhoto, setMainPhoto] = useState<string | null>(null);
   const [extraPhotos, setExtraPhotos] = useState<(string | null)[]>([null, null, null]);
+  const [photoUploading, setPhotoUploading] = useState<Record<string, boolean>>({});
 
   // Step 2 — Identity
   const [nickname, setNickname] = useState("");
@@ -146,6 +149,9 @@ export default function ProfileSetupScreen() {
 
     if (!result.canceled && result.assets[0]) {
       const uri = result.assets[0].uri;
+      const slotKey = String(slot);
+
+      // 먼저 로컬 URI로 즉시 미리보기 표시
       if (slot === "main") {
         setMainPhoto(uri);
       } else {
@@ -156,6 +162,29 @@ export default function ProfileSetupScreen() {
         });
       }
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      // 토큰이 있을 때 GCS에 백그라운드 업로드
+      if (token) {
+        setPhotoUploading((prev) => ({ ...prev, [slotKey]: true }));
+        uploadPhotoToStorage(uri, token)
+          .then((servingUrl) => {
+            if (slot === "main") {
+              setMainPhoto(servingUrl);
+            } else {
+              setExtraPhotos((prev) => {
+                const next = [...prev];
+                next[slot as number] = servingUrl;
+                return next;
+              });
+            }
+          })
+          .catch((err) => {
+            console.warn("[profile-setup] 사진 업로드 실패, 로컬 URI 유지:", err);
+          })
+          .finally(() => {
+            setPhotoUploading((prev) => ({ ...prev, [slotKey]: false }));
+          });
+      }
     }
   };
 
@@ -341,6 +370,11 @@ export default function ProfileSetupScreen() {
                   style={s.mainPhotoImage}
                   contentFit="cover"
                 />
+                {photoUploading["main"] && (
+                  <View style={[s.uploadOverlay, { backgroundColor: "rgba(0,0,0,0.4)" }]}>
+                    <ActivityIndicator size="small" color="#fff" />
+                  </View>
+                )}
                 <TouchableOpacity
                   style={[s.removeBtn, { backgroundColor: colors.charcoal }]}
                   onPress={() => removePhoto("main")}
@@ -403,6 +437,11 @@ export default function ProfileSetupScreen() {
                           style={{ width: EXTRA_SLOT_SIZE, height: EXTRA_SLOT_SIZE, borderRadius: 14 }}
                           contentFit="cover"
                         />
+                        {photoUploading[String(i)] && (
+                          <View style={[s.uploadOverlay, { borderRadius: 14 }]}>
+                            <ActivityIndicator size="small" color="#fff" />
+                          </View>
+                        )}
                         <TouchableOpacity
                           style={[s.removeBtn, s.removeBtnSmall, { backgroundColor: colors.charcoal }]}
                           onPress={() => removePhoto(i)}
@@ -967,6 +1006,16 @@ const s = StyleSheet.create({
     fontSize: 12.5,
     textAlign: "center",
     lineHeight: 18,
+  },
+  uploadOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   removeBtn: {
     position: "absolute",

@@ -4,6 +4,7 @@ import aiRouter from "./ai";
 import usersRouter from "./users";
 import authRouter from "./auth";
 import chatRouter from "./chat";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(authRouter);
 router.use(chatRouter);
 router.use(aiRouter);
 router.use(usersRouter);
+router.use(storageRouter);
 
 export default router;

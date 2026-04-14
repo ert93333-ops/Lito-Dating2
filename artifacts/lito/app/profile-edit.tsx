@@ -4,6 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Platform,
@@ -24,6 +25,7 @@ import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 import { INTERESTS_I18N } from "@/utils/interests";
+import { uploadPhotoToStorage } from "@/utils/photoUpload";
 
 const MAX_INTERESTS = 8;
 
@@ -68,7 +70,7 @@ function SaveButton({ label, onPress, disabled }: { label: string; onPress: () =
 export default function ProfileEditScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { profile, updateProfile } = useApp();
+  const { profile, updateProfile, token } = useApp();
   const { lang } = useLocale();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -81,6 +83,7 @@ export default function ProfileEditScreen() {
   const [instagramHandle, setInstagramHandle] = useState(profile.instagramHandle ?? "");
   const [selectedInterests, setSelectedInterests] = useState<string[]>(profile.interests ?? []);
   const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
+  const [isPhotoUploading, setIsPhotoUploading] = useState(false);
 
   const parsedAge = parseInt(age, 10);
   const ageValid = age === "" || (!isNaN(parsedAge) && parsedAge >= 18 && parsedAge <= 99);
@@ -109,8 +112,20 @@ export default function ProfileEditScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setLocalPhotoUri(result.assets[0].uri);
+      const uri = result.assets[0].uri;
+      setLocalPhotoUri(uri);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      // 토큰 있을 때 GCS에 업로드
+      if (token) {
+        setIsPhotoUploading(true);
+        uploadPhotoToStorage(uri, token)
+          .then((servingUrl) => setLocalPhotoUri(servingUrl))
+          .catch((err) => {
+            console.warn("[profile-edit] 사진 업로드 실패, 로컬 URI 유지:", err);
+          })
+          .finally(() => setIsPhotoUploading(false));
+      }
     }
   };
 
@@ -188,11 +203,18 @@ export default function ProfileEditScreen() {
             <TouchableOpacity onPress={handlePickPhoto} activeOpacity={0.8}>
               <View style={[s.photoFrame, { borderColor: colors.roseSoft, backgroundColor: colors.roseLight }]}>
                 {localPhotoUri ? (
-                  <Image
-                    source={{ uri: localPhotoUri }}
-                    style={s.photoPreview}
-                    contentFit="cover"
-                  />
+                  <>
+                    <Image
+                      source={{ uri: localPhotoUri }}
+                      style={s.photoPreview}
+                      contentFit="cover"
+                    />
+                    {isPhotoUploading && (
+                      <View style={s.uploadOverlay}>
+                        <ActivityIndicator size="small" color="#fff" />
+                      </View>
+                    )}
+                  </>
                 ) : profile.photos[0] ? (
                   <Image
                     source={
@@ -523,6 +545,16 @@ const s = StyleSheet.create({
   photoPreview: {
     width: "100%",
     height: "100%",
+  },
+  uploadOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   photoPlaceholder: {
     flex: 1,
