@@ -113,6 +113,7 @@ interface AppContextType {
   unlockExternalContact: (conversationId: string) => void;
   requestUnlock: (conversationId: string) => void;
   respondToUnlock: (conversationId: string, accept: boolean) => void;
+  clearNewMatches: () => void;
   setActiveConversation: (id: string | null) => void;
   updateProfile: (updates: Partial<MyProfile>) => void;
 }
@@ -226,6 +227,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [fetchDiscover]);
 
   const dismissMatch = useCallback(() => setNewMatch(null), []);
+
+  const clearNewMatches = useCallback(() => {
+    setMatches((prev) => prev.map((m) => ({ ...m, isNew: false })));
+  }, []);
 
   // ── Like user — calls API, handles match ─────────────────────────────────
   const likeUser = useCallback(async (userId: string) => {
@@ -473,6 +478,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         unlockExternalContact,
         requestUnlock,
         respondToUnlock,
+        clearNewMatches,
         setActiveConversation,
         updateProfile,
       }}

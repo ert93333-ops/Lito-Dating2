@@ -38,7 +38,7 @@ function NativeTabLayout() {
 function ClassicTabLayout() {
   const colors = useColors();
   const { lang } = useLocale();
-  const { conversations } = useApp();
+  const { conversations, matches } = useApp();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
@@ -48,6 +48,8 @@ function ClassicTabLayout() {
     const fromLock = c.unlockRequestState === "received" ? 1 : 0;
     return sum + c.unreadCount + fromLock;
   }, 0);
+
+  const matchesBadge = matches.filter((m) => m.isNew).length;
 
   return (
     <Tabs
@@ -100,6 +102,8 @@ function ClassicTabLayout() {
         name="matches"
         options={{
           title: lang === "ko" ? "매칭" : "マッチ",
+          tabBarBadge: matchesBadge > 0 ? matchesBadge : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.rose, fontSize: 10 },
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="heart" tintColor={color} size={24} />

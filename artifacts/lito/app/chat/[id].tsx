@@ -1238,7 +1238,11 @@ export default function ChatDetailScreen() {
           <FIcon name="arrow-left" size={22} color={colors.charcoal} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.headerUser} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.headerUser}
+          activeOpacity={0.7}
+          onPress={() => router.push(`/user-profile/${conversation.user.id}` as any)}
+        >
           <View style={styles.avatarWrap}>
             <ProfileImage photoKey={conversation.user.photos[0]} size={40} />
             <View

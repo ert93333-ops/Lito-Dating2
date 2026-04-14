@@ -5,7 +5,10 @@ import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Dimensions,
+  Modal,
   Platform,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -571,6 +574,11 @@ export default function DiscoverScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { discoverUsers, discoverLoading, newMatch, dismissMatch, refetchDiscover, likeUser, passUser, profile } = useApp();
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
+  const [filterCountry, setFilterCountry] = useState<"all" | "KR" | "JP">("all");
+  const [filterLevel, setFilterLevel] = useState<"all" | "beginner" | "intermediate" | "advanced">("all");
+  const [filterAgeMin, setFilterAgeMin] = useState(20);
+  const [filterAgeMax, setFilterAgeMax] = useState(35);
   const { chemistryPicks, track } = useGrowth();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const TAB_BAR_H = Platform.OS === "web" ? 84 : 70;
@@ -579,6 +587,16 @@ export default function DiscoverScreen() {
   const handlePass = (userId: string) => { setTimeout(() => passUser(userId), 240); };
 
   const isKo = profile.language === "ko";
+
+  // ── Apply filters to deck ──────────────────────────────────────────────────
+  const filteredUsers = discoverUsers.filter((u) => {
+    if (filterCountry !== "all" && u.country !== filterCountry) return false;
+    if (filterLevel !== "all" && u.languageLevel !== filterLevel) return false;
+    if (u.age < filterAgeMin || u.age > filterAgeMax) return false;
+    return true;
+  });
+  const filtersActive =
+    filterCountry !== "all" || filterLevel !== "all" || filterAgeMin !== 20 || filterAgeMax !== 35;
 
   // ── Match popup animation ──────────────────────────────────────────────────
   const matchScale = useSharedValue(0.72);
@@ -676,18 +694,25 @@ export default function DiscoverScreen() {
           <TouchableOpacity
             style={[
               styles.filterBtn,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              {
+                backgroundColor: filtersActive ? colors.roseLight : colors.surface,
+                borderColor: filtersActive ? colors.rose : colors.border,
+              },
             ]}
             activeOpacity={0.7}
+            onPress={() => setShowFilterSheet(true)}
           >
-            <FIcon name="sliders" size={16} color={colors.charcoalMid} />
+            <FIcon name="sliders" size={16} color={filtersActive ? colors.rose : colors.charcoalMid} />
+            {filtersActive && (
+              <View style={[styles.filterActiveDot, { backgroundColor: colors.rose }]} />
+            )}
           </TouchableOpacity>
         </View>
       </View>
 
       {/* ── Card stack ─────────────────────────────────────────────────── */}
       <View style={[styles.stack, { bottom: TAB_BAR_H + 106 }]}>
-        {discoverUsers.slice(0, 3).map((user, idx) => {
+        {filteredUsers.slice(0, 3).map((user, idx) => {
           const isTop = idx === 0;
           // Background cards: scale down, push back
           const scale = 1 - idx * 0.03;
@@ -726,7 +751,7 @@ export default function DiscoverScreen() {
 
         {/* Pass — Light haptic, small scale */}
         <ActionButton
-          onPress={() => discoverUsers[0] && handlePass(discoverUsers[0].id)}
+          onPress={() => filteredUsers[0] && handlePass(filteredUsers[0].id)}
           hapticStyle="light"
         >
           <View
@@ -741,7 +766,7 @@ export default function DiscoverScreen() {
 
         {/* Like — Medium haptic, deeper scale pop */}
         <ActionButton
-          onPress={() => discoverUsers[0] && handleLike(discoverUsers[0].id)}
+          onPress={() => filteredUsers[0] && handleLike(filteredUsers[0].id)}
           hapticStyle="medium"
         >
           <View
@@ -763,6 +788,128 @@ export default function DiscoverScreen() {
           </View>
         </ActionButton>
       </View>
+
+      {/* ── Filter Sheet ───────────────────────────────────────────────── */}
+      <Modal visible={showFilterSheet} transparent animationType="slide">
+        <Pressable
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)" }}
+          onPress={() => setShowFilterSheet(false)}
+        />
+        <View style={[filterStyles.sheet, { backgroundColor: colors.surface }]}>
+          <View style={[filterStyles.handle, { backgroundColor: colors.border }]} />
+          <Text style={[filterStyles.title, { color: colors.charcoal }]}>
+            {isKo ? "필터" : "フィルター"}
+          </Text>
+
+          {/* Country */}
+          <Text style={[filterStyles.label, { color: colors.charcoalLight }]}>
+            {isKo ? "국가" : "国籍"}
+          </Text>
+          <View style={filterStyles.chipRow}>
+            {(["all", "KR", "JP"] as const).map((c) => (
+              <TouchableOpacity
+                key={c}
+                style={[filterStyles.chip, {
+                  backgroundColor: filterCountry === c ? colors.rose : colors.muted,
+                  borderColor: filterCountry === c ? colors.rose : colors.border,
+                }]}
+                onPress={() => setFilterCountry(c)}
+              >
+                <Text style={[filterStyles.chipText, { color: filterCountry === c ? "#fff" : colors.charcoalMid }]}>
+                  {c === "all" ? (isKo ? "전체" : "すべて") : c === "KR" ? (isKo ? "한국" : "韓国") : (isKo ? "일본" : "日本")}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Language level */}
+          <Text style={[filterStyles.label, { color: colors.charcoalLight }]}>
+            {isKo ? "언어 수준" : "言語レベル"}
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={filterStyles.chipRow}>
+            {(["all", "beginner", "intermediate", "advanced"] as const).map((lv) => (
+              <TouchableOpacity
+                key={lv}
+                style={[filterStyles.chip, {
+                  backgroundColor: filterLevel === lv ? colors.rose : colors.muted,
+                  borderColor: filterLevel === lv ? colors.rose : colors.border,
+                }]}
+                onPress={() => setFilterLevel(lv)}
+              >
+                <Text style={[filterStyles.chipText, { color: filterLevel === lv ? "#fff" : colors.charcoalMid }]}>
+                  {lv === "all"
+                    ? (isKo ? "전체" : "すべて")
+                    : lv === "beginner"
+                    ? (isKo ? "초급" : "初級")
+                    : lv === "intermediate"
+                    ? (isKo ? "중급" : "中級")
+                    : (isKo ? "고급" : "上級")}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Age range — simple increment/decrement */}
+          <Text style={[filterStyles.label, { color: colors.charcoalLight }]}>
+            {isKo ? "나이" : "年齢"}: {filterAgeMin} – {filterAgeMax}
+          </Text>
+          <View style={filterStyles.ageRow}>
+            <View style={filterStyles.ageControl}>
+              <Text style={[filterStyles.ageLabelSmall, { color: colors.charcoalLight }]}>
+                {isKo ? "최소" : "最小"}
+              </Text>
+              <View style={filterStyles.ageBtns}>
+                <TouchableOpacity style={[filterStyles.ageBtn, { borderColor: colors.border }]} onPress={() => setFilterAgeMin((v) => Math.max(18, v - 1))}>
+                  <Text style={{ color: colors.charcoal, fontSize: 16 }}>-</Text>
+                </TouchableOpacity>
+                <Text style={[filterStyles.ageNum, { color: colors.charcoal }]}>{filterAgeMin}</Text>
+                <TouchableOpacity style={[filterStyles.ageBtn, { borderColor: colors.border }]} onPress={() => setFilterAgeMin((v) => Math.min(filterAgeMax - 1, v + 1))}>
+                  <Text style={{ color: colors.charcoal, fontSize: 16 }}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={filterStyles.ageControl}>
+              <Text style={[filterStyles.ageLabelSmall, { color: colors.charcoalLight }]}>
+                {isKo ? "최대" : "最大"}
+              </Text>
+              <View style={filterStyles.ageBtns}>
+                <TouchableOpacity style={[filterStyles.ageBtn, { borderColor: colors.border }]} onPress={() => setFilterAgeMax((v) => Math.max(filterAgeMin + 1, v - 1))}>
+                  <Text style={{ color: colors.charcoal, fontSize: 16 }}>-</Text>
+                </TouchableOpacity>
+                <Text style={[filterStyles.ageNum, { color: colors.charcoal }]}>{filterAgeMax}</Text>
+                <TouchableOpacity style={[filterStyles.ageBtn, { borderColor: colors.border }]} onPress={() => setFilterAgeMax((v) => Math.min(60, v + 1))}>
+                  <Text style={{ color: colors.charcoal, fontSize: 16 }}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* Action buttons */}
+          <View style={filterStyles.actionRow}>
+            <TouchableOpacity
+              style={[filterStyles.resetBtn, { borderColor: colors.border }]}
+              onPress={() => {
+                setFilterCountry("all");
+                setFilterLevel("all");
+                setFilterAgeMin(20);
+                setFilterAgeMax(35);
+              }}
+            >
+              <Text style={[filterStyles.resetBtnText, { color: colors.charcoalMid }]}>
+                {isKo ? "초기화" : "リセット"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[filterStyles.applyBtn, { backgroundColor: colors.rose }]}
+              onPress={() => setShowFilterSheet(false)}
+            >
+              <Text style={filterStyles.applyBtnText}>
+                {isKo ? "적용하기" : "適用する"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── Match popup ────────────────────────────────────────────────── */}
       {newMatch && (
@@ -867,6 +1014,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: StyleSheet.hairlineWidth,
+    position: "relative",
+  },
+  filterActiveDot: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
 
   // ── Card stack ────────────────────────────────────────────────────────────
@@ -1053,5 +1209,111 @@ const styles = StyleSheet.create({
   matchSkipText: {
     fontFamily: "Inter_400Regular",
     fontSize: 14,
+  },
+});
+
+const filterStyles = StyleSheet.create({
+  sheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 40,
+    gap: 4,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  title: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 18,
+    marginBottom: 12,
+  },
+  label: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    letterSpacing: 0.6,
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  chipRow: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+  },
+  ageRow: {
+    flexDirection: "row",
+    gap: 24,
+    marginTop: 8,
+  },
+  ageControl: {
+    gap: 6,
+  },
+  ageLabelSmall: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 11,
+  },
+  ageBtns: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  ageBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ageNum: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 17,
+    minWidth: 28,
+    textAlign: "center",
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 24,
+  },
+  resetBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 14,
+    alignItems: "center",
+    paddingVertical: 14,
+  },
+  resetBtnText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+  },
+  applyBtn: {
+    flex: 2,
+    borderRadius: 14,
+    alignItems: "center",
+    paddingVertical: 14,
+  },
+  applyBtnText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    color: "#fff",
   },
 });

@@ -1,6 +1,6 @@
 import FIcon from "@/components/FIcon";
-import { router } from "expo-router";
-import React from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback } from "react";
 import {
   Platform,
   ScrollView,
@@ -106,11 +106,15 @@ function MatchCard({ match }: { match: Match }) {
 export default function MatchesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { matches } = useApp();
+  const { matches, clearNewMatches } = useApp();
   const { referral, track } = useGrowth();
   const { lang } = useLocale();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+
+  useFocusEffect(useCallback(() => {
+    clearNewMatches();
+  }, [clearNewMatches]));
 
   const newMatches = matches.filter((m) => m.isNew);
   const pastMatches = matches.filter((m) => !m.isNew);
