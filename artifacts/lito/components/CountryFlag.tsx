@@ -15,11 +15,9 @@ export function CountryFlag({ country, size = 22 }: CountryFlagProps) {
     );
   }
 
-  // KR — 흰 원 배경 위 태극 심볼
+  // KR — 순수 태극 문양 (배경 없음)
   return (
     <Svg width={size} height={size} viewBox="0 0 100 100">
-      {/* 흰 원 배경 */}
-      <Circle cx="50" cy="50" r="50" fill="#FFFFFF" />
       {/* 빨강(양) */}
       <Path
         d="M 50 12 A 38 38 0 0 1 50 88 A 19 19 0 0 1 50 50 A 19 19 0 0 0 50 12 Z"
