@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { optionalAuth } from "../middleware/auth";
 
 const router = Router();
 
@@ -254,8 +255,8 @@ function alreadyMatched(aId: string, bId: string): boolean {
 //   limit     (number, default: 20)
 //   offset    (number, default: 0)
 
-router.get("/users/discover", (req, res) => {
-  const viewerId = (req.query.viewerId as string) || "me";
+router.get("/users/discover", optionalAuth, (req, res) => {
+  const viewerId = req.user ? `user:${req.user.userId}` : (req.query.viewerId as string) || "me";
   const country = (req.query.country as string) || "all";
   const minAge = req.query.minAge ? Number(req.query.minAge) : 18;
   const maxAge = req.query.maxAge ? Number(req.query.maxAge) : 99;
@@ -293,9 +294,9 @@ router.get("/users/discover", (req, res) => {
 // ── POST /api/users/:id/like ──────────────────────────────────────────────────
 // Records a like. Returns { matched: boolean, matchId?: string, matchedUser?: ServerUser }
 
-router.post("/users/:id/like", (req, res) => {
+router.post("/users/:id/like", optionalAuth, (req, res) => {
   const toId = req.params.id;
-  const viewerId = (req.body?.viewerId as string) || "me";
+  const viewerId = req.user ? `user:${req.user.userId}` : (req.body?.viewerId as string) || "me";
 
   const target = SERVER_USERS.find((u) => u.id === toId);
   if (!target) {
@@ -329,9 +330,9 @@ router.post("/users/:id/like", (req, res) => {
 // ── POST /api/users/:id/pass ──────────────────────────────────────────────────
 // Records a pass.
 
-router.post("/users/:id/pass", (req, res) => {
+router.post("/users/:id/pass", optionalAuth, (req, res) => {
   const toId = req.params.id;
-  const viewerId = (req.body?.viewerId as string) || "me";
+  const viewerId = req.user ? `user:${req.user.userId}` : (req.body?.viewerId as string) || "me";
 
   const alreadyPassed = passes.some((p) => p.fromId === viewerId && p.toId === toId);
   if (!alreadyPassed) {

@@ -3,11 +3,13 @@ import healthRouter from "./health";
 import aiRouter from "./ai";
 import usersRouter from "./users";
 import authRouter from "./auth";
+import chatRouter from "./chat";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
+router.use(chatRouter);
 router.use(aiRouter);
 router.use(usersRouter);
 

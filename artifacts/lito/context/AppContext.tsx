@@ -128,6 +128,7 @@ interface AppContextType {
   clearNewMatches: () => void;
   setActiveConversation: (id: string | null) => void;
   updateProfile: (updates: Partial<MyProfile>) => void;
+  loadConversationMessages: (conversationId: string) => Promise<void>;
   diagnosisStatus: DiagnosisStatus;
   datingStyleAnswers: DatingStyleAnswers;
   diagnosisRewardClaimed: boolean;
@@ -178,6 +179,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const profileRef = useRef(profile);
   useEffect(() => { profileRef.current = profile; }, [profile]);
 
+  const tokenRef = useRef(token);
+  useEffect(() => { tokenRef.current = token; }, [token]);
+
   const messagesRef = useRef(messages);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
@@ -188,7 +192,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const fetchDiscover = useCallback(async () => {
     setDiscoverLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/users/discover?viewerId=me&limit=20`);
+      const headers: Record<string, string> = {};
+      if (tokenRef.current) headers["Authorization"] = `Bearer ${tokenRef.current}`;
+      const res = await fetch(`${API_BASE}/api/users/discover?viewerId=me&limit=20`, { headers });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json() as { users: ServerUser[] };
       setDiscoverUsers(data.users.map(serverUserToAppUser));
@@ -341,9 +347,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setDiscoverUsers((prev) => prev.filter((u) => u.id !== userId));
 
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (tokenRef.current) headers["Authorization"] = `Bearer ${tokenRef.current}`;
       const res = await fetch(`${API_BASE}/api/users/${userId}/like`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ viewerId: "me" }),
       });
       if (!res.ok) return;
@@ -396,9 +404,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setDiscoverUsers((prev) => prev.filter((u) => u.id !== userId));
 
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (tokenRef.current) headers["Authorization"] = `Bearer ${tokenRef.current}`;
       await fetch(`${API_BASE}/api/users/${userId}/pass`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ viewerId: "me" }),
       });
     } catch (err) {
@@ -467,12 +477,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const sendMessage = useCallback((conversationId: string, text: string) => {
+    const lang = profileRef.current.language as "ko" | "ja";
     const newMsg: Message = {
       id: `msg_${Date.now()}`,
       conversationId,
       senderId: "me",
       originalText: text,
-      originalLanguage: profileRef.current.language as "ko" | "ja",
+      originalLanguage: lang,
       createdAt: new Date().toISOString(),
       isRead: true,
     };
@@ -486,11 +497,78 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       )
     );
 
+    // 실서버에 메시지 저장 (토큰 있을 때만)
+    if (tokenRef.current) {
+      fetch(`${API_BASE}/api/chat/${encodeURIComponent(conversationId)}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenRef.current}`,
+        },
+        body: JSON.stringify({
+          senderId: "me",
+          content: text,
+          originalLanguage: lang,
+        }),
+      }).catch(() => {});
+    }
+
     const conv = conversationsRef.current.find((c) => c.id === conversationId);
     if (conv?.user.isAI && conv.user.personaId) {
       triggerAiReply(conversationId, conv.user.personaId);
     }
   }, [triggerAiReply]);
+
+  // ── 서버에서 대화 메시지 로드 ──────────────────────────────────────────────
+  const loadConversationMessages = useCallback(async (conversationId: string) => {
+    if (!tokenRef.current) return;
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/chat/${encodeURIComponent(conversationId)}/messages`,
+        { headers: { Authorization: `Bearer ${tokenRef.current}` } }
+      );
+      if (!res.ok) return;
+      const data = await res.json() as {
+        messages: Array<{
+          id: number;
+          conversationId: string;
+          senderUserId: number | null;
+          senderId: string;
+          content: string;
+          translatedContent: string | null;
+          originalLanguage: string | null;
+          createdAt: string;
+        }>;
+      };
+      if (!data.messages.length) return;
+
+      const serverMsgs: Message[] = data.messages.map((m) => ({
+        id: `srv_${m.id}`,
+        conversationId: m.conversationId,
+        senderId: m.senderId,
+        originalText: m.content,
+        originalLanguage: (m.originalLanguage as "ko" | "ja") ?? "ko",
+        translatedText: m.translatedContent ?? undefined,
+        createdAt: m.createdAt,
+        isRead: true,
+      }));
+
+      setMessages((prev) => {
+        const existing = prev[conversationId] ?? [];
+        const existingIds = new Set(existing.map((m) => m.id));
+        const newOnes = serverMsgs.filter((m) => !existingIds.has(m.id));
+        if (!newOnes.length) return prev;
+        return {
+          ...prev,
+          [conversationId]: [...existing, ...newOnes].sort(
+            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          ),
+        };
+      });
+    } catch {
+      // silent — local messages are still shown
+    }
+  }, []);
 
   const toggleTranslation = useCallback((conversationId: string) => {
     setConversations((prev) =>
@@ -585,6 +663,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         clearNewMatches,
         setActiveConversation,
         updateProfile,
+        loadConversationMessages,
         diagnosisStatus,
         datingStyleAnswers,
         diagnosisRewardClaimed,

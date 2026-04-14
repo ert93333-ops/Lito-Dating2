@@ -834,6 +834,7 @@ export default function ChatDetailScreen() {
     requestUnlock,
     respondToUnlock,
     blockUser,
+    loadConversationMessages,
   } = useApp();
   const {
     subscription,
@@ -879,6 +880,12 @@ export default function ChatDetailScreen() {
   const conversation = conversations.find((c) => c.id === id);
   const convMessages = messages[id || "conv1"] || [];
   const topPad = Platform.OS === "web" ? 67 : insets.top;
+
+  // 채팅 화면 열릴 때 서버에서 메시지 로드
+  useEffect(() => {
+    if (id) loadConversationMessages(id);
+  }, [id, loadConversationMessages]);
+
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   // ── PRS: fetch conversation interest snapshot ─────────────────────────────
