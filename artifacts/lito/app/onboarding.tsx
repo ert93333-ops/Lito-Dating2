@@ -2,11 +2,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import FIcon from "@/components/FIcon";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   BackHandler,
-  Dimensions,
-  FlatList,
   Platform,
   Pressable,
   StyleSheet,
@@ -25,8 +23,6 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
-
-const { width } = Dimensions.get("window");
 
 // ── Slide data ────────────────────────────────────────────────────────────────
 
@@ -260,7 +256,6 @@ export default function OnboardingScreen() {
   const [phase, setPhase] = useState<"language" | "slides">("language");
   const [selectedLang, setSelectedLang] = useState<"ko" | "ja" | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const flatRef = useRef<FlatList>(null);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -272,9 +267,7 @@ export default function OnboardingScreen() {
     const handler = BackHandler.addEventListener("hardwareBackPress", () => {
       if (phase === "slides") {
         if (currentIndex > 0) {
-          const prev = currentIndex - 1;
-          flatRef.current?.scrollToIndex({ index: prev, animated: true });
-          setCurrentIndex(prev);
+          setCurrentIndex(currentIndex - 1);
           return true;
         }
         // First slide → go back to language selection
@@ -291,11 +284,9 @@ export default function OnboardingScreen() {
   // ── Slides helpers ─────────────────────────────────────────────────────────
   const goNext = () => {
     if (currentIndex < SLIDES.length - 1) {
-      const next = currentIndex + 1;
-      flatRef.current?.scrollToIndex({ index: next, animated: true });
-      setCurrentIndex(next);
+      setCurrentIndex(currentIndex + 1);
     } else {
-      // Last slide → skip country step, go straight to login
+      // Last slide → go straight to login
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       completeOnboarding();
       router.replace("/login");
@@ -304,9 +295,7 @@ export default function OnboardingScreen() {
 
   const goPrev = () => {
     if (currentIndex > 0) {
-      const prev = currentIndex - 1;
-      flatRef.current?.scrollToIndex({ index: prev, animated: true });
-      setCurrentIndex(prev);
+      setCurrentIndex(currentIndex - 1);
     } else {
       setPhase("language");
     }
@@ -326,9 +315,6 @@ export default function OnboardingScreen() {
     if (!selectedLang) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setCurrentIndex(0);
-    setTimeout(() => {
-      flatRef.current?.scrollToIndex({ index: 0, animated: false });
-    }, 50);
     setPhase("slides");
   };
 
@@ -419,43 +405,36 @@ export default function OnboardingScreen() {
         <View style={{ width: 36 }} />
       </View>
 
-      <FlatList
-        ref={flatRef}
-        data={SLIDES}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        scrollEnabled={false}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={[styles.slide, { width }]}>
-            <LinearGradient
-              colors={item.gradientColors}
-              style={styles.iconCircle}
-            >
-              <FIcon name={item.icon} size={52} color={item.accentColor} />
-            </LinearGradient>
+      <Animated.View
+        key={`slide-${currentIndex}`}
+        entering={FadeInUp.duration(260).springify()}
+        style={[styles.slide]}
+      >
+        <LinearGradient
+          colors={slide.gradientColors}
+          style={styles.iconCircle}
+        >
+          <FIcon name={slide.icon} size={52} color={slide.accentColor} />
+        </LinearGradient>
 
-            <Text style={[styles.title, { color: colors.charcoal }]}>
-              {appLang === "ko" ? item.titleKo : item.titleJa}
-            </Text>
+        <Text style={[styles.title, { color: colors.charcoal }]}>
+          {appLang === "ko" ? slide.titleKo : slide.titleJa}
+        </Text>
 
-            <View style={[styles.biTag, { backgroundColor: `${item.accentColor}14` }]}>
-              <Text style={[styles.biText, { color: item.accentColor }]}>
-                {item.titleBi}
-              </Text>
-            </View>
+        <View style={[styles.biTag, { backgroundColor: `${slide.accentColor}14` }]}>
+          <Text style={[styles.biText, { color: slide.accentColor }]}>
+            {slide.titleBi}
+          </Text>
+        </View>
 
-            <Text style={[styles.body, { color: colors.charcoalLight }]}>
-              {appLang === "ko" ? item.bodyKo : item.bodyJa}
-            </Text>
+        <Text style={[styles.body, { color: colors.charcoalLight }]}>
+          {appLang === "ko" ? slide.bodyKo : slide.bodyJa}
+        </Text>
 
-            <Text style={[styles.bodyNative, { color: colors.charcoalMid }]}>
-              {appLang === "ko" ? item.bodyJa : item.bodyKo}
-            </Text>
-          </View>
-        )}
-      />
+        <Text style={[styles.bodyNative, { color: colors.charcoalMid }]}>
+          {appLang === "ko" ? slide.bodyJa : slide.bodyKo}
+        </Text>
+      </Animated.View>
 
       <View style={[styles.footer, { paddingBottom: bottomPad + 24 }]}>
         <View style={styles.dots}>
