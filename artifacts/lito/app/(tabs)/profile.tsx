@@ -91,6 +91,7 @@ export default function ProfileScreen() {
         {/* Edit photo — bottom right overlay */}
         <TouchableOpacity
           style={[styles.addPhotoBtn, { backgroundColor: "rgba(0,0,0,0.42)" }]}
+          onPress={() => router.push("/profile-edit" as any)}
         >
           <FIcon name="camera" size={13} color={colors.white} />
           <Text style={styles.addPhotoBtnText}>{t("profile.addPhoto")}</Text>
@@ -366,7 +367,7 @@ export default function ProfileScreen() {
       >
         <TouchableOpacity
           style={[styles.actionRow, { borderBottomColor: colors.border }]}
-          onPress={() => router.push("/profile-setup" as any)}
+          onPress={() => router.push("/profile-edit" as any)}
         >
           <View style={[styles.actionIcon, { backgroundColor: colors.roseLight }]}>
             <FIcon name="edit-2" size={16} color={colors.rose} />
