@@ -15,25 +15,27 @@ export function CountryFlag({ country, size = 22 }: CountryFlagProps) {
     );
   }
 
-  // KR — 태극 심볼만 (배경 없음)
+  // KR — 흰 원 배경 위 태극 심볼
   return (
     <Svg width={size} height={size} viewBox="0 0 100 100">
+      {/* 흰 원 배경 */}
+      <Circle cx="50" cy="50" r="50" fill="#FFFFFF" />
       {/* 빨강(양) */}
       <Path
         d="M 50 12 A 38 38 0 0 1 50 88 A 19 19 0 0 1 50 50 A 19 19 0 0 0 50 12 Z"
-        fill="#C60C30"
+        fill="#D42B3A"
         transform="rotate(-45, 50, 50)"
       />
       {/* 파랑(음) */}
       <Path
         d="M 50 12 A 38 38 0 0 0 50 88 A 19 19 0 0 0 50 50 A 19 19 0 0 1 50 12 Z"
-        fill="#003478"
+        fill="#1B3F8B"
         transform="rotate(-45, 50, 50)"
       />
       {/* 양 속 음점 */}
-      <Circle cx="50" cy="31" r="8" fill="#003478" transform="rotate(-45, 50, 50)" />
+      <Circle cx="50" cy="31" r="8" fill="#1B3F8B" transform="rotate(-45, 50, 50)" />
       {/* 음 속 양점 */}
-      <Circle cx="50" cy="69" r="8" fill="#C60C30" transform="rotate(-45, 50, 50)" />
+      <Circle cx="50" cy="69" r="8" fill="#D42B3A" transform="rotate(-45, 50, 50)" />
     </Svg>
   );
 }
