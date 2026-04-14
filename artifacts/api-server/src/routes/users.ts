@@ -252,13 +252,53 @@ function buildServerUser(
   };
 }
 
+// ── 한일 관심사 양방향 매핑 ────────────────────────────────────────────────────
+// 같은 개념의 한국어·일본어 태그를 동시에 매칭하기 위한 대응표
+const INTEREST_BILINGUAL: Array<[string, string]> = [
+  ["여행", "旅行"],
+  ["요리", "料理"],
+  ["카페", "カフェ"],
+  ["독서", "読書"],
+  ["게임", "ゲーム"],
+  ["애니메이션", "アニメ"],
+  ["영화", "映画"],
+  ["운동", "運動"],
+  ["사진", "写真"],
+  ["일본어", "日本語"],
+  ["한국어", "韓国語"],
+  ["음악", "音楽"],
+  ["K-POP", "K-POP"],
+  ["드라마", "ドラマ"],
+  ["패션", "ファッション"],
+];
+
+function expandInterestTags(tags: string[]): string[] {
+  const expanded = new Set<string>(tags.map((t) => t.toLowerCase()));
+  for (const tag of tags) {
+    const lower = tag.toLowerCase();
+    for (const [ko, ja] of INTEREST_BILINGUAL) {
+      if (lower === ko.toLowerCase()) { expanded.add(ja.toLowerCase()); break; }
+      if (lower === ja.toLowerCase()) { expanded.add(ko.toLowerCase()); break; }
+    }
+  }
+  return Array.from(expanded);
+}
+
 function applyFilters(
   user: ServerUser,
-  { country, minAge, maxAge, langLevel }: { country: string; minAge: number; maxAge: number; langLevel: string }
+  { country, minAge, maxAge, langLevel, interests }: { country: string; minAge: number; maxAge: number; langLevel: string; interests: string[] }
 ): boolean {
   if (user.age < minAge || user.age > maxAge) return false;
   if (country !== "all" && user.country !== country) return false;
   if (langLevel !== "all" && user.languageLevel !== langLevel) return false;
+  if (interests.length > 0) {
+    const expandedFilter = expandInterestTags(interests);
+    const userInterests = (user.interests ?? []).map((i) => i.toLowerCase());
+    const hasMatch = expandedFilter.some((tag) =>
+      userInterests.some((ui) => ui.includes(tag) || tag.includes(ui))
+    );
+    if (!hasMatch) return false;
+  }
   return true;
 }
 
@@ -269,10 +309,12 @@ router.get("/users/discover", optionalAuth, async (req, res) => {
   const minAge = req.query.minAge ? Number(req.query.minAge) : 18;
   const maxAge = req.query.maxAge ? Number(req.query.maxAge) : 99;
   const langLevel = (req.query.langLevel as string) || "all";
+  const interestsRaw = (req.query.interests as string) || "";
+  const interests = interestsRaw ? interestsRaw.split(",").map((s) => s.trim()).filter(Boolean) : [];
   const limit = Math.min(Number(req.query.limit) || 20, 50);
   const offset = Number(req.query.offset) || 0;
 
-  const filterOpts = { country, minAge, maxAge, langLevel };
+  const filterOpts = { country, minAge, maxAge, langLevel, interests };
 
   // ── 인증된 실제 사용자 ──────────────────────────────────────────────────────
   if (req.user) {

@@ -30,11 +30,30 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CountryFlag } from "@/components/CountryFlag";
 import { ProfileImage } from "@/components/ProfileImage";
 import { TrustBadge } from "@/components/TrustBadge";
-import { useApp } from "@/context/AppContext";
+import { DiscoverFilters, useApp } from "@/context/AppContext";
 import { useGrowth } from "@/context/GrowthContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 import { User } from "@/types";
+
+// 관심사 필터 항목 — 한일 공통 개념, 뷰어 언어로 표시
+const INTEREST_OPTIONS = [
+  { ko: "K-POP", ja: "K-POP" },
+  { ko: "여행", ja: "旅行" },
+  { ko: "요리", ja: "料理" },
+  { ko: "카페", ja: "カフェ" },
+  { ko: "독서", ja: "読書" },
+  { ko: "게임", ja: "ゲーム" },
+  { ko: "애니메이션", ja: "アニメ" },
+  { ko: "영화", ja: "映画" },
+  { ko: "운동", ja: "運動" },
+  { ko: "사진", ja: "写真" },
+  { ko: "음악", ja: "音楽" },
+  { ko: "드라마", ja: "ドラマ" },
+  { ko: "일본어", ja: "日本語" },
+  { ko: "한국어", ja: "韓国語" },
+  { ko: "패션", ja: "ファッション" },
+];
 
 // ─── Bio translation ─────────────────────────────────────────────────────────
 // CRITICAL: Do NOT modify this section. Translation logic must stay intact.
@@ -579,6 +598,7 @@ export default function DiscoverScreen() {
   const [filterLevel, setFilterLevel] = useState<"all" | "beginner" | "intermediate" | "advanced">("all");
   const [filterAgeMin, setFilterAgeMin] = useState(20);
   const [filterAgeMax, setFilterAgeMax] = useState(35);
+  const [filterInterests, setFilterInterests] = useState<string[]>([]);
   const { chemistryPicks, track } = useGrowth();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const TAB_BAR_H = Platform.OS === "web" ? 84 : 70;
@@ -588,15 +608,41 @@ export default function DiscoverScreen() {
 
   const isKo = profile.language === "ko";
 
-  // ── Apply filters to deck ──────────────────────────────────────────────────
-  const filteredUsers = discoverUsers.filter((u) => {
-    if (filterCountry !== "all" && u.country !== filterCountry) return false;
-    if (filterLevel !== "all" && u.languageLevel !== filterLevel) return false;
-    if (u.age < filterAgeMin || u.age > filterAgeMax) return false;
-    return true;
-  });
+  // ── API 응답이 이미 필터링되어 있으므로 클라이언트 필터 불필요 ─────────────
+  const filteredUsers = discoverUsers;
   const filtersActive =
-    filterCountry !== "all" || filterLevel !== "all" || filterAgeMin !== 20 || filterAgeMax !== 35;
+    filterCountry !== "all" || filterLevel !== "all" ||
+    filterAgeMin !== 20 || filterAgeMax !== 35 || filterInterests.length > 0;
+
+  // ── 필터 적용 — API 재요청 ─────────────────────────────────────────────────
+  const applyFilters = () => {
+    const filters: DiscoverFilters = {
+      country: filterCountry,
+      langLevel: filterLevel,
+      ageMin: filterAgeMin,
+      ageMax: filterAgeMax,
+      interests: filterInterests,
+    };
+    refetchDiscover(filters);
+    setShowFilterSheet(false);
+  };
+
+  // ── 필터 초기화 ────────────────────────────────────────────────────────────
+  const resetFilters = () => {
+    setFilterCountry("all");
+    setFilterLevel("all");
+    setFilterAgeMin(20);
+    setFilterAgeMax(35);
+    setFilterInterests([]);
+    refetchDiscover({ country: "all", langLevel: "all", ageMin: 20, ageMax: 35, interests: [] });
+  };
+
+  // ── 관심사 토글 ────────────────────────────────────────────────────────────
+  const toggleInterest = (label: string) => {
+    setFilterInterests((prev) =>
+      prev.includes(label) ? prev.filter((i) => i !== label) : [...prev, label]
+    );
+  };
 
   // ── Match popup animation ──────────────────────────────────────────────────
   const matchScale = useSharedValue(0.72);
@@ -826,6 +872,7 @@ export default function DiscoverScreen() {
           <Text style={[filterStyles.title, { color: colors.charcoal }]}>
             {isKo ? "필터" : "フィルター"}
           </Text>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 0 }}>
 
           {/* Country */}
           <Text style={[filterStyles.label, { color: colors.charcoalLight }]}>
@@ -910,16 +957,39 @@ export default function DiscoverScreen() {
             </View>
           </View>
 
+          {/* Interests */}
+          <Text style={[filterStyles.label, { color: colors.charcoalLight }]}>
+            {isKo ? "관심사" : "興味・趣味"}
+          </Text>
+          <View style={filterStyles.interestGrid}>
+            {INTEREST_OPTIONS.map((opt) => {
+              const label = isKo ? opt.ko : opt.ja;
+              const selected = filterInterests.includes(label);
+              return (
+                <TouchableOpacity
+                  key={opt.ko}
+                  style={[
+                    filterStyles.interestChip,
+                    {
+                      backgroundColor: selected ? colors.rose : colors.muted,
+                      borderColor: selected ? colors.rose : colors.border,
+                    },
+                  ]}
+                  onPress={() => toggleInterest(label)}
+                >
+                  <Text style={[filterStyles.interestChipText, { color: selected ? "#fff" : colors.charcoalMid }]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
           {/* Action buttons */}
           <View style={filterStyles.actionRow}>
             <TouchableOpacity
               style={[filterStyles.resetBtn, { borderColor: colors.border }]}
-              onPress={() => {
-                setFilterCountry("all");
-                setFilterLevel("all");
-                setFilterAgeMin(20);
-                setFilterAgeMax(35);
-              }}
+              onPress={resetFilters}
             >
               <Text style={[filterStyles.resetBtnText, { color: colors.charcoalMid }]}>
                 {isKo ? "초기화" : "リセット"}
@@ -927,13 +997,16 @@ export default function DiscoverScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[filterStyles.applyBtn, { backgroundColor: colors.rose }]}
-              onPress={() => setShowFilterSheet(false)}
+              onPress={applyFilters}
             >
               <Text style={filterStyles.applyBtnText}>
-                {isKo ? "적용하기" : "適用する"}
+                {isKo
+                  ? `적용하기${filtersActive ? " •" : ""}`
+                  : `適用する${filtersActive ? " •" : ""}`}
               </Text>
             </TouchableOpacity>
           </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -1244,9 +1317,11 @@ const filterStyles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    maxHeight: "82%",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 40,
     gap: 4,
   },
@@ -1314,6 +1389,22 @@ const filterStyles = StyleSheet.create({
     fontSize: 17,
     minWidth: 28,
     textAlign: "center",
+  },
+  interestGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 4,
+  },
+  interestChip: {
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  interestChipText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
   },
   actionRow: {
     flexDirection: "row",

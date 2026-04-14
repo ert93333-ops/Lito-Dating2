@@ -102,6 +102,14 @@ export interface DatingStyleAnswers {
   privacy: string | null;
 }
 
+export interface DiscoverFilters {
+  country: "all" | "KR" | "JP";
+  langLevel: "all" | "beginner" | "intermediate" | "advanced";
+  ageMin: number;
+  ageMax: number;
+  interests: string[];
+}
+
 interface AppContextType {
   hasCompletedOnboarding: boolean;
   hasCompletedProfileSetup: boolean;
@@ -111,7 +119,7 @@ interface AppContextType {
   discoverLoading: boolean;
   newMatch: User | null;
   dismissMatch: () => void;
-  refetchDiscover: () => void;
+  refetchDiscover: (filters?: DiscoverFilters) => void;
   matches: Match[];
   conversations: Conversation[];
   messages: Record<string, Message[]>;
@@ -207,12 +215,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { toastSetterRef.current = setToast; }, [setToast]);
 
   // ── Fetch discover users from API ─────────────────────────────────────────
-  const fetchDiscover = useCallback(async () => {
+  const discoverFiltersRef = useRef<DiscoverFilters>({
+    country: "all", langLevel: "all", ageMin: 20, ageMax: 35, interests: [],
+  });
+
+  const fetchDiscover = useCallback(async (filters?: DiscoverFilters) => {
+    const f = filters ?? discoverFiltersRef.current;
     setDiscoverLoading(true);
     try {
       const headers: Record<string, string> = {};
       if (tokenRef.current) headers["Authorization"] = `Bearer ${tokenRef.current}`;
-      const res = await fetch(`${API_BASE}/api/users/discover?viewerId=me&limit=20`, { headers });
+      const params = new URLSearchParams({
+        viewerId: "me",
+        limit: "20",
+        country: f.country,
+        langLevel: f.langLevel,
+        minAge: String(f.ageMin),
+        maxAge: String(f.ageMax),
+      });
+      if (f.interests.length > 0) params.set("interests", f.interests.join(","));
+      const res = await fetch(`${API_BASE}/api/users/discover?${params.toString()}`, { headers });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json() as { users: ServerUser[] };
       setDiscoverUsers(data.users.map(serverUserToAppUser));
@@ -224,8 +246,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const refetchDiscover = useCallback(() => {
-    fetchDiscover();
+  const refetchDiscover = useCallback((filters?: DiscoverFilters) => {
+    if (filters) discoverFiltersRef.current = filters;
+    fetchDiscover(filters ?? discoverFiltersRef.current);
   }, [fetchDiscover]);
 
   // ── Initial load ──────────────────────────────────────────────────────────
