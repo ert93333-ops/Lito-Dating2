@@ -79,7 +79,7 @@ export default function LoginScreen() {
     }
   };
 
-  const handleSocialLogin = (_provider: "kakao" | "line") => {
+  const handleSocialLogin = (_provider: "google" | "apple" | "kakao" | "line") => {
     Alert.alert(
       lang === "ko" ? "준비 중" : "準備中",
       lang === "ko"
@@ -267,12 +267,41 @@ export default function LoginScreen() {
             <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
           </View>
 
-          {/* Social buttons */}
-          <View style={styles.socialRow}>
+          {/* Social buttons — 2×2 grid */}
+          <View style={styles.socialGrid}>
+            {/* Google */}
             <Pressable
               style={({ pressed }) => [
                 styles.socialBtn,
-                { backgroundColor: "#FEFCE8", borderColor: "#E9D95C", opacity: pressed ? 0.88 : 1, flex: 1 },
+                { backgroundColor: colors.white, borderColor: "#DADCE0", opacity: pressed ? 0.88 : 1 },
+              ]}
+              onPress={() => handleSocialLogin("google")}
+            >
+              <View style={[styles.socialIconWrap, { backgroundColor: "#F1F3F4" }]}>
+                <Text style={[styles.socialBtnIconSm, { color: "#4285F4" }]}>G</Text>
+              </View>
+              <Text style={[styles.socialBtnLabel, { color: colors.charcoal }]}>Google</Text>
+            </Pressable>
+
+            {/* Apple */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.socialBtn,
+                { backgroundColor: "#000000", borderColor: "#000000", opacity: pressed ? 0.82 : 1 },
+              ]}
+              onPress={() => handleSocialLogin("apple")}
+            >
+              <View style={[styles.socialIconWrap, { backgroundColor: "#333333" }]}>
+                <Text style={[styles.socialBtnIconSm, { color: "#FFFFFF" }]}>A</Text>
+              </View>
+              <Text style={[styles.socialBtnLabel, { color: "#FFFFFF" }]}>Apple</Text>
+            </Pressable>
+
+            {/* Kakao */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.socialBtn,
+                { backgroundColor: "#FEFCE8", borderColor: "#E9D95C", opacity: pressed ? 0.88 : 1 },
               ]}
               onPress={() => handleSocialLogin("kakao")}
             >
@@ -282,10 +311,11 @@ export default function LoginScreen() {
               <Text style={[styles.socialBtnLabel, { color: "#5C4A00" }]}>Kakao</Text>
             </Pressable>
 
+            {/* LINE */}
             <Pressable
               style={({ pressed }) => [
                 styles.socialBtn,
-                { backgroundColor: "#F7FEFB", borderColor: "#7EC8A4", opacity: pressed ? 0.88 : 1, flex: 1 },
+                { backgroundColor: "#F7FEFB", borderColor: "#7EC8A4", opacity: pressed ? 0.88 : 1 },
               ]}
               onPress={() => handleSocialLogin("line")}
             >
@@ -425,15 +455,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     opacity: 0.7,
   },
-  socialRow: { flexDirection: "row", gap: 12 },
+  socialGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
   socialBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 100,
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderWidth: 1.5,
     gap: 8,
+    width: "47.5%",
   },
   socialIconWrap: {
     width: 22,
