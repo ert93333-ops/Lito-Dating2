@@ -4,7 +4,7 @@ import Svg, { Circle, Line, Path, Polygon, Polyline, Rect } from "react-native-s
 type IconName =
   | "alert-circle" | "alert-triangle" | "arrow-down" | "arrow-left"
   | "arrow-right" | "bar-chart-2" | "briefcase" | "camera" | "check"
-  | "check-circle" | "chevron-left" | "chevron-right" | "circle" | "clock"
+  | "check-circle" | "chevron-down" | "chevron-left" | "chevron-right" | "chevron-up" | "circle" | "clock"
   | "compass" | "cpu" | "credit-card" | "edit-2" | "flag" | "gift" | "globe"
   | "heart" | "info" | "instagram" | "lock" | "log-out" | "map-pin"
   | "message-circle" | "phone" | "refresh-cw" | "send" | "settings" | "shield"
@@ -87,8 +87,10 @@ function Icon({ name, size = 24, color = "#000", style }: FIconProps) {
         <Polyline points="22 4 12 14.01 9 11.01" {...s} />
       </>
     ),
+    "chevron-down": <Polyline points="6 9 12 15 18 9" {...s} />,
     "chevron-left": <Polyline points="15 18 9 12 15 6" {...s} />,
     "chevron-right": <Polyline points="9 18 15 12 9 6" {...s} />,
+    "chevron-up": <Polyline points="18 15 12 9 6 15" {...s} />,
     "circle": <Circle cx="12" cy="12" r="10" {...s} />,
     "clock": (
       <>

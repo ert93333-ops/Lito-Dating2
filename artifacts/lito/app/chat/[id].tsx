@@ -815,7 +815,7 @@ const popup = StyleSheet.create({
 export default function ChatDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { t } = useLocale();
+  const { t, lang } = useLocale();
   const { id } = useLocalSearchParams<{ id: string }>();
   const {
     conversations,
@@ -860,6 +860,7 @@ export default function ChatDetailScreen() {
   // ── Quick reply chips state ───────────────────────────────────────────────
   const [quickReplies, setQuickReplies] = useState<string[]>([]);
   const [quickRepliesLoading, setQuickRepliesLoading] = useState(false);
+  const [quickRepliesExpanded, setQuickRepliesExpanded] = useState(true);
   const lastFetchedMsgId = useRef<string | null>(null);
 
   const conversation = conversations.find((c) => c.id === id);
@@ -874,7 +875,6 @@ export default function ChatDetailScreen() {
   useEffect(() => {
     if (!conversation) return;
 
-    const lang: "ko" | "ja" = profile.country === "KR" ? "ko" : "ja";
     const partnerCountry = conversation.user.country === "JP" ? "JP" : "KR";
     const myCountry: "KR" | "JP" = profile.country === "JP" ? "JP" : "KR";
 
@@ -927,8 +927,8 @@ export default function ChatDetailScreen() {
     );
   }
 
-  // Viewer's primary language — derived from profile.country
-  const viewerLang: "ko" | "ja" = profile.country === "KR" ? "ko" : "ja";
+  // Viewer's primary language — always follows the locale (language) setting
+  const viewerLang: "ko" | "ja" = lang === "ko" ? "ko" : "ja";
 
   // ── Per-message translation toggle ───────────────────────────────────────
   // Called when user taps a received message bubble.
@@ -1334,41 +1334,59 @@ export default function ChatDetailScreen() {
         onSuggestionSelect={handleSuggestionSelect}
       />
 
-      {/* ── Quick reply chips ────────────────────────────────────────────── */}
+      {/* ── Quick reply chips (collapsible) ──────────────────────────────── */}
       {(quickRepliesLoading || quickReplies.length > 0) && (
         <View style={[styles.quickRepliesOuter, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
-          <View style={styles.quickRepliesLabelRow}>
+          {/* Toggle header — always visible */}
+          <TouchableOpacity
+            style={styles.quickRepliesLabelRow}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setQuickRepliesExpanded((v) => !v);
+            }}
+            activeOpacity={0.7}
+          >
             <FIcon name="zap" size={11} color={colors.rose} />
-            <Text style={[styles.quickRepliesLabel, { color: colors.charcoalLight }]}>
+            <Text style={[styles.quickRepliesLabel, { color: colors.charcoalLight, flex: 1 }]}>
               {viewerLang === "ko" ? "AI 빠른 답장" : "AIクイック返信"}
+              {quickReplies.length > 0 && !quickRepliesLoading ? ` (${quickReplies.length})` : ""}
             </Text>
-          </View>
-          <View style={styles.quickRepliesChipRow}>
-            {quickRepliesLoading ? (
-              [0, 1, 2].map((i) => (
-                <View
-                  key={i}
-                  style={[styles.quickReplyChipSkeleton, { backgroundColor: colors.muted, borderColor: colors.border, width: 88 + i * 22 }]}
-                />
-              ))
-            ) : (
-              quickReplies.map((reply, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={[styles.quickReplyChip, { backgroundColor: colors.roseLight, borderColor: colors.roseSoft }]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    handleSuggestionSelect(reply);
-                  }}
-                  activeOpacity={0.72}
-                >
-                  <Text style={[styles.quickReplyChipText, { color: colors.rose }]} numberOfLines={2}>
-                    {reply}
-                  </Text>
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
+            <FIcon
+              name={quickRepliesExpanded ? "chevron-down" : "chevron-up"}
+              size={13}
+              color={colors.charcoalLight}
+            />
+          </TouchableOpacity>
+
+          {/* Chips — shown only when expanded */}
+          {quickRepliesExpanded && (
+            <View style={styles.quickRepliesChipRow}>
+              {quickRepliesLoading ? (
+                [0, 1, 2].map((i) => (
+                  <View
+                    key={i}
+                    style={[styles.quickReplyChipSkeleton, { backgroundColor: colors.muted, borderColor: colors.border, width: 88 + i * 22 }]}
+                  />
+                ))
+              ) : (
+                quickReplies.map((reply, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={[styles.quickReplyChip, { backgroundColor: colors.roseLight, borderColor: colors.roseSoft }]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      handleSuggestionSelect(reply);
+                    }}
+                    activeOpacity={0.72}
+                  >
+                    <Text style={[styles.quickReplyChipText, { color: colors.rose }]} numberOfLines={2}>
+                      {reply}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+          )}
         </View>
       )}
 

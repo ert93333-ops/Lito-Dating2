@@ -274,6 +274,7 @@ export interface MyProfile {
   country: "KR" | "JP";
   language: "ko" | "ja";
   intro?: string;
+  introI18n?: { ko?: string; ja?: string };
   bio: string;
   interests?: string[];
   instagramHandle?: string;

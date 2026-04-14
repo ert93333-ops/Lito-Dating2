@@ -610,9 +610,13 @@ export const myProfile: MyProfile = {
   country: "JP",
   language: "ja",
   intro: "UI/UXデザイナー · K-popと韓国映画が大好き",
+  introI18n: {
+    ko: "UI/UX 디자이너 · K-pop과 한국 영화를 정말 좋아해요",
+    ja: "UI/UXデザイナー · K-popと韓国映画が大好き",
+  },
   bio: "東京在住のUI/UXデザイナーです。韓国文化が大好きで、Kポップと韓国映画にはまっています。\n\nUI/UX designer living in Tokyo. I love Korean culture and am obsessed with K-pop and Korean cinema.",
   languageLevel: "intermediate",
-  interests: ["K-POP", "韓国映画", "UIデザイン", "写真", "旅行", "カフェ", "料理"],
+  interests: ["K-POP", "韓国ドラマ", "デザイン", "写真", "旅行", "カフェ", "料理"],
   instagramHandle: "@alex.creates",
   photos: [],
   aiStyleSummary: {

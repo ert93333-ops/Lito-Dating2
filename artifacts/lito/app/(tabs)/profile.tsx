@@ -22,6 +22,7 @@ import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 import { PLANS } from "@/services/monetization";
 import { computeTrustScore } from "@/types";
+import { translateInterest } from "@/utils/interests";
 
 const { width } = Dimensions.get("window");
 
@@ -102,9 +103,9 @@ export default function ProfileScreen() {
             <Text style={styles.heroAge}>{profile.age}</Text>
             <CountryFlag country={profile.country} size={20} />
           </View>
-          {profile.intro ? (
+          {(profile.introI18n?.[lang] ?? profile.intro) ? (
             <Text style={styles.heroIntro} numberOfLines={1}>
-              {profile.intro}
+              {profile.introI18n?.[lang] ?? profile.intro}
             </Text>
           ) : null}
         </View>
@@ -216,20 +217,23 @@ export default function ProfileScreen() {
             {t("profile.interests").toUpperCase()}
           </Text>
           <View style={styles.tagsWrap}>
-            {profile.interests.map((tag) => (
-              <View
-                key={tag}
-                style={[
-                  styles.tag,
-                  {
-                    backgroundColor: colors.roseLight,
-                    borderColor: colors.roseSoft,
-                  },
-                ]}
-              >
-                <Text style={[styles.tagText, { color: colors.rose }]}>{tag}</Text>
-              </View>
-            ))}
+            {profile.interests.map((tag) => {
+              const displayTag = translateInterest(tag, lang === "ko" ? "ko" : "ja");
+              return (
+                <View
+                  key={tag}
+                  style={[
+                    styles.tag,
+                    {
+                      backgroundColor: colors.roseLight,
+                      borderColor: colors.roseSoft,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.tagText, { color: colors.rose }]}>{displayTag}</Text>
+                </View>
+              );
+            })}
           </View>
         </View>
       )}
