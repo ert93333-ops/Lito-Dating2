@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { openai, editImages } from "@workspace/integrations-openai-ai-server";
 import {
   generateConversationInterestSnapshot,
   computeConfidenceScore,
@@ -648,6 +651,61 @@ router.get("/admin/prs/aggregates", (_req, res) => {
 router.get("/admin/prs/events", (req, res) => {
   const n = Math.min(Number(req.query.n ?? 50), 200);
   res.json({ events: getRecentEvents(n) });
+});
+
+/**
+ * POST /api/ai/generate-profile-photo
+ *
+ * Generates a professional AI portrait using multiple reference face photos.
+ *
+ * Body: { photos: string[] }  — array of base64-encoded JPEG/PNG images (4–5 recommended)
+ * Response: { photo: string } — base64-encoded PNG of the generated portrait
+ */
+router.post("/ai/generate-profile-photo", async (req, res) => {
+  const tmpFiles: string[] = [];
+  try {
+    const { photos } = req.body as { photos: string[] };
+
+    if (!Array.isArray(photos) || photos.length < 1) {
+      res.status(400).json({ error: "Provide at least 1 face photo" });
+      return;
+    }
+    if (photos.length > 5) {
+      res.status(400).json({ error: "Maximum 5 photos allowed" });
+      return;
+    }
+
+    // Write base64 photos to temp PNG files
+    const tmpDir = os.tmpdir();
+    for (let i = 0; i < photos.length; i++) {
+      const data = photos[i].replace(/^data:image\/\w+;base64,/, "");
+      const filePath = path.join(tmpDir, `lito-face-${Date.now()}-${i}.png`);
+      fs.writeFileSync(filePath, Buffer.from(data, "base64"));
+      tmpFiles.push(filePath);
+    }
+
+    const prompt =
+      "Using the person's face shown in the reference photos, generate a single professional ID-style portrait photo. " +
+      "The person should be looking directly at the camera with a natural, warm, and genuine expression. " +
+      "Use soft, flattering, even lighting. The background should be a clean, neutral light color (light gray or white). " +
+      "The face and upper shoulders should fill most of the frame. " +
+      "Preserve the person's authentic skin tone, facial features, eye color, and hair style exactly. " +
+      "The result should look like a high-quality, natural-looking professional headshot — not overly retouched or artificial. " +
+      "Output should be a square image.";
+
+    console.log(`[ai/generate-profile-photo] generating from ${tmpFiles.length} reference photos`);
+    const imageBuffer = await editImages(tmpFiles, prompt);
+
+    res.json({ photo: imageBuffer.toString("base64") });
+  } catch (err) {
+    console.error("[ai/generate-profile-photo] error:", err);
+    res.status(500).json({ error: "Failed to generate profile photo" });
+  } finally {
+    // Clean up temp files
+    for (const f of tmpFiles) {
+      try { fs.unlinkSync(f); } catch { /* ignore */ }
+    }
+  }
 });
 
 export default router;

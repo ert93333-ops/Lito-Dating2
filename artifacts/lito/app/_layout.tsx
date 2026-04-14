@@ -61,6 +61,7 @@ function RootNavigator() {
       <Stack.Screen name="report-user" options={{ headerShown: false, presentation: "modal" }} />
       <Stack.Screen name="profile-edit" options={{ headerShown: false }} />
       <Stack.Screen name="diagnosis" options={{ headerShown: false }} />
+      <Stack.Screen name="ai-photo" options={{ headerShown: false }} />
     </Stack>
   );
 }

@@ -339,6 +339,30 @@ export default function ProfileScreen() {
           <FIcon name="chevron-right" size={15} color={colors.charcoalLight} />
         </TouchableOpacity>
 
+        {/* AI Photo */}
+        <TouchableOpacity
+          style={[styles.growthBtn, { borderColor: colors.border }]}
+          onPress={() => router.push("/ai-photo" as any)}
+        >
+          <View style={[styles.growthBtnIcon, { backgroundColor: colors.roseLight }]}>
+            <FIcon name="camera" size={15} color={colors.rose} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.growthBtnLabel, { color: colors.charcoal }]}>
+              {lang === "ko" ? "AI 증명사진 만들기" : "AI証明写真を作成"}
+            </Text>
+            <Text style={[styles.growthBtnSub, { color: colors.charcoalLight }]}>
+              {lang === "ko"
+                ? "사진 4~5장으로 자연스러운 프로필 사진 생성"
+                : "写真4〜5枚で自然なプロフィール写真を生成"}
+            </Text>
+          </View>
+          <View style={[{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: colors.roseLight, marginRight: 6 }]}>
+            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, color: colors.rose }}>AI</Text>
+          </View>
+          <FIcon name="chevron-right" size={15} color={colors.charcoalLight} />
+        </TouchableOpacity>
+
         {/* AI Coach */}
         <TouchableOpacity
           style={[styles.growthBtn, { borderColor: colors.border }]}
