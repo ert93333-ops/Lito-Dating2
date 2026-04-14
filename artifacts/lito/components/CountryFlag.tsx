@@ -18,15 +18,15 @@ export function CountryFlag({ country, size = 22 }: CountryFlagProps) {
   // KR — 순수 태극 문양 (배경 없음)
   return (
     <Svg width={size} height={size} viewBox="0 0 100 100">
-      {/* 빨강(양) */}
+      {/* 빨강(양) — 우측 외곽 반원 + S곡선 */}
       <Path
-        d="M 50 12 A 38 38 0 0 1 50 88 A 19 19 0 0 1 50 50 A 19 19 0 0 0 50 12 Z"
+        d="M 50 12 A 38 38 0 0 1 50 88 A 19 19 0 0 0 50 50 A 19 19 0 0 1 50 12 Z"
         fill="#D42B3A"
         transform="rotate(-45, 50, 50)"
       />
-      {/* 파랑(음) */}
+      {/* 파랑(음) — 좌측 외곽 반원 + S곡선 */}
       <Path
-        d="M 50 12 A 38 38 0 0 0 50 88 A 19 19 0 0 0 50 50 A 19 19 0 0 1 50 12 Z"
+        d="M 50 12 A 38 38 0 0 0 50 88 A 19 19 0 0 1 50 50 A 19 19 0 0 0 50 12 Z"
         fill="#1B3F8B"
         transform="rotate(-45, 50, 50)"
       />
