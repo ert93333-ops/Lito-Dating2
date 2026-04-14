@@ -34,6 +34,14 @@ export const PLANS: Plan[] = [
       "3 AI Chemistry Picks/day",
       "Safety & reporting tools",
     ],
+    highlightsKo: [
+      "기본 프로필 & 탐색",
+      "하루 최대 20번 좋아요",
+      "모든 매칭과 채팅",
+      "실시간 한-일 번역",
+      "AI 케미스트리 픽 3회/일",
+      "안전 & 신고 도구",
+    ],
     highlightsJa: [
       "プロフィール作成・探索",
       "1日最大20いいね",
@@ -62,6 +70,15 @@ export const PLANS: Plan[] = [
       "Limited Travel Mode",
       "Better discovery visibility",
       "Unlimited AI Chemistry Picks",
+    ],
+    highlightsKo: [
+      "좋아요 무제한",
+      "마지막 스와이프 되돌리기",
+      "고급 필터 (국가, 목적, 관심사)",
+      "무료 부스트 1회/월",
+      "한정 트래블 모드",
+      "탐색 노출 우선순위 향상",
+      "AI 케미스트리 픽 무제한",
     ],
     highlightsJa: [
       "いいね無制限",
@@ -100,6 +117,16 @@ export const PLANS: Plan[] = [
       "Unlimited AI Profile Coach",
       "Unlimited AI Opener suggestions",
       "Deep compatibility explanations",
+    ],
+    highlightsKo: [
+      "Plus의 모든 혜택 포함",
+      "나를 좋아요한 사람 확인",
+      "인코그니토 / 비공개 모드",
+      "다이렉트 인트로 5회/월",
+      "탐색 우선 노출",
+      "AI 프로필 코치 무제한",
+      "AI 오프너 제안 무제한",
+      "상세 궁합 분석",
     ],
     highlightsJa: [
       "Plusのすべてを含む",

@@ -38,8 +38,12 @@ function PlanCard({
 
   const accentColor = isPremium ? "#B83058" : isPlus ? colors.rose : colors.charcoalLight;
   const bgColor = isPremium ? "#FFF4F7" : isPlus ? "#FFF8FA" : colors.white;
-  const tagline = lang === "ja" ? (plan.taglineJa ?? plan.tagline) : plan.tagline;
-  const highlights = lang === "ja" ? (plan.highlightsJa ?? plan.highlights) : plan.highlights;
+  const tagline = lang === "ja" ? (plan.taglineJa ?? plan.tagline) : lang === "ko" ? (plan.taglineKo ?? plan.tagline) : plan.tagline;
+  const highlights = lang === "ja"
+    ? (plan.highlightsJa ?? plan.highlights)
+    : lang === "ko"
+    ? (plan.highlightsKo ?? plan.highlights)
+    : plan.highlights;
 
   return (
     <TouchableOpacity

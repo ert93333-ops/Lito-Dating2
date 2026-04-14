@@ -21,13 +21,28 @@ import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 
-// ── Interest tags ─────────────────────────────────────────────────────────────
-const INTERESTS: string[] = [
-  "K-Pop", "K-Drama", "Anime", "Travel",
-  "Cooking", "Coffee", "Photography", "Music",
-  "Books", "Fitness", "Gaming", "Nature",
-  "Movies", "Fashion", "Design", "Language Exchange",
-  "Food Tour", "Hiking", "Art", "Tech",
+// ── Interest tags (bilingual) ─────────────────────────────────────────────────
+const INTERESTS_I18N: { ko: string; ja: string }[] = [
+  { ko: "케이팝",       ja: "K-POP" },
+  { ko: "드라마",       ja: "韓国ドラマ" },
+  { ko: "애니메이션",   ja: "アニメ" },
+  { ko: "여행",         ja: "旅行" },
+  { ko: "요리",         ja: "料理" },
+  { ko: "카페",         ja: "カフェ" },
+  { ko: "사진",         ja: "写真" },
+  { ko: "음악",         ja: "音楽" },
+  { ko: "독서",         ja: "読書" },
+  { ko: "운동",         ja: "フィットネス" },
+  { ko: "게임",         ja: "ゲーム" },
+  { ko: "자연",         ja: "自然" },
+  { ko: "영화",         ja: "映画" },
+  { ko: "패션",         ja: "ファッション" },
+  { ko: "디자인",       ja: "デザイン" },
+  { ko: "언어 교환",    ja: "語学交換" },
+  { ko: "맛집 탐방",   ja: "グルメ" },
+  { ko: "등산",         ja: "ハイキング" },
+  { ko: "예술",         ja: "アート" },
+  { ko: "IT/테크",      ja: "テクノロジー" },
 ];
 
 // ── AnimatedPressable CTA ─────────────────────────────────────────────────────
@@ -397,12 +412,13 @@ export default function ProfileSetupScreen() {
 
         {/* Interest tags grid */}
         <View style={s.interestGrid}>
-          {INTERESTS.map((tag) => {
+          {INTERESTS_I18N.map((item) => {
+            const tag = lang === "ja" ? item.ja : item.ko;
             const picked = selectedInterests.includes(tag);
             const atMax = !picked && selectedInterests.length >= 8;
             return (
               <TouchableOpacity
-                key={tag}
+                key={item.ko}
                 style={[
                   s.interestTag,
                   {

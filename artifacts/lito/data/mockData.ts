@@ -103,7 +103,7 @@ export const mockUsers: User[] = [
     lastActive: "10분 전",
     studyingLanguage: true,
     languageLevel: "beginner",
-    interests: ["개발", "재즈", "요리", "달리기", "게임"],
+    interests: ["開発", "ジャズ", "料理", "ランニング", "ゲーム"],
   },
   {
     id: "user3",
@@ -120,7 +120,7 @@ export const mockUsers: User[] = [
     trustProfile: TRUST_HUMAN_ONLY,
     lastActive: "1시간 전",
     studyingLanguage: false,
-    interests: ["사진", "카페", "독서", "꽃꽂이", "전통문화"],
+    interests: ["写真", "カフェ", "読書", "生け花", "伝統文化"],
   },
   {
     id: "user4",
@@ -175,7 +175,7 @@ export const mockUsers: User[] = [
     lastActive: "30분 전",
     studyingLanguage: true,
     languageLevel: "intermediate",
-    interests: ["재즈", "기타", "K-인디", "야경", "이자카야"],
+    interests: ["ジャズ", "ギター", "K-インディ", "夜景", "居酒屋"],
   },
 ];
 
@@ -198,7 +198,7 @@ export const aiTestUsers: User[] = [
     isOnline: true,
     studyingLanguage: true,
     languageLevel: "beginner",
-    interests: ["K-Pop", "Illustration", "Korean Food", "Anime", "Travel", "Cafe"],
+    interests: ["K-POP", "イラスト", "韓国料理", "アニメ", "旅行", "カフェ"],
     isAI: true,
     personaId: "ai_mio_jp",
   },
@@ -219,7 +219,7 @@ export const aiTestUsers: User[] = [
     isOnline: true,
     studyingLanguage: true,
     languageLevel: "intermediate",
-    interests: ["Anime", "Japanese Culture", "Translation", "K-Drama", "Cooking", "Reading"],
+    interests: ["애니메이션", "일본 문화", "번역", "드라마", "요리", "독서"],
     isAI: true,
     personaId: "ai_jia_kr",
   },
@@ -612,7 +612,7 @@ export const myProfile: MyProfile = {
   intro: "UI/UXデザイナー · K-popと韓国映画が大好き",
   bio: "東京在住のUI/UXデザイナーです。韓国文化が大好きで、Kポップと韓国映画にはまっています。\n\nUI/UX designer living in Tokyo. I love Korean culture and am obsessed with K-pop and Korean cinema.",
   languageLevel: "intermediate",
-  interests: ["K-Pop", "Korean Drama", "UI Design", "Photography", "Travel", "Coffee", "Cooking"],
+  interests: ["K-POP", "韓国映画", "UIデザイン", "写真", "旅行", "カフェ", "料理"],
   instagramHandle: "@alex.creates",
   photos: [],
   aiStyleSummary: {

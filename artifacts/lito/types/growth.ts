@@ -33,6 +33,7 @@ export interface Plan {
   price: { KRW: string; JPY: string; USD: string };
   /** Feature bullets shown in comparison UI */
   highlights: string[];
+  highlightsKo?: string[];
   highlightsJa?: string[];
   entitlements: EntitlementKey[];
   dailyLikes: number | null; // null = unlimited
