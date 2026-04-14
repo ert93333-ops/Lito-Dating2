@@ -191,13 +191,16 @@ export default function ProfileSetupScreen() {
     const trimmedIntro = intro.trim();
     const allPhotos = [mainPhoto, ...extraPhotos].filter(Boolean) as string[];
     updateProfile({
-      nickname: nickname.trim() || "User",
-      age: parsedAge >= 18 && parsedAge <= 99 ? parsedAge : 25,
+      nickname: nickname.trim() || profile.nickname || "User",
+      age: parsedAge >= 18 && parsedAge <= 99 ? parsedAge : profile.age ?? 25,
       country: profile.country,
       language: lang,
-      intro: trimmedIntro || undefined,
-      bio: trimmedIntro || undefined,
-      interests: selectedInterests.length > 0 ? selectedInterests : undefined,
+      intro: trimmedIntro || "",
+      bio: trimmedIntro || "",
+      introI18n: {},
+      instagramHandle: "",
+      aiStyleSummary: undefined,
+      interests: selectedInterests.length > 0 ? selectedInterests : [],
       photos: allPhotos.length > 0 ? allPhotos : profile.photos,
     });
     completeProfileSetup();

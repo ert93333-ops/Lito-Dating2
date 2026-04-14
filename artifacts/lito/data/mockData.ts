@@ -606,24 +606,18 @@ export const mockConversations: Conversation[] = [
 
 export const myProfile: MyProfile = {
   id: CURRENT_USER_ID,
-  nickname: "Alex",
-  age: 27,
-  country: "JP",
-  language: "ja",
-  intro: "UI/UXデザイナー · K-popと韓国映画が大好き",
-  introI18n: {
-    ko: "UI/UX 디자이너 · K-pop과 한국 영화를 정말 좋아해요",
-    ja: "UI/UXデザイナー · K-popと韓国映画が大好き",
-  },
-  bio: "東京在住のUI/UXデザイナーです。韓国文化が大好きで、Kポップと韓国映画にはまっています。\n\nUI/UX designer living in Tokyo. I love Korean culture and am obsessed with K-pop and Korean cinema.",
-  languageLevel: "intermediate",
-  interests: ["K-POP", "韓国ドラマ", "デザイン", "写真", "旅行", "カフェ", "料理"],
-  instagramHandle: "@alex.creates",
+  nickname: "",
+  age: 25,
+  country: "KR",
+  language: "ko",
+  intro: "",
+  introI18n: {},
+  bio: "",
+  languageLevel: "beginner",
+  interests: [],
+  instagramHandle: "",
   photos: [],
-  aiStyleSummary: {
-    ko: "프로필에서 창의적인 에너지와 문화에 대한 호기심이 느껴져요. 꾸밈없는 모습을 잘 표현하고 있고, 다른 문화와 연결되고 싶은 열정이 자연스럽게 전달됩니다. 팁: 작업 공간이나 취미 관련 사진을 추가하면 대화 시작이 더 쉬워질 거예요.",
-    ja: "プロフィールからはクリエイティブなエネルギーと文化への好奇心が伝わります。飾らない自分を出していて、異文化との繋がりへの情熱が自然に感じられます。ヒント：クリエイティブな作業スペースの写真を追加すると、話のきっかけが増えるかもしれません。",
-  },
+  aiStyleSummary: undefined,
   // humanVerified done · face/ID not started yet → user can go to verify-id screen to start
   trustProfile: {
     humanVerified: { status: "verified",     verifiedAt: "2025-01-10T00:00:00Z" },

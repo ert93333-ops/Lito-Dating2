@@ -281,7 +281,7 @@ export interface MyProfile {
   interests?: string[];
   instagramHandle?: string;
   photos: string[];
-  aiStyleSummary: { ko: string; ja: string };
+  aiStyleSummary?: { ko: string; ja: string };
   trustProfile: TrustProfile;
   languageLevel?: "beginner" | "intermediate" | "advanced";
 }
