@@ -20,6 +20,7 @@ import {
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ContactLockCard } from "@/components/ContactLockCard";
 import { CountryFlag } from "@/components/CountryFlag";
 import { ProfileImage } from "@/components/ProfileImage";
 import { PRSInsightCard, type PRSCardState } from "@/components/PRSInsightCard";
@@ -29,7 +30,7 @@ import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 import { AI_COACH_PACKS } from "@/services/monetization";
 import { getConversationInterestSnapshot } from "@/services/prsScoring";
-import { Message } from "@/types";
+import { Message, computeTrustScore } from "@/types";
 
 const CURRENT_USER_ID = "me";
 
@@ -823,6 +824,8 @@ export default function ChatDetailScreen() {
     profile,
     sendMessage,
     unlockExternalContact,
+    requestUnlock,
+    respondToUnlock,
   } = useApp();
   const {
     subscription,
@@ -834,6 +837,7 @@ export default function ChatDetailScreen() {
 
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [showCoachSheet, setShowCoachSheet] = useState(false);
+  const [showTrustGateModal, setShowTrustGateModal] = useState(false);
   const [coachData, setCoachData] = useState<CoachResult | null>(null);
   // L6 FIX: track whether user has ever tapped translate — to show/hide first-use hint
   const [hasUsedTranslation, setHasUsedTranslation] = useState(false);
@@ -1259,36 +1263,29 @@ export default function ChatDetailScreen() {
 
       </View>
 
-      {/* ── Contact unlock banner ───────────────────────────────────────── */}
-      {!conversation.externalUnlocked && (
-        <TouchableOpacity
-          style={[
-            styles.unlockBanner,
-            { backgroundColor: colors.roseLight, borderBottomColor: colors.roseSoft },
-          ]}
-          onPress={handleUnlock}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.unlockIconWrap, { backgroundColor: colors.roseSoft }]}>
-            <FIcon name="unlock" size={11} color={colors.rose} />
-          </View>
-          <Text style={[styles.unlockText, { color: colors.rose }]}>{t("chat.unlock")}</Text>
-          <FIcon name="chevron-right" size={13} color={colors.roseMid} style={{ marginLeft: "auto" }} />
-        </TouchableOpacity>
-      )}
-      {conversation.externalUnlocked && (
-        <View
-          style={[
-            styles.unlockBanner,
-            { backgroundColor: colors.greenLight, borderBottomColor: "#B2F2C9" },
-          ]}
-        >
-          <View style={[styles.unlockIconWrap, { backgroundColor: "#B2F2C9" }]}>
-            <FIcon name="check-circle" size={11} color={colors.green} />
-          </View>
-          <Text style={[styles.unlockText, { color: colors.green }]}>{t("chat.unlocked")}</Text>
-        </View>
-      )}
+      {/* ── Contact lock card (4-state) ─────────────────────────────────── */}
+      <ContactLockCard
+        conversation={conversation}
+        myTrustProfile={profile.trustProfile}
+        lang={lang}
+        onRequestUnlock={() => {
+          if (computeTrustScore(profile.trustProfile) < 25) {
+            setShowTrustGateModal(true);
+          } else {
+            requestUnlock(id!);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
+        }}
+        onRespondUnlock={(accept) => {
+          respondToUnlock(id!, accept);
+          Haptics.notificationAsync(
+            accept
+              ? Haptics.NotificationFeedbackType.Success
+              : Haptics.NotificationFeedbackType.Warning
+          );
+        }}
+        onGoToTrustCenter={() => router.push("/trust-center" as any)}
+      />
 
       {/* ── PRS Insight Card — between banner and messages, isolated ──── */}
       <PRSInsightCard
@@ -1504,6 +1501,64 @@ export default function ChatDetailScreen() {
           </Animated.View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* ── Trust Gate Modal ─────────────────────────────────────────────── */}
+      <Modal visible={showTrustGateModal} transparent animationType="fade">
+        <Pressable
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}
+          onPress={() => setShowTrustGateModal(false)}
+        />
+        <View
+          style={{
+            position: "absolute",
+            left: 16,
+            right: 16,
+            bottom: 40 + insets.bottom,
+            backgroundColor: colors.surface,
+            borderRadius: 18,
+            padding: 20,
+            gap: 12,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.18,
+            shadowRadius: 16,
+            elevation: 8,
+          }}
+        >
+          <View style={{ alignItems: "center", gap: 6 }}>
+            <View style={{ backgroundColor: colors.roseLight, borderRadius: 30, padding: 10, marginBottom: 4 }}>
+              <FIcon name="lock" size={22} color={colors.rose} />
+            </View>
+            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 16, color: colors.charcoal, textAlign: "center" }}>
+              {lang === "ko" ? "본인 인증이 필요해요" : "本人確認が必要です"}
+            </Text>
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.charcoalLight, textAlign: "center", lineHeight: 19 }}>
+              {lang === "ko"
+                ? "연락처 공개 요청은 신뢰 점수 25점 이상인 경우에만 가능해요. 신뢰 센터에서 인증을 완료해 주세요."
+                : "連絡先の公開リクエストは信頼スコア25点以上が必要です。トラストセンターで認証を完了してください。"}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={{ backgroundColor: colors.rose, borderRadius: 12, paddingVertical: 13, alignItems: "center" }}
+            onPress={() => {
+              setShowTrustGateModal(false);
+              router.push("/trust-center" as any);
+            }}
+          >
+            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff" }}>
+              {lang === "ko" ? "신뢰 센터로 이동" : "トラストセンターへ"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ alignItems: "center", paddingVertical: 6 }}
+            onPress={() => setShowTrustGateModal(false)}
+          >
+            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.charcoalLight }}>
+              {lang === "ko" ? "닫기" : "閉じる"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </View>
   );
 }

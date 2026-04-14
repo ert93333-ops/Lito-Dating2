@@ -264,6 +264,8 @@ export interface Conversation {
   lastMessage?: Message;
   unreadCount: number;
   externalUnlocked: boolean;
+  /** "sent" = 내가 요청 보냄, "received" = 상대방이 요청 보냄 */
+  unlockRequestState?: "sent" | "received";
   translationEnabled: boolean;
 }
 

@@ -111,6 +111,8 @@ interface AppContextType {
   sendMessage: (conversationId: string, text: string) => void;
   toggleTranslation: (conversationId: string) => void;
   unlockExternalContact: (conversationId: string) => void;
+  requestUnlock: (conversationId: string) => void;
+  respondToUnlock: (conversationId: string, accept: boolean) => void;
   setActiveConversation: (id: string | null) => void;
   updateProfile: (updates: Partial<MyProfile>) => void;
 }
@@ -400,6 +402,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const requestUnlock = useCallback((conversationId: string) => {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === conversationId ? { ...c, unlockRequestState: "sent" } : c
+      )
+    );
+    // AI 페르소나 대화: 1.8초 후 자동 수락 (상대방 수락 시뮬레이션)
+    const conv = conversationsRef.current.find((c) => c.id === conversationId);
+    if (conv?.user.isAI) {
+      setTimeout(() => {
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === conversationId
+              ? { ...c, externalUnlocked: true, unlockRequestState: undefined }
+              : c
+          )
+        );
+      }, 1800);
+    }
+  }, []);
+
+  const respondToUnlock = useCallback((conversationId: string, accept: boolean) => {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === conversationId
+          ? accept
+            ? { ...c, externalUnlocked: true, unlockRequestState: undefined }
+            : { ...c, unlockRequestState: undefined }
+          : c
+      )
+    );
+  }, []);
+
   const updateProfile = useCallback((updates: Partial<MyProfile>) => {
     setProfile((prev) => {
       const next = { ...prev, ...updates };
@@ -436,6 +471,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         sendMessage,
         toggleTranslation,
         unlockExternalContact,
+        requestUnlock,
+        respondToUnlock,
         setActiveConversation,
         updateProfile,
       }}

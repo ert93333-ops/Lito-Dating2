@@ -562,6 +562,7 @@ export const mockConversations: Conversation[] = [
     lastMessage: mockMessages[mockMessages.length - 1],
     unreadCount: 1,
     externalUnlocked: false,
+    unlockRequestState: "received",
     translationEnabled: true,
   },
   {
