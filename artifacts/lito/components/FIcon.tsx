@@ -9,7 +9,7 @@ type IconName =
   | "heart" | "info" | "instagram" | "lock" | "log-out" | "map-pin"
   | "message-circle" | "more-vertical" | "phone" | "refresh-cw" | "send" | "settings" | "shield"
   | "slash" | "sliders" | "star" | "unlock" | "upload" | "user" | "user-check"
-  | "x" | "x-circle" | "zap";
+  | "plus" | "x" | "x-circle" | "zap";
 
 interface FIconProps {
   name: IconName;
@@ -190,6 +190,12 @@ function Icon({ name, size = 24, color = "#000", style }: FIconProps) {
       </>
     ),
     "phone": <Path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.61 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.58 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" {...s} />,
+    "plus": (
+      <>
+        <Line x1="12" y1="5" x2="12" y2="19" {...s} />
+        <Line x1="5" y1="12" x2="19" y2="12" {...s} />
+      </>
+    ),
     "refresh-cw": (
       <>
         <Polyline points="23 4 23 10 17 10" {...s} />

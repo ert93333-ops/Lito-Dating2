@@ -1,7 +1,10 @@
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   Platform,
   Pressable,
@@ -16,6 +19,7 @@ import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import FIcon from "@/components/FIcon";
 
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
@@ -85,8 +89,10 @@ const btn = StyleSheet.create({
   },
 });
 
-// ── ProfileSetupScreen — 2-step wizard ───────────────────────────────────────
-// Country is already selected in onboarding, so this wizard starts at identity.
+// ── ProfileSetupScreen — 3-step wizard ───────────────────────────────────────
+// Step 1: Photos  •  Step 2: Identity  •  Step 3: Interests
+
+const TOTAL_STEPS = 3;
 
 export default function ProfileSetupScreen() {
   const colors = useColors();
@@ -97,22 +103,79 @@ export default function ProfileSetupScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  // Wizard state — 2 steps
-  const [step, setStep] = useState<1 | 2>(1);
+  // Wizard state — 3 steps
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+
+  // Step 1 — Photos
+  const [mainPhoto, setMainPhoto] = useState<string | null>(null);
+  const [extraPhotos, setExtraPhotos] = useState<(string | null)[]>([null, null, null]);
+
+  // Step 2 — Identity
   const [nickname, setNickname] = useState("");
   const [age, setAge] = useState("");
   const [intro, setIntro] = useState("");
+
+  // Step 3 — Interests
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
 
   const parsedAge = parseInt(age);
   const ageValid = age === "" || (parsedAge >= 18 && parsedAge <= 99);
-  const step1CanContinue = nickname.trim().length >= 2 && (age === "" || ageValid);
+  const step2CanContinue = nickname.trim().length >= 2 && (age === "" || ageValid);
 
-  const handleStep1Continue = () => {
-    if (!step1CanContinue) return;
+  // ── Photo picker ──────────────────────────────────────────────────────────
+  const pickPhoto = async (slot: "main" | number) => {
+    if (Platform.OS !== "web") {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          lang === "ko" ? "권한 필요" : "許可が必要",
+          lang === "ko"
+            ? "사진 접근 권한이 필요합니다. 설정에서 허용해주세요."
+            : "写真へのアクセス許可が必要です。設定で許可してください。"
+        );
+        return;
+      }
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: slot === "main" ? [4, 5] : [1, 1],
+      quality: 0.85,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const uri = result.assets[0].uri;
+      if (slot === "main") {
+        setMainPhoto(uri);
+      } else {
+        setExtraPhotos((prev) => {
+          const next = [...prev];
+          next[slot as number] = uri;
+          return next;
+        });
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const removePhoto = (slot: "main" | number) => {
+    if (slot === "main") {
+      setMainPhoto(null);
+    } else {
+      setExtraPhotos((prev) => {
+        const next = [...prev];
+        next[slot as number] = null;
+        return next;
+      });
+    }
+  };
+
+  const handleStep2Continue = () => {
+    if (!step2CanContinue) return;
     if (age !== "" && !ageValid) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setStep(2);
+    setStep(3);
   };
 
   const toggleInterest = (tag: string) => {
@@ -126,6 +189,7 @@ export default function ProfileSetupScreen() {
 
   const handleFinish = () => {
     const trimmedIntro = intro.trim();
+    const allPhotos = [mainPhoto, ...extraPhotos].filter(Boolean) as string[];
     updateProfile({
       nickname: nickname.trim() || "User",
       age: parsedAge >= 18 && parsedAge <= 99 ? parsedAge : 25,
@@ -134,12 +198,12 @@ export default function ProfileSetupScreen() {
       intro: trimmedIntro || undefined,
       bio: trimmedIntro || undefined,
       interests: selectedInterests.length > 0 ? selectedInterests : undefined,
+      photos: allPhotos.length > 0 ? allPhotos : profile.photos,
     });
     completeProfileSetup();
   };
 
   // ── Shared header ─────────────────────────────────────────────────────────
-  const TOTAL_STEPS = 2;
 
   const Header = () => (
     <View style={[shared.header, { paddingTop: topPad + 14 }]}>
@@ -198,9 +262,169 @@ export default function ProfileSetupScreen() {
   };
 
   // ══════════════════════════════════════════════════════════════════════════
-  // STEP 1 — Identity (name / age / intro)
+  // STEP 1 — Photos
   // ══════════════════════════════════════════════════════════════════════════
   if (step === 1) {
+    const EXTRA_SLOT_SIZE = 90;
+    return (
+      <View style={[s.container, { backgroundColor: colors.white }]}>
+        <Header />
+        <ProgressBar />
+        <ScrollView
+          contentContainerStyle={[s.scroll, { paddingBottom: bottomPad + 120 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={s.pillRow}>
+            <CountryPill />
+          </View>
+          <Text style={[s.heroTitle, { color: colors.charcoal }]}>
+            {lang === "ko" ? "프로필 사진" : "プロフィール写真"}
+          </Text>
+          <Text style={[s.heroSub, { color: colors.charcoalLight }]}>
+            {lang === "ko"
+              ? "얼굴이 잘 보이는 사진 1장이 필수예요\n추가 사진은 매력을 더 보여줄 수 있어요"
+              : "顔がよく見える写真が1枚必須です\n追加写真で魅力をもっとアピールできます"}
+          </Text>
+
+          {/* Required badge row */}
+          <View style={s.photoRequiredRow}>
+            <View style={[s.photoBadge, { backgroundColor: colors.roseLight }]}>
+              <Text style={[s.photoBadgeText, { color: colors.rose }]}>
+                {lang === "ko" ? "필수" : "必須"}
+              </Text>
+            </View>
+            <Text style={[s.photoRequiredLabel, { color: colors.charcoalMid }]}>
+              {lang === "ko" ? "대표 사진" : "メイン写真"}
+            </Text>
+          </View>
+
+          {/* Main photo slot */}
+          <TouchableOpacity
+            style={[
+              s.mainPhotoSlot,
+              {
+                backgroundColor: mainPhoto ? "transparent" : colors.muted,
+                borderColor: mainPhoto ? colors.rose : colors.border,
+                borderStyle: mainPhoto ? "solid" : "dashed",
+              },
+            ]}
+            onPress={() => pickPhoto("main")}
+            activeOpacity={0.78}
+          >
+            {mainPhoto ? (
+              <>
+                <Image
+                  source={{ uri: mainPhoto }}
+                  style={s.mainPhotoImage}
+                  contentFit="cover"
+                />
+                <TouchableOpacity
+                  style={[s.removeBtn, { backgroundColor: colors.charcoal }]}
+                  onPress={() => removePhoto("main")}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <FIcon name="x" size={12} color="#fff" />
+                </TouchableOpacity>
+              </>
+            ) : (
+              <View style={s.mainPhotoEmpty}>
+                <View style={[s.mainPhotoCameraCircle, { backgroundColor: colors.roseSoft }]}>
+                  <FIcon name="camera" size={28} color={colors.rose} />
+                </View>
+                <Text style={[s.mainPhotoHint, { color: colors.charcoalMid }]}>
+                  {lang === "ko" ? "탭하여 사진 추가" : "タップして写真を追加"}
+                </Text>
+                <Text style={[s.mainPhotoSubHint, { color: colors.charcoalLight }]}>
+                  {lang === "ko" ? "얼굴이 잘 보이는 사진으로 설정하세요" : "顔がよく見える写真を設定してください"}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Extra photos */}
+          <View style={s.extraPhotoSection}>
+            <View style={s.extraLabelRow}>
+              <Text style={[s.photoRequiredLabel, { color: colors.charcoalMid }]}>
+                {lang === "ko" ? "추가 사진" : "追加写真"}
+              </Text>
+              <View style={[s.photoBadge, { backgroundColor: colors.muted }]}>
+                <Text style={[s.photoBadgeText, { color: colors.charcoalLight }]}>
+                  {lang === "ko" ? "선택" : "任意"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={s.extraPhotoRow}>
+              {[0, 1, 2].map((i) => {
+                const uri = extraPhotos[i];
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    style={[
+                      s.extraPhotoSlot,
+                      {
+                        width: EXTRA_SLOT_SIZE,
+                        height: EXTRA_SLOT_SIZE,
+                        backgroundColor: uri ? "transparent" : colors.muted,
+                        borderColor: uri ? colors.rose : colors.border,
+                        borderStyle: uri ? "solid" : "dashed",
+                      },
+                    ]}
+                    onPress={() => pickPhoto(i)}
+                    activeOpacity={0.78}
+                  >
+                    {uri ? (
+                      <>
+                        <Image
+                          source={{ uri }}
+                          style={{ width: EXTRA_SLOT_SIZE, height: EXTRA_SLOT_SIZE, borderRadius: 14 }}
+                          contentFit="cover"
+                        />
+                        <TouchableOpacity
+                          style={[s.removeBtn, s.removeBtnSmall, { backgroundColor: colors.charcoal }]}
+                          onPress={() => removePhoto(i)}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                        >
+                          <FIcon name="x" size={9} color="#fff" />
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <FIcon name="plus" size={20} color={colors.charcoalFaint} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Tip card */}
+          <View style={[s.tipCard, { backgroundColor: colors.muted, borderColor: colors.border, marginTop: 16 }]}>
+            <Text style={[s.tipText, { color: colors.charcoalMid }]}>
+              {lang === "ko"
+                ? "선명하고 혼자 나온 사진이 매칭률을 높여요. 그룹 사진이나 너무 어두운 사진은 피해주세요."
+                : "鮮明で一人で写った写真がマッチ率を上げます。グループ写真や暗すぎる写真は避けてください。"}
+            </Text>
+          </View>
+        </ScrollView>
+
+        <View style={[s.stickyFooter, { paddingBottom: bottomPad + 14, borderTopColor: colors.border, backgroundColor: colors.white }]}>
+          <PrimaryButton
+            label={lang === "ko" ? "다음 →" : "次へ →"}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setStep(2);
+            }}
+            disabled={!mainPhoto}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // STEP 2 — Identity (name / age / intro)
+  // ══════════════════════════════════════════════════════════════════════════
+  if (step === 2) {
     return (
       <KeyboardAvoidingView
         style={[s.container, { backgroundColor: colors.white }]}
@@ -347,8 +571,8 @@ export default function ProfileSetupScreen() {
         <View style={[s.stickyFooter, { paddingBottom: bottomPad + 14, borderTopColor: colors.border, backgroundColor: colors.white }]}>
           <PrimaryButton
             label={lang === "ko" ? "다음 →" : "次へ →"}
-            onPress={handleStep1Continue}
-            disabled={!step1CanContinue}
+            onPress={handleStep2Continue}
+            disabled={!step2CanContinue}
           />
         </View>
       </KeyboardAvoidingView>
@@ -660,5 +884,103 @@ const s = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 14,
     borderTopWidth: StyleSheet.hairlineWidth,
+  },
+
+  // Photo step
+  photoRequiredRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  photoBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  photoBadgeText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11.5,
+  },
+  photoRequiredLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+  },
+  mainPhotoSlot: {
+    width: "100%",
+    aspectRatio: 4 / 5,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+  mainPhotoImage: {
+    width: "100%",
+    height: "100%",
+  },
+  mainPhotoEmpty: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingHorizontal: 24,
+  },
+  mainPhotoCameraCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  mainPhotoHint: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+    textAlign: "center",
+  },
+  mainPhotoSubHint: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12.5,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  removeBtn: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: 0.88,
+  },
+  removeBtnSmall: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    top: 5,
+    right: 5,
+  },
+  extraPhotoSection: {
+    marginBottom: 8,
+  },
+  extraLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  extraPhotoRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  extraPhotoSlot: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
 });
