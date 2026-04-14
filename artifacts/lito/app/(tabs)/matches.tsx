@@ -30,25 +30,26 @@ function MatchCard({ match }: { match: Match }) {
     router.push(`/chat/${match.id.replace("match", "conv")}` as any);
   };
 
+  const goToProfile = () => {
+    router.push(`/user-profile/${match.user.id}` as any);
+  };
+
   return (
-    <TouchableOpacity
-      style={[styles.matchCard, { backgroundColor: colors.white, borderColor: colors.border }]}
-      onPress={goToChat}
-      activeOpacity={0.88}
-    >
-      {/* Photo + NEW badge */}
-      <View style={styles.photoWrap}>
-        <ProfileImage photoKey={match.user.photos[0]} size={70} />
-        {match.isNew && (
-          <View style={[styles.newBadge, { backgroundColor: colors.rose }]}>
-            <Text style={styles.newBadgeText}>NEW</Text>
-          </View>
-        )}
-        {/* Trust dot overlay */}
-        {trustScore >= 55 && (
-          <View style={[styles.trustDot, { backgroundColor: "#1A7A4A" }]} />
-        )}
-      </View>
+    <View style={[styles.matchCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
+      {/* Tap photo → profile */}
+      <TouchableOpacity onPress={goToProfile} activeOpacity={0.85}>
+        <View style={styles.photoWrap}>
+          <ProfileImage photoKey={match.user.photos[0]} size={70} borderRadius={16} />
+          {match.isNew && (
+            <View style={[styles.newBadge, { backgroundColor: colors.rose }]}>
+              <Text style={styles.newBadgeText}>NEW</Text>
+            </View>
+          )}
+          {trustScore >= 55 && (
+            <View style={[styles.trustDot, { backgroundColor: "#1A7A4A" }]} />
+          )}
+        </View>
+      </TouchableOpacity>
 
       {/* Info */}
       <View style={styles.matchInfo}>
@@ -65,7 +66,7 @@ function MatchCard({ match }: { match: Match }) {
           )}
         </View>
 
-        {/* Trust badges (sm pills) */}
+        {/* Trust badges */}
         <View style={styles.trustRow}>
           <TrustBadge trustProfile={match.user.trustProfile} size="sm" lang={lang} />
           {trustScore === 0 && (
@@ -91,15 +92,31 @@ function MatchCard({ match }: { match: Match }) {
           </Text>
         )}
 
-        {/* Last active */}
-        <Text style={[styles.lastActiveText, { color: colors.charcoalLight }]}>
-          <FIcon name="clock" size={9} color={colors.charcoalLight} />
-          {" "}{match.user.lastActive}
-        </Text>
+        {/* Action buttons */}
+        <View style={styles.matchActions}>
+          <TouchableOpacity
+            style={[styles.matchActionBtn, styles.matchActionBtnOutline, { borderColor: colors.border }]}
+            onPress={goToProfile}
+            activeOpacity={0.8}
+          >
+            <FIcon name="user" size={13} color={colors.charcoalMid} />
+            <Text style={[styles.matchActionBtnText, { color: colors.charcoalMid }]}>
+              {lang === "ko" ? "프로필" : "プロフィール"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.matchActionBtn, styles.matchActionBtnFill, { backgroundColor: colors.rose }]}
+            onPress={goToChat}
+            activeOpacity={0.8}
+          >
+            <FIcon name="message-circle" size={13} color="#fff" />
+            <Text style={[styles.matchActionBtnText, { color: "#fff" }]}>
+              {lang === "ko" ? "채팅" : "チャット"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
-
-      <FIcon name="message-circle" size={20} color={colors.rose} style={styles.chatIcon} />
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -144,7 +161,7 @@ export default function MatchesScreen() {
               <TouchableOpacity
                 key={m.id}
                 style={styles.newMatchBubble}
-                onPress={() => router.push(`/chat/conv${m.id.replace("match", "")}` as any)}
+                onPress={() => router.push(`/user-profile/${m.user.id}` as any)}
               >
                 <View style={[styles.newMatchRing, { borderColor: colors.rose }]}>
                   <ProfileImage photoKey={m.user.photos[0]} size={64} />
@@ -306,7 +323,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
   },
-  chatIcon: { marginLeft: 8 },
+  matchActions: {
+    flexDirection: "row",
+    gap: 7,
+    marginTop: 8,
+  },
+  matchActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  matchActionBtnOutline: {
+    borderWidth: 1,
+  },
+  matchActionBtnFill: {},
+  matchActionBtnText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+  },
   trustDot: {
     position: "absolute",
     bottom: 2,

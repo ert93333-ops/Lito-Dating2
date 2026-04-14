@@ -8,8 +8,10 @@ import { useLocale } from "@/hooks/useLocale";
 import { translateInterest } from "@/utils/interests";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
+import * as Haptics from "expo-haptics";
 import React from "react";
 import {
+  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -24,7 +26,7 @@ export default function UserProfileScreen() {
   const insets = useSafeAreaInsets();
   const { lang } = useLocale();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { conversations, discoverUsers } = useApp();
+  const { conversations, discoverUsers, blockUser } = useApp();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -66,6 +68,21 @@ export default function UserProfileScreen() {
       >
         <View style={styles.backBtnBg}>
           <FIcon name="arrow-left" size={20} color="#fff" />
+        </View>
+      </TouchableOpacity>
+
+      {/* ── Report button (top-right) ── */}
+      <TouchableOpacity
+        style={[styles.reportBtn, { top: topPad + 8 }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          router.push(
+            `/report-user?userId=${user.id}&nickname=${encodeURIComponent(user.nickname)}` as any
+          );
+        }}
+      >
+        <View style={styles.backBtnBg}>
+          <FIcon name="flag" size={17} color="#fff" />
         </View>
       </TouchableOpacity>
 
@@ -188,6 +205,53 @@ export default function UserProfileScreen() {
             </Text>
           </View>
         )}
+
+        {/* Secondary actions: report & block */}
+        <View style={styles.secondaryActions}>
+          <TouchableOpacity
+            style={[styles.secondaryBtn, { borderColor: colors.border }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              router.push(
+                `/report-user?userId=${user.id}&nickname=${encodeURIComponent(user.nickname)}` as any
+              );
+            }}
+          >
+            <FIcon name="flag" size={13} color="#C05020" />
+            <Text style={[styles.secondaryBtnText, { color: "#C05020" }]}>
+              {lang === "ko" ? "신고" : "通報"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.secondaryBtn, { borderColor: colors.border }]}
+            onPress={() => {
+              Alert.alert(
+                lang === "ko" ? "차단하기" : "ブロックする",
+                lang === "ko"
+                  ? `${user.nickname}을(를) 차단하면 더 이상 보이지 않아요. 계속할까요?`
+                  : `${user.nickname}をブロックすると表示されなくなります。続けますか？`,
+                [
+                  { text: lang === "ko" ? "취소" : "キャンセル", style: "cancel" },
+                  {
+                    text: lang === "ko" ? "차단" : "ブロック",
+                    style: "destructive",
+                    onPress: () => {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      blockUser(user.id);
+                      router.back();
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            <FIcon name="slash" size={13} color="#C0392B" />
+            <Text style={[styles.secondaryBtnText, { color: "#C0392B" }]}>
+              {lang === "ko" ? "차단" : "ブロック"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -198,6 +262,11 @@ const styles = StyleSheet.create({
   backBtn: {
     position: "absolute",
     left: 16,
+    zIndex: 10,
+  },
+  reportBtn: {
+    position: "absolute",
+    right: 16,
     zIndex: 10,
   },
   backBtnBg: {
@@ -330,6 +399,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 10,
   },
   ctaBtn: {
     flexDirection: "row",
@@ -343,6 +413,24 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 15,
     color: "#fff",
+  },
+  secondaryActions: {
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+  },
+  secondaryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  secondaryBtnText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
   },
   notFound: {
     flex: 1,

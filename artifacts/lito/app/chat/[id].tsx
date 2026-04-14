@@ -729,6 +729,13 @@ const popup = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  moreBtn: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 4,
+  },
   headerTitle: {
     fontFamily: "Inter_700Bold",
     fontSize: 15,
@@ -826,6 +833,7 @@ export default function ChatDetailScreen() {
     unlockExternalContact,
     requestUnlock,
     respondToUnlock,
+    blockUser,
   } = useApp();
   const {
     subscription,
@@ -865,6 +873,7 @@ export default function ChatDetailScreen() {
   const [quickReplies, setQuickReplies] = useState<string[]>([]);
   const [quickRepliesLoading, setQuickRepliesLoading] = useState(false);
   const [quickRepliesExpanded, setQuickRepliesExpanded] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const lastFetchedMsgId = useRef<string | null>(null);
 
   const conversation = conversations.find((c) => c.id === id);
@@ -1265,6 +1274,15 @@ export default function ChatDetailScreen() {
           </View>
         </TouchableOpacity>
 
+        {/* More options */}
+        <TouchableOpacity
+          style={styles.moreBtn}
+          onPress={() => setShowMoreMenu(true)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <FIcon name="more-vertical" size={20} color={colors.charcoal} />
+        </TouchableOpacity>
+
       </View>
 
       {/* ── Contact lock card (4-state) ─────────────────────────────────── */}
@@ -1506,6 +1524,115 @@ export default function ChatDetailScreen() {
           </Animated.View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* ── More menu (report / block) ──────────────────────────────────── */}
+      <Modal visible={showMoreMenu} transparent animationType="fade">
+        <Pressable
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)" }}
+          onPress={() => setShowMoreMenu(false)}
+        />
+        <View style={[moreMenuStyles.sheet, { backgroundColor: colors.surface }]}>
+          <View style={[moreMenuStyles.handle, { backgroundColor: colors.border }]} />
+
+          {/* Profile row */}
+          <TouchableOpacity
+            style={moreMenuStyles.row}
+            onPress={() => {
+              setShowMoreMenu(false);
+              router.push(`/user-profile/${conversation.user.id}` as any);
+            }}
+          >
+            <View style={[moreMenuStyles.iconWrap, { backgroundColor: "#EEF4FF" }]}>
+              <FIcon name="user" size={17} color="#3B6FD4" />
+            </View>
+            <View style={moreMenuStyles.rowText}>
+              <Text style={[moreMenuStyles.rowLabel, { color: colors.charcoal }]}>
+                {lang === "ko" ? "프로필 보기" : "プロフィールを見る"}
+              </Text>
+              <Text style={[moreMenuStyles.rowSub, { color: colors.charcoalLight }]}>
+                {lang === "ko" ? `${conversation.user.nickname}의 상세 정보` : `${conversation.user.nickname}の詳細情報`}
+              </Text>
+            </View>
+            <FIcon name="chevron-right" size={15} color={colors.border} />
+          </TouchableOpacity>
+
+          <View style={[moreMenuStyles.divider, { backgroundColor: colors.border }]} />
+
+          {/* Report */}
+          <TouchableOpacity
+            style={moreMenuStyles.row}
+            onPress={() => {
+              setShowMoreMenu(false);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              router.push(
+                `/report-user?userId=${conversation.user.id}&nickname=${encodeURIComponent(conversation.user.nickname)}` as any
+              );
+            }}
+          >
+            <View style={[moreMenuStyles.iconWrap, { backgroundColor: "#FFF3ED" }]}>
+              <FIcon name="flag" size={17} color="#C05020" />
+            </View>
+            <View style={moreMenuStyles.rowText}>
+              <Text style={[moreMenuStyles.rowLabel, { color: "#C05020" }]}>
+                {lang === "ko" ? "신고하기" : "通報する"}
+              </Text>
+              <Text style={[moreMenuStyles.rowSub, { color: colors.charcoalLight }]}>
+                {lang === "ko" ? "사기, 스팸, 부적절한 행동 신고" : "詐欺、スパム、不適切な行動を報告"}
+              </Text>
+            </View>
+            <FIcon name="chevron-right" size={15} color={colors.border} />
+          </TouchableOpacity>
+
+          {/* Block */}
+          <TouchableOpacity
+            style={moreMenuStyles.row}
+            onPress={() => {
+              setShowMoreMenu(false);
+              Alert.alert(
+                lang === "ko" ? "차단하기" : "ブロックする",
+                lang === "ko"
+                  ? `${conversation.user.nickname}을(를) 차단하면 더 이상 메시지를 보내거나 받을 수 없어요. 계속할까요?`
+                  : `${conversation.user.nickname}をブロックすると、メッセージの送受信ができなくなります。続けますか？`,
+                [
+                  { text: lang === "ko" ? "취소" : "キャンセル", style: "cancel" },
+                  {
+                    text: lang === "ko" ? "차단" : "ブロック",
+                    style: "destructive",
+                    onPress: () => {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      blockUser(conversation.user.id);
+                      router.back();
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            <View style={[moreMenuStyles.iconWrap, { backgroundColor: "#FFF0EE" }]}>
+              <FIcon name="slash" size={17} color="#C0392B" />
+            </View>
+            <View style={moreMenuStyles.rowText}>
+              <Text style={[moreMenuStyles.rowLabel, { color: "#C0392B" }]}>
+                {lang === "ko" ? "차단하기" : "ブロックする"}
+              </Text>
+              <Text style={[moreMenuStyles.rowSub, { color: colors.charcoalLight }]}>
+                {lang === "ko" ? "이 사용자를 영구 차단해요" : "このユーザーを永久にブロックします"}
+              </Text>
+            </View>
+            <FIcon name="chevron-right" size={15} color={colors.border} />
+          </TouchableOpacity>
+
+          {/* Cancel */}
+          <TouchableOpacity
+            style={[moreMenuStyles.cancelBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+            onPress={() => setShowMoreMenu(false)}
+          >
+            <Text style={[moreMenuStyles.cancelText, { color: colors.charcoalMid }]}>
+              {lang === "ko" ? "닫기" : "閉じる"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
 
       {/* ── Trust Gate Modal ─────────────────────────────────────────────── */}
       <Modal visible={showTrustGateModal} transparent animationType="fade">
@@ -1766,5 +1893,67 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     opacity: 0.5,
+  },
+});
+
+const moreMenuStyles = StyleSheet.create({
+  sheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 36,
+    gap: 2,
+  },
+  handle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 8,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    gap: 12,
+  },
+  iconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rowText: {
+    flex: 1,
+    gap: 2,
+  },
+  rowLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+  },
+  rowSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: 50,
+  },
+  cancelBtn: {
+    marginTop: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center",
+    paddingVertical: 14,
+  },
+  cancelText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
   },
 });

@@ -7,7 +7,7 @@ type IconName =
   | "check-circle" | "chevron-down" | "chevron-left" | "chevron-right" | "chevron-up" | "circle" | "clock"
   | "compass" | "cpu" | "credit-card" | "edit-2" | "flag" | "gift" | "globe"
   | "heart" | "info" | "instagram" | "lock" | "log-out" | "map-pin"
-  | "message-circle" | "phone" | "refresh-cw" | "send" | "settings" | "shield"
+  | "message-circle" | "more-vertical" | "phone" | "refresh-cw" | "send" | "settings" | "shield"
   | "slash" | "sliders" | "star" | "unlock" | "upload" | "user" | "user-check"
   | "x" | "x-circle" | "zap";
 
@@ -182,6 +182,13 @@ function Icon({ name, size = 24, color = "#000", style }: FIconProps) {
       </>
     ),
     "message-circle": <Path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" {...s} />,
+    "more-vertical": (
+      <>
+        <Circle cx="12" cy="5" r="1" fill={color} stroke={color} strokeWidth={1} />
+        <Circle cx="12" cy="12" r="1" fill={color} stroke={color} strokeWidth={1} />
+        <Circle cx="12" cy="19" r="1" fill={color} stroke={color} strokeWidth={1} />
+      </>
+    ),
     "phone": <Path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.61 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.58 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" {...s} />,
     "refresh-cw": (
       <>
