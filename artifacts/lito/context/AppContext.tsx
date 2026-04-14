@@ -112,9 +112,10 @@ interface AppContextType {
   conversations: Conversation[];
   messages: Record<string, Message[]>;
   activeConversationId: string | null;
+  token: string | null;
   completeOnboarding: () => void;
   completeProfileSetup: () => void;
-  login: () => void;
+  login: (token: string) => void;
   logout: () => void;
   likeUser: (userId: string) => void;
   passUser: (userId: string) => void;
@@ -154,6 +155,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [hasCompletedProfileSetup, setHasCompletedProfileSetupState] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
   const [profile, setProfile] = useState<MyProfile>(myProfile);
   const [discoverUsers, setDiscoverUsers] = useState<User[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(false);
@@ -208,6 +210,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       "lito_onboarding",
       "lito_profile_setup",
       "lito_logged_in",
+      "lito_jwt",
       "lito_diagnosis_status",
       "lito_diagnosis_answers",
       "lito_diagnosis_reward",
@@ -218,6 +221,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (map["lito_onboarding"] === "done") setHasCompletedOnboarding(true);
       if (map["lito_profile_setup"] === "done") setHasCompletedProfileSetupState(true);
       if (map["lito_logged_in"] === "true") setIsLoggedIn(true);
+      if (map["lito_jwt"]) setToken(map["lito_jwt"]);
       if (map["lito_diagnosis_status"]) {
         setDiagnosisStatus(map["lito_diagnosis_status"] as DiagnosisStatus);
       }
@@ -283,13 +287,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem("lito_diagnosis_seen", "true");
   }, []);
 
-  const login = useCallback(() => {
+  const login = useCallback((jwt: string) => {
     setIsLoggedIn(true);
+    setToken(jwt);
     AsyncStorage.setItem("lito_logged_in", "true");
+    AsyncStorage.setItem("lito_jwt", jwt);
   }, []);
 
   const logout = useCallback(() => {
     setIsLoggedIn(false);
+    setToken(null);
     setHasCompletedOnboarding(false);
     setHasCompletedProfileSetupState(false);
     setProfile(myProfile);
@@ -304,6 +311,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setAiCoachingTickets(0);
     AsyncStorage.multiRemove([
       "lito_logged_in",
+      "lito_jwt",
       "lito_onboarding",
       "lito_profile_setup",
       "lito_diagnosis_status",
@@ -551,6 +559,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         hasCompletedOnboarding,
         hasCompletedProfileSetup,
         isLoggedIn,
+        token,
         profile,
         discoverUsers,
         discoverLoading,

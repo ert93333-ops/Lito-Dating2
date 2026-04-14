@@ -1,4 +1,4 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-24", "postgresql-16"]
 
 [[artifacts]]
 id = "artifacts/api-server"
@@ -29,3 +29,6 @@ timeoutMs = 20000
 
 [userenv.development]
 EXPO_PUBLIC_DOMAIN = "897d9e56-871c-4974-ac62-08cd46e83fb1-00-1t8plx8vfjhzz.riker.replit.dev"
+
+[nix]
+channel = "stable-25_05"

@@ -23,7 +23,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Preview Path**: `/`
 - **Stack**: Expo Router, React Native, TypeScript, AsyncStorage
 - **Key screens**: Onboarding (3 slides), Login, Profile Setup, Discover (swipe cards), Matches, Chats, Chat Detail, Profile, Settings, Dating Style Diagnosis (6-question flow)
-- **Data**: Mock data only (6 users, 3 matches, 1 sample conversation)
+- **Data**: 실제 DB 연결 (auth 완료). Discovery/Chat은 목업 유지 중
 - **Theme**: White background, rose/pink (#D85870) accent, dark charcoal text
 - **UX improvements done**:
   - User type extended: `city?`, `studyingLanguage?`, `languageLevel?`, `interests?`
@@ -31,7 +31,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
   - Discover cards: language study badge (📚 pill, green glass), interests + match reason chips
   - Matches screen: TrustBadge (sm), trust dot overlay, study badge, ice breaker suggestion card, last active
   - Profile screen: 문화 연결 목표 section (KR↔JP flag bridge, beginner/intermediate/advanced level)
-- **TODO**: Supabase auth + database, OpenAI translation + AI reply suggestions, Kakao/LINE OAuth
+- **Auth**: 실제 이메일+비밀번호 회원가입/로그인 완성. JWT 30일 만료. `/api/auth/register`, `/api/auth/login`, `/api/auth/me`, `/api/auth/profile`
+- **TODO**: Discovery/Matches/Chat → 실제 DB 전환, WebSocket 실시간 채팅, Kakao/LINE OAuth, 사진 Object Storage
 
 ### Lito Admin — Trust & Safety Dashboard (`artifacts/admin`)
 - **Type**: data-visualization (React + Vite)

@@ -97,7 +97,7 @@ const TOTAL_STEPS = 3;
 export default function ProfileSetupScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { profile, updateProfile, completeProfileSetup } = useApp();
+  const { profile, updateProfile, completeProfileSetup, token } = useApp();
   const { t, lang } = useLocale();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -190,7 +190,7 @@ export default function ProfileSetupScreen() {
   const handleFinish = () => {
     const trimmedIntro = intro.trim();
     const allPhotos = [mainPhoto, ...extraPhotos].filter(Boolean) as string[];
-    updateProfile({
+    const updates = {
       nickname: nickname.trim() || profile.nickname || "User",
       age: parsedAge >= 18 && parsedAge <= 99 ? parsedAge : profile.age ?? 25,
       country: profile.country,
@@ -202,7 +202,27 @@ export default function ProfileSetupScreen() {
       aiStyleSummary: undefined,
       interests: selectedInterests.length > 0 ? selectedInterests : [],
       photos: allPhotos.length > 0 ? allPhotos : profile.photos,
-    });
+    };
+    updateProfile(updates);
+
+    if (token) {
+      const apiBase = process.env.EXPO_PUBLIC_DOMAIN
+        ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+        : "http://localhost:8080";
+      fetch(`${apiBase}/api/auth/profile`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          nickname: updates.nickname,
+          age: updates.age,
+          bio: updates.bio,
+          intro: updates.intro,
+          interests: updates.interests,
+          languageLevel: profile.languageLevel ?? "beginner",
+        }),
+      }).catch(() => {});
+    }
+
     completeProfileSetup();
   };
 
