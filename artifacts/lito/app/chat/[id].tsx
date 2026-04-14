@@ -864,7 +864,7 @@ export default function ChatDetailScreen() {
   // ── Quick reply chips state ───────────────────────────────────────────────
   const [quickReplies, setQuickReplies] = useState<string[]>([]);
   const [quickRepliesLoading, setQuickRepliesLoading] = useState(false);
-  const [quickRepliesExpanded, setQuickRepliesExpanded] = useState(true);
+  const [quickRepliesExpanded, setQuickRepliesExpanded] = useState(false);
   const lastFetchedMsgId = useRef<string | null>(null);
 
   const conversation = conversations.find((c) => c.id === id);
@@ -1372,6 +1372,7 @@ export default function ChatDetailScreen() {
                     style={[styles.quickReplyChip, { backgroundColor: colors.roseLight, borderColor: colors.roseSoft }]}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setQuickRepliesExpanded(false);
                       handleSuggestionSelect(reply);
                     }}
                     activeOpacity={0.72}
