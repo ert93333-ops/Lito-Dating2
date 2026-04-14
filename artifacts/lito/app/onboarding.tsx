@@ -23,7 +23,6 @@ import Animated, {
   FadeInUp,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Circle, G, Path } from "react-native-svg";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -112,48 +111,64 @@ function CtaButton({
 }
 
 // ── FlagBadge ──────────────────────────────────────────────────────────────────
-// SVG-based flag — no emoji dependency, Android-safe
-// KR: Taeguk (태극) yin-yang in Korean red/blue, rotated -45°
-// JP: Hi-no-maru (日の丸) red circle on white
+// Modern language badge — gradient rounded square with typographic mark
+function FlagBadge({ country, size = 80 }: { country: "KR" | "JP"; size?: number }) {
+  const radius = size * 0.28;
 
-function FlagBadge({ country, size = 64 }: { country: "KR" | "JP"; size?: number }) {
   if (country === "JP") {
     return (
       <View style={{
-        shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
+        width: size, height: size, borderRadius: radius, overflow: "hidden",
+        shadowColor: "#BC002D", shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.22, shadowRadius: 14, elevation: 6,
       }}>
-        <Svg width={size} height={size} viewBox="0 0 100 100">
-          <Circle cx="50" cy="50" r="50" fill="#FFFFFF" />
-          <Circle cx="50" cy="50" r="30" fill="#BC002D" />
-          <Circle cx="50" cy="50" r="49" fill="none" stroke="#E0DADA" strokeWidth="2" />
-        </Svg>
+        <LinearGradient
+          colors={["#FFF5F5", "#FFE8E8"]}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+        >
+          {/* Red circle — refined hi-no-maru */}
+          <View style={{
+            width: size * 0.42, height: size * 0.42, borderRadius: size * 0.21,
+            backgroundColor: "#BC002D",
+          }} />
+          {/* Bottom color strip */}
+          <View style={{
+            position: "absolute", bottom: 0, left: 0, right: 0, height: 3,
+            backgroundColor: "#BC002D",
+          }} />
+        </LinearGradient>
       </View>
     );
   }
 
-  // KR — Taeguk (rotated yin-yang)
+  // KR — diagonal gradient in Korean flag colors
   return (
     <View style={{
-      shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
+      width: size, height: size, borderRadius: radius, overflow: "hidden",
+      shadowColor: "#C60C30", shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.18, shadowRadius: 12, elevation: 5,
     }}>
-      <Svg width={size} height={size} viewBox="0 0 100 100">
-        <Circle cx="50" cy="50" r="50" fill="#FFFFFF" />
-        <G rotation="-45" origin="50, 50">
-          <Path
-            d="M 50 10 A 40 40 0 0 1 50 90 A 20 20 0 0 1 50 50 A 20 20 0 0 0 50 10 Z"
-            fill="#C60C30"
-          />
-          <Path
-            d="M 50 10 A 40 40 0 0 0 50 90 A 20 20 0 0 0 50 50 A 20 20 0 0 1 50 10 Z"
-            fill="#003478"
-          />
-          <Circle cx="50" cy="30" r="9" fill="#003478" />
-          <Circle cx="50" cy="70" r="9" fill="#C60C30" />
-        </G>
-        <Circle cx="50" cy="50" r="49" fill="none" stroke="#D0C8CA" strokeWidth="2" />
-      </Svg>
+      <LinearGradient
+        colors={["#D8324A", "#8B2FC9", "#1C4F9C"]}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+      >
+        <Text style={{
+          fontFamily: "Inter_700Bold",
+          fontSize: size * 0.38,
+          color: "rgba(255,255,255,0.95)",
+          letterSpacing: -1,
+          lineHeight: size * 0.46,
+        }}>
+          한
+        </Text>
+        {/* Bottom color strip */}
+        <View style={{
+          position: "absolute", bottom: 0, left: 0, right: 0, height: 3,
+          backgroundColor: "rgba(255,255,255,0.25)",
+        }} />
+      </LinearGradient>
     </View>
   );
 }
@@ -211,11 +226,11 @@ function LanguageCard({
             entering={FadeIn.duration(160)}
             style={[langCard.checkBadge, { backgroundColor: accentColor }]}
           >
-            <Text style={langCard.checkText}>✓</Text>
+            <FIcon name="check" size={13} color="#fff" />
           </Animated.View>
         )}
 
-        <FlagBadge country={isKo ? "KR" : "JP"} size={64} />
+        <FlagBadge country={isKo ? "KR" : "JP"} size={76} />
 
         <Text style={[langCard.langMain, { color: isSelected ? accentColor : colors.charcoal }]}>
           {isKo ? "한국어" : "日本語"}
@@ -481,13 +496,14 @@ export default function OnboardingScreen() {
 const langCard = StyleSheet.create({
   card: {
     borderRadius: 24,
-    borderWidth: 2,
-    paddingVertical: 32,
+    borderWidth: 1.5,
+    paddingVertical: 28,
+    paddingHorizontal: 12,
     alignItems: "center",
-    gap: 8,
+    gap: 10,
     position: "relative",
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 18,
     elevation: 4,
   },
   checkBadge: {
