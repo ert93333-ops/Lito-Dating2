@@ -119,23 +119,26 @@ function FlagBadge({ country, size = 80 }: { country: "KR" | "JP"; size?: number
     return (
       <View style={{
         width: size, height: size, borderRadius: radius, overflow: "hidden",
-        shadowColor: "#BC002D", shadowOffset: { width: 0, height: 6 },
+        shadowColor: "#3B6FD4", shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.22, shadowRadius: 14, elevation: 6,
       }}>
         <LinearGradient
-          colors={["#FFF5F5", "#FFE8E8"]}
+          colors={["#3B6FD4", "#6A4FC8", "#C04472"]}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
         >
-          {/* Red circle — refined hi-no-maru */}
-          <View style={{
-            width: size * 0.42, height: size * 0.42, borderRadius: size * 0.21,
-            backgroundColor: "#BC002D",
-          }} />
-          {/* Bottom color strip */}
+          <Text style={{
+            fontFamily: "Inter_700Bold",
+            fontSize: size * 0.38,
+            color: "rgba(255,255,255,0.95)",
+            letterSpacing: -1,
+            lineHeight: size * 0.46,
+          }}>
+            日
+          </Text>
           <View style={{
             position: "absolute", bottom: 0, left: 0, right: 0, height: 3,
-            backgroundColor: "#BC002D",
+            backgroundColor: "rgba(255,255,255,0.25)",
           }} />
         </LinearGradient>
       </View>
