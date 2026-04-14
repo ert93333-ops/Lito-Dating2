@@ -1,0 +1,37 @@
+# =============================================
+# LITO 환경변수 템플릿
+# 새 Replit에서 Secrets에 하나씩 등록하세요
+# =============================================
+
+# ── API 서버 (artifacts/api-server) ──────────
+
+# JWT 서명 시크릿 (랜덤 긴 문자열, 예: openssl rand -hex 32)
+SESSION_SECRET=여기에_랜덤_시크릿_입력
+
+# PostgreSQL 연결 문자열 (Replit DB 연결 시 자동 생성됨)
+DATABASE_URL=postgresql://user:password@host:5432/dbname
+
+# ── Object Storage ────────────────────────────
+
+# Replit Object Storage 버킷 ID (버킷 생성 후 자동 부여)
+DEFAULT_OBJECT_STORAGE_BUCKET_ID=버킷_ID_입력
+
+# 비공개 파일 저장 경로 (예: private/)
+PRIVATE_OBJECT_DIR=private/
+
+# 공개 파일 검색 경로 (예: public/)
+PUBLIC_OBJECT_SEARCH_PATHS=public/
+
+# ── Expo 앱 (artifacts/lito) ─────────────────
+
+# Replit 도메인 (앱 배포 후 자동 부여, 예: your-repl.replit.app)
+# Expo 앱에서 API 서버 주소로 사용됨
+EXPO_PUBLIC_DOMAIN=your-repl.replit.app
+
+# ── 선택 사항 ─────────────────────────────────
+
+# 서버 로그 레벨 (debug / info / warn / error)
+LOG_LEVEL=info
+
+# 실행 환경 (development / production)
+NODE_ENV=production

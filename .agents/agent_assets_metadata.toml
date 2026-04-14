@@ -77,3 +77,9 @@ id = "043tAX6ZGCb_8Z00tO9wN"
 uri = "file://artifacts/admin/public/lito-source.tar.gz"
 type = "unspecified"
 title = "Lito 소스코드 (tar.gz)"
+
+[[outputs]]
+id = "thhkcI9X5THwNhkpsEX5L"
+uri = "file://lito-env-template.txt"
+type = "text"
+title = "Lito 환경변수 템플릿"
