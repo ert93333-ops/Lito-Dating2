@@ -1,47 +1,20 @@
 import React from "react";
 import { View, Text } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 
 interface CountryFlagProps {
   country: "KR" | "JP";
   size?: number;
 }
 
+/**
+ * 국가 표시 뱃지 — 플랫 단색, 앱 아이콘 톤에 맞춤
+ * KR: 딥레드 + 한  /  JP: 다크네이비 + 日
+ */
 export function CountryFlag({ country, size = 22 }: CountryFlagProps) {
-  const radius = Math.round(size * 0.28);
-  const fontSize = Math.round(size * 0.52);
+  const radius = Math.round(size * 0.3);
+  const fontSize = Math.round(size * 0.55);
 
-  if (country === "JP") {
-    return (
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: radius,
-          overflow: "hidden",
-        }}
-      >
-        <LinearGradient
-          colors={["#3B6FD4", "#6A4FC8", "#C04472"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
-        >
-          <Text
-            style={{
-              fontFamily: "Inter_700Bold",
-              fontSize,
-              color: "rgba(255,255,255,0.95)",
-              lineHeight: size,
-              includeFontPadding: false,
-            }}
-          >
-            日
-          </Text>
-        </LinearGradient>
-      </View>
-    );
-  }
+  const isKR = country === "KR";
 
   return (
     <View
@@ -49,27 +22,23 @@ export function CountryFlag({ country, size = 22 }: CountryFlagProps) {
         width: size,
         height: size,
         borderRadius: radius,
-        overflow: "hidden",
+        backgroundColor: isKR ? "#C0122A" : "#1C3F8B",
+        alignItems: "center",
+        justifyContent: "center",
       }}
     >
-      <LinearGradient
-        colors={["#D8324A", "#8B2FC9", "#1C4F9C"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+      <Text
+        style={{
+          fontFamily: "Inter_700Bold",
+          fontSize,
+          color: "rgba(255,255,255,0.92)",
+          lineHeight: size,
+          includeFontPadding: false,
+          textAlignVertical: "center",
+        }}
       >
-        <Text
-          style={{
-            fontFamily: "Inter_700Bold",
-            fontSize,
-            color: "rgba(255,255,255,0.95)",
-            lineHeight: size,
-            includeFontPadding: false,
-          }}
-        >
-          한
-        </Text>
-      </LinearGradient>
+        {isKR ? "한" : "日"}
+      </Text>
     </View>
   );
 }
