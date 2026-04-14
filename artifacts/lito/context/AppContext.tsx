@@ -16,6 +16,10 @@ const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
   : "http://localhost:8080";
 
+const WS_URL = process.env.EXPO_PUBLIC_DOMAIN
+  ? `wss://${process.env.EXPO_PUBLIC_DOMAIN}/ws`
+  : "ws://localhost:8080/ws";
+
 // ── ServerUser → app User conversion ─────────────────────────────────────────
 
 interface ServerUser {
@@ -129,6 +133,9 @@ interface AppContextType {
   setActiveConversation: (id: string | null) => void;
   updateProfile: (updates: Partial<MyProfile>) => void;
   loadConversationMessages: (conversationId: string) => Promise<void>;
+  joinConversation: (conversationId: string) => void;
+  leaveConversation: (conversationId: string) => void;
+  wsConnected: boolean;
   diagnosisStatus: DiagnosisStatus;
   datingStyleAnswers: DatingStyleAnswers;
   diagnosisRewardClaimed: boolean;
@@ -175,6 +182,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [diagnosisRewardClaimed, setDiagnosisRewardClaimed] = useState(false);
   const [aiCoachingTickets, setAiCoachingTickets] = useState(0);
   const [hasSeenDiagnosisPrompt, setHasSeenDiagnosisPrompt] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
 
   const profileRef = useRef(profile);
   useEffect(() => { profileRef.current = profile; }, [profile]);
@@ -187,6 +195,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const conversationsRef = useRef(conversations);
   useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
+
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeConvRef = useRef<string | null>(null);
 
   // ── Fetch discover users from API ─────────────────────────────────────────
   const fetchDiscover = useCallback(async () => {
@@ -227,7 +239,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (map["lito_onboarding"] === "done") setHasCompletedOnboarding(true);
       if (map["lito_profile_setup"] === "done") setHasCompletedProfileSetupState(true);
       if (map["lito_logged_in"] === "true") setIsLoggedIn(true);
-      if (map["lito_jwt"]) setToken(map["lito_jwt"]);
+      if (map["lito_jwt"]) {
+        setToken(map["lito_jwt"]);
+        connectWS(map["lito_jwt"]);
+      }
       if (map["lito_diagnosis_status"]) {
         setDiagnosisStatus(map["lito_diagnosis_status"] as DiagnosisStatus);
       }
@@ -293,12 +308,136 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem("lito_diagnosis_seen", "true");
   }, []);
 
-  const login = useCallback((jwt: string) => {
-    setIsLoggedIn(true);
-    setToken(jwt);
-    AsyncStorage.setItem("lito_logged_in", "true");
-    AsyncStorage.setItem("lito_jwt", jwt);
+  // ── WebSocket 연결 관리 ────────────────────────────────────────────────────
+  const connectWS = useCallback((jwtToken: string) => {
+    // 기존 재연결 타이머 취소
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    // 기존 연결 종료
+    if (wsRef.current) {
+      wsRef.current.onclose = null; // 자동 재연결 방지
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
+    const ws = new WebSocket(`${WS_URL}?token=${encodeURIComponent(jwtToken)}`);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      setWsConnected(true);
+      // 현재 활성 대화방 재입장
+      if (activeConvRef.current) {
+        ws.send(JSON.stringify({ type: "join", conversationId: activeConvRef.current }));
+      }
+    };
+
+    ws.onmessage = (event: MessageEvent<string>) => {
+      try {
+        const msg = JSON.parse(event.data) as {
+          type: string;
+          conversationId?: string;
+          message?: {
+            id: number;
+            conversationId: string;
+            senderId: string;
+            content: string;
+            originalLanguage: string | null;
+            translatedContent: string | null;
+            createdAt: string;
+          };
+        };
+
+        if (msg.type === "message" && msg.conversationId && msg.message) {
+          const { conversationId, message: m } = msg;
+
+          // 내가 보낸 메시지는 optimistic update로 이미 추가됨 → 스킵
+          if (m.senderId === "me") return;
+
+          const incomingMsg: Message = {
+            id: `srv_${m.id}`,
+            conversationId: m.conversationId,
+            senderId: m.senderId,
+            originalText: m.content,
+            originalLanguage: (m.originalLanguage as "ko" | "ja") ?? "ko",
+            translatedText: m.translatedContent ?? undefined,
+            createdAt: m.createdAt,
+            isRead: false,
+          };
+
+          setMessages((prev) => {
+            const existing = prev[conversationId] ?? [];
+            if (existing.some((x) => x.id === incomingMsg.id)) return prev;
+            return {
+              ...prev,
+              [conversationId]: [...existing, incomingMsg].sort(
+                (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+              ),
+            };
+          });
+
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === conversationId ? { ...c, lastMessage: incomingMsg } : c
+            )
+          );
+        }
+      } catch {
+        // ignore parse errors
+      }
+    };
+
+    ws.onclose = () => {
+      setWsConnected(false);
+      wsRef.current = null;
+      // 3초 후 자동 재연결 (토큰 있을 때만)
+      if (tokenRef.current) {
+        reconnectTimerRef.current = setTimeout(() => {
+          if (tokenRef.current) connectWS(tokenRef.current);
+        }, 3000);
+      }
+    };
+
+    ws.onerror = () => {
+      // onclose가 이어서 호출되므로 여기서는 별도 처리 불필요
+    };
   }, []);
+
+  const disconnectWS = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    if (wsRef.current) {
+      wsRef.current.onclose = null; // 자동 재연결 방지
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setWsConnected(false);
+  }, []);
+
+  const joinConversation = useCallback((conversationId: string) => {
+    activeConvRef.current = conversationId;
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "join", conversationId }));
+    }
+  }, []);
+
+  const leaveConversation = useCallback((conversationId: string) => {
+    if (activeConvRef.current === conversationId) activeConvRef.current = null;
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "leave", conversationId }));
+    }
+  }, []);
+
+  const login = useCallback((jwtToken: string) => {
+    setIsLoggedIn(true);
+    setToken(jwtToken);
+    AsyncStorage.setItem("lito_logged_in", "true");
+    AsyncStorage.setItem("lito_jwt", jwtToken);
+    connectWS(jwtToken);
+  }, [connectWS]);
 
   const logout = useCallback(() => {
     setIsLoggedIn(false);
@@ -326,6 +465,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       "lito_ai_tickets",
       "lito_diagnosis_seen",
     ]);
+    // WS 연결 종료
+    disconnectWS();
     // Reset server-side likes/passes so the deck resets too
     fetch(`${API_BASE}/api/users/reset`, {
       method: "POST",
@@ -333,7 +474,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       body: JSON.stringify({ viewerId: "me" }),
     }).catch(() => {});
     setTimeout(() => fetchDiscover(), 300);
-  }, [fetchDiscover]);
+  }, [fetchDiscover, disconnectWS]);
 
   const dismissMatch = useCallback(() => setNewMatch(null), []);
 
@@ -497,8 +638,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       )
     );
 
-    // 실서버에 메시지 저장 (토큰 있을 때만)
-    if (tokenRef.current) {
+    // WS 연결된 경우 실시간 전송, 아니면 HTTP 폴백
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: "message",
+        conversationId,
+        content: text,
+        senderId: "me",
+        originalLanguage: lang,
+      }));
+    } else if (tokenRef.current) {
       fetch(`${API_BASE}/api/chat/${encodeURIComponent(conversationId)}/messages`, {
         method: "POST",
         headers: {
@@ -664,6 +813,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setActiveConversation,
         updateProfile,
         loadConversationMessages,
+        joinConversation,
+        leaveConversation,
+        wsConnected,
         diagnosisStatus,
         datingStyleAnswers,
         diagnosisRewardClaimed,

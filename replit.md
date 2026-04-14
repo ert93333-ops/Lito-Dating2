@@ -32,7 +32,10 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
   - Matches screen: TrustBadge (sm), trust dot overlay, study badge, ice breaker suggestion card, last active
   - Profile screen: 문화 연결 목표 section (KR↔JP flag bridge, beginner/intermediate/advanced level)
 - **Auth**: 실제 이메일+비밀번호 회원가입/로그인 완성. JWT 30일 만료. `/api/auth/register`, `/api/auth/login`, `/api/auth/me`, `/api/auth/profile`
-- **TODO**: Discovery/Matches/Chat → 실제 DB 전환, WebSocket 실시간 채팅, Kakao/LINE OAuth, 사진 Object Storage
+- **WebSocket 실시간 채팅**: `ws` 패키지 기반. `/ws` 경로. JWT 인증. 방(room) 기반 브로드캐스트. 메시지 DB 저장. 자동 재연결(3초). WS 미연결 시 HTTP 폴백
+- **채팅 DB 저장+로드**: `chat_messages` 테이블. 채팅방 열릴 때 서버에서 과거 메시지 로드. 앱 재시작 후 대화 복구
+- **Discovery JWT**: `/api/users/discover`, `/api/users/:id/like`, `/api/users/:id/pass` 모두 optionalAuth로 사용자별 스와이프 이력 분리
+- **TODO**: Discovery/Matches → 실제 DB 전환, Kakao/LINE OAuth, 사진 Object Storage
 
 ### Lito Admin — Trust & Safety Dashboard (`artifacts/admin`)
 - **Type**: data-visualization (React + Vite)
