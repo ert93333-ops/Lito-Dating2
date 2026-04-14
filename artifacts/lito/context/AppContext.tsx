@@ -87,6 +87,17 @@ function serverUserToAppUser(u: ServerUser): User {
 
 // ── Context type ──────────────────────────────────────────────────────────────
 
+export type DiagnosisStatus = "not_started" | "completed" | "skipped";
+
+export interface DatingStyleAnswers {
+  pace: string | null;
+  reply_style: string | null;
+  expression: string | null;
+  dating_style: string | null;
+  relationship_goal: string | null;
+  privacy: string | null;
+}
+
 interface AppContextType {
   hasCompletedOnboarding: boolean;
   hasCompletedProfileSetup: boolean;
@@ -116,6 +127,13 @@ interface AppContextType {
   clearNewMatches: () => void;
   setActiveConversation: (id: string | null) => void;
   updateProfile: (updates: Partial<MyProfile>) => void;
+  diagnosisStatus: DiagnosisStatus;
+  datingStyleAnswers: DatingStyleAnswers;
+  diagnosisRewardClaimed: boolean;
+  aiCoachingTickets: number;
+  completeDiagnosis: (answers: DatingStyleAnswers) => void;
+  skipDiagnosis: () => void;
+  resetDiagnosis: () => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -142,6 +160,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
   const [messages, setMessages] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
   const [activeConversationId, setActiveConversation] = useState<string | null>(null);
+
+  const EMPTY_ANSWERS: DatingStyleAnswers = {
+    pace: null, reply_style: null, expression: null,
+    dating_style: null, relationship_goal: null, privacy: null,
+  };
+  const [diagnosisStatus, setDiagnosisStatus] = useState<DiagnosisStatus>("not_started");
+  const [datingStyleAnswers, setDatingStyleAnswers] = useState<DatingStyleAnswers>(EMPTY_ANSWERS);
+  const [diagnosisRewardClaimed, setDiagnosisRewardClaimed] = useState(false);
+  const [aiCoachingTickets, setAiCoachingTickets] = useState(0);
 
   const profileRef = useRef(profile);
   useEffect(() => { profileRef.current = profile; }, [profile]);
@@ -178,11 +205,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       "lito_onboarding",
       "lito_profile_setup",
       "lito_logged_in",
+      "lito_diagnosis_status",
+      "lito_diagnosis_answers",
+      "lito_diagnosis_reward",
+      "lito_ai_tickets",
     ]).then((pairs) => {
       const map = Object.fromEntries(pairs.map(([k, v]) => [k, v]));
       if (map["lito_onboarding"] === "done") setHasCompletedOnboarding(true);
       if (map["lito_profile_setup"] === "done") setHasCompletedProfileSetupState(true);
       if (map["lito_logged_in"] === "true") setIsLoggedIn(true);
+      if (map["lito_diagnosis_status"]) {
+        setDiagnosisStatus(map["lito_diagnosis_status"] as DiagnosisStatus);
+      }
+      if (map["lito_diagnosis_answers"]) {
+        try { setDatingStyleAnswers(JSON.parse(map["lito_diagnosis_answers"]!)); } catch {}
+      }
+      if (map["lito_diagnosis_reward"] === "true") setDiagnosisRewardClaimed(true);
+      if (map["lito_ai_tickets"]) setAiCoachingTickets(Number(map["lito_ai_tickets"]) || 0);
     });
     fetchDiscover();
   }, [fetchDiscover]);
@@ -195,6 +234,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const completeProfileSetup = useCallback(() => {
     setHasCompletedProfileSetupState(true);
     AsyncStorage.setItem("lito_profile_setup", "done");
+  }, []);
+
+  const completeDiagnosis = useCallback((answers: DatingStyleAnswers) => {
+    setDiagnosisStatus("completed");
+    setDatingStyleAnswers(answers);
+    AsyncStorage.setItem("lito_diagnosis_status", "completed");
+    AsyncStorage.setItem("lito_diagnosis_answers", JSON.stringify(answers));
+    setDiagnosisRewardClaimed((prev) => {
+      if (!prev) {
+        setAiCoachingTickets((t) => {
+          const next = t + 1;
+          AsyncStorage.setItem("lito_ai_tickets", String(next));
+          return next;
+        });
+        AsyncStorage.setItem("lito_diagnosis_reward", "true");
+        return true;
+      }
+      return prev;
+    });
+  }, []);
+
+  const skipDiagnosis = useCallback(() => {
+    setDiagnosisStatus("skipped");
+    AsyncStorage.setItem("lito_diagnosis_status", "skipped");
+  }, []);
+
+  const resetDiagnosis = useCallback(() => {
+    const empty: DatingStyleAnswers = {
+      pace: null, reply_style: null, expression: null,
+      dating_style: null, relationship_goal: null, privacy: null,
+    };
+    setDiagnosisStatus("not_started");
+    setDatingStyleAnswers(empty);
+    AsyncStorage.multiRemove(["lito_diagnosis_status", "lito_diagnosis_answers"]);
   }, []);
 
   const login = useCallback(() => {
@@ -481,6 +554,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         clearNewMatches,
         setActiveConversation,
         updateProfile,
+        diagnosisStatus,
+        datingStyleAnswers,
+        diagnosisRewardClaimed,
+        aiCoachingTickets,
+        completeDiagnosis,
+        skipDiagnosis,
+        resetDiagnosis,
       }}
     >
       {children}

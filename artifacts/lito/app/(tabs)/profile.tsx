@@ -29,7 +29,7 @@ const { width } = Dimensions.get("window");
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { profile, logout } = useApp();
+  const { profile, logout, diagnosisStatus, diagnosisRewardClaimed } = useApp();
   const { subscription, track } = useGrowth();
   const { t, lang } = useLocale();
 
@@ -312,6 +312,32 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Dating Style Diagnosis */}
+        <TouchableOpacity
+          style={[styles.growthBtn, { borderColor: diagnosisStatus !== "completed" ? "#C84B72" : colors.border }]}
+          onPress={() => router.push({ pathname: "/diagnosis" as any, params: { from: "profile" } })}
+        >
+          <View style={[styles.growthBtnIcon, { backgroundColor: "#FCEEF3" }]}>
+            <FIcon name="heart" size={15} color="#C84B72" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.growthBtnLabel, { color: colors.charcoal }]}>
+              {lang === "ko" ? "연애 스타일 진단" : "恋愛スタイル診断"}
+            </Text>
+            <Text style={[styles.growthBtnSub, { color: colors.charcoalLight }]}>
+              {diagnosisStatus === "completed"
+                ? (lang === "ko" ? "완료됨 · 답변 수정하기" : "完了済み · 回答を編集")
+                : (lang === "ko"
+                  ? "완료하면 매칭 정확도와 AI 코칭이 향상돼요"
+                  : "完了するとマッチング精度とAIコーチングが向上します")}
+            </Text>
+          </View>
+          {diagnosisStatus !== "completed" && (
+            <View style={styles.diagnosisDot} />
+          )}
+          <FIcon name="chevron-right" size={15} color={colors.charcoalLight} />
+        </TouchableOpacity>
 
         {/* AI Coach */}
         <TouchableOpacity
@@ -660,6 +686,13 @@ const styles = StyleSheet.create({
   },
   growthBtnLabel: { fontFamily: "Inter_500Medium", fontSize: 15, marginBottom: 1 },
   growthBtnSub: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  diagnosisDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#C84B72",
+    marginRight: 4,
+  },
 
   // ── Actions ───────────────────────────────────────────────────────────────
   actionsCard: {

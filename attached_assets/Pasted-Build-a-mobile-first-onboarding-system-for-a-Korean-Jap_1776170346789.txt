@@ -1,0 +1,327 @@
+Build a mobile-first onboarding system for a Korean-Japanese dating app.
+
+The onboarding must be designed to reduce drop-off while improving match quality and AI coaching quality.
+
+Core concept:
+- Keep onboarding short and easy
+- Make it skippable at any time
+- Explain clearly that completing onboarding improves AI coaching and match recommendations
+- Give a reward after completion: 1 free AI coaching ticket
+- If skipped, users can complete it later from the Profile menu and still receive the reward
+- Reward must only be granted once per account
+
+==================================================
+1. ONBOARDING FLOW STRUCTURE
+==================================================
+
+Create a lightweight onboarding flow with 3 parts:
+
+Part 1: Intro / value proposition
+Part 2: 6-question dating style diagnosis
+Part 3: Completion + reward
+
+The onboarding should feel fast, modern, and low-pressure.
+
+==================================================
+2. INTRO SCREEN COPY
+==================================================
+
+Show this message on the intro screen:
+
+"Answer 6 simple questions to unlock better matches and more detailed AI coaching."
+
+"Your answers help the AI analyze match fit, conversation timing, and interest more accurately."
+
+"Complete it now and receive 1 free AI coaching ticket."
+
+Add two clear buttons:
+- Start diagnosis
+- Skip for now
+
+Design goal:
+- friendly
+- premium
+- low-pressure
+- high clarity
+
+==================================================
+3. SKIP FUNCTIONALITY
+==================================================
+
+Users must be able to skip onboarding:
+- from the intro screen
+- from any question screen
+
+If user taps skip, show a confirmation modal.
+
+Skip modal title:
+"Skip for now?"
+
+Skip modal body:
+"You can skip for now.
+
+But completing this dating style diagnosis helps improve your match recommendations and makes AI coaching more detailed and accurate.
+
+You will also receive 1 free AI coaching ticket after completion.
+
+You can always do this later from the Profile menu."
+
+Modal buttons:
+- Continue diagnosis
+- Do it later
+
+Important behavior:
+- Skipping must never block app usage
+- User should go to the main app normally after skipping
+- No reward is granted at skip time
+
+==================================================
+4. DIAGNOSIS QUESTIONS
+==================================================
+
+Create exactly 6 questions.
+Each question should have 3 answer options.
+Each question must be answerable in one tap.
+
+Questions:
+
+1. Relationship pace
+Question:
+"When you meet someone you like, how quickly do you want to get closer?"
+Options:
+- I like to get close quickly
+- After meeting a few times
+- I prefer to take it slowly
+
+2. Reply style
+Question:
+"What is your usual messaging style?"
+Options:
+- I reply quickly and often
+- I reply when I have time
+- I only message when needed
+
+3. Expression style
+Question:
+"How do you usually express interest?"
+Options:
+- I express it directly
+- I express it carefully
+- I rarely show it first
+
+4. Dating style
+Question:
+"What kind of date style do you prefer?"
+Options:
+- Planned and organized
+- Light plan, then flexible
+- Spontaneous
+
+5. Relationship goal
+Question:
+"What are you looking for right now?"
+Options:
+- A serious relationship
+- Something light to start
+- I am not sure yet
+
+6. Privacy / contact exchange
+Question:
+"When are you comfortable exchanging personal contact info?"
+Options:
+- Fairly early
+- After getting somewhat closer
+- Only after enough trust is built
+
+UI requirements:
+- Show progress indicator: 1/6, 2/6, 3/6...
+- Show short supporting copy under the progress, such as:
+  "Your answers improve match accuracy"
+  "This helps AI coaching become more precise"
+  "Almost done"
+
+==================================================
+5. USER DATA STORAGE
+==================================================
+
+Store diagnosis answers in structured JSON for future AI processing.
+
+Use a structure like this:
+
+{
+  "onboarding_status": "not_started",
+  "onboarding_completed": false,
+  "onboarding_reward_claimed": false,
+  "dating_style_profile": {
+    "pace": null,
+    "reply_style": null,
+    "expression": null,
+    "dating_style": null,
+    "relationship_goal": null,
+    "privacy": null
+  }
+}
+
+When completed, example:
+
+{
+  "onboarding_status": "completed",
+  "onboarding_completed": true,
+  "onboarding_reward_claimed": true,
+  "dating_style_profile": {
+    "pace": "slow",
+    "reply_style": "medium",
+    "expression": "indirect",
+    "dating_style": "planned",
+    "relationship_goal": "serious",
+    "privacy": "high"
+  },
+  "reward": {
+    "type": "ai_coaching_ticket",
+    "amount": 1
+  }
+}
+
+If skipped, example:
+
+{
+  "onboarding_status": "skipped",
+  "onboarding_completed": false,
+  "onboarding_reward_claimed": false,
+  "dating_style_profile": {
+    "pace": null,
+    "reply_style": null,
+    "expression": null,
+    "dating_style": null,
+    "relationship_goal": null,
+    "privacy": null
+  }
+}
+
+==================================================
+6. COMPLETION SCREEN
+==================================================
+
+After user completes all 6 questions, show a completion screen.
+
+Completion title:
+"Diagnosis complete"
+
+Completion body:
+"Your dating style profile is now ready.
+
+Your future matches and AI coaching will now be more personalized and accurate."
+
+Reward message:
+"You received 1 free AI coaching ticket."
+
+Buttons:
+- Continue
+- View profile
+
+At completion:
+- mark onboarding as completed
+- grant reward only if it has never been claimed before
+- save diagnosis answers
+- activate AI coaching personalization
+
+==================================================
+7. PROFILE MENU RE-ENTRY
+==================================================
+
+Add a Profile menu item:
+
+"Dating Style Diagnosis"
+
+Description under it:
+"Complete this to improve match recommendations and AI coaching."
+"Reward: 1 free AI coaching ticket"
+
+Behavior:
+- If user skipped before, they can re-enter and complete diagnosis here
+- If they complete later, grant the reward then
+- If they already completed and already claimed reward, allow editing answers but do not grant reward again
+
+==================================================
+8. REMINDER SYSTEM FOR SKIPPED USERS
+==================================================
+
+If user skipped onboarding, show a soft reminder banner in the app.
+
+Banner text:
+"Complete your dating style diagnosis for better matches and more detailed AI coaching"
+"Reward: 1 free AI coaching ticket"
+
+Button:
+- Start now
+
+Also, if a skipped user opens the AI coaching feature, show a gentle prompt:
+
+Title:
+"Want more accurate AI coaching?"
+
+Body:
+"Complete your dating style diagnosis to help the AI give more precise advice on interest, timing, and conversation flow."
+
+Buttons:
+- Start diagnosis
+- Later
+
+This should be non-blocking.
+
+==================================================
+9. AI COACHING INTEGRATION
+==================================================
+
+The AI coaching system should read diagnosis answers if available.
+
+AI coaching should use:
+- the user’s diagnosis answers
+- the other person’s diagnosis answers if available
+- conversation logs
+- reply timing patterns
+
+AI coaching outputs may include:
+- match fit explanation
+- conversation suggestions
+- pace / timing suggestions
+- interest interpretation
+- caution for mismatch in pace or privacy expectations
+
+If diagnosis data is not available:
+- AI coaching should still work
+- but use a fallback mode with lower personalization
+- softly encourage user to complete diagnosis
+
+==================================================
+10. UX / UI RULES
+==================================================
+
+Design requirements:
+- mobile-first
+- clean
+- premium
+- minimal
+- fast
+- one-tap answers
+- no clutter
+- low-pressure flow
+- easy to understand for both Korean and Japanese users
+
+The diagnosis must feel short and easy.
+Avoid making it look like a long survey.
+
+Use:
+- progress indicator
+- concise copy
+- visible skip option
+- reward motivation
+- clear benefit explanation
+
+==================================================
+11. BUSINESS RULES
+==================================================
+
+Important logic rules:
+- Skipping must never block app access
+- Users can skip at

@@ -573,7 +573,7 @@ function ActionButton({ onPress, hapticStyle = "light", style, children }: Actio
 export default function DiscoverScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { discoverUsers, discoverLoading, newMatch, dismissMatch, refetchDiscover, likeUser, passUser, profile } = useApp();
+  const { discoverUsers, discoverLoading, newMatch, dismissMatch, refetchDiscover, likeUser, passUser, profile, diagnosisStatus } = useApp();
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [filterCountry, setFilterCountry] = useState<"all" | "KR" | "JP">("all");
   const [filterLevel, setFilterLevel] = useState<"all" | "beginner" | "intermediate" | "advanced">("all");
@@ -709,6 +709,32 @@ export default function DiscoverScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* ── Diagnosis reminder banner ───────────────────────────────── */}
+      {diagnosisStatus === "skipped" && (
+        <TouchableOpacity
+          style={styles.diagnosisBanner}
+          activeOpacity={0.85}
+          onPress={() => router.push("/diagnosis" as any)}
+        >
+          <View style={styles.diagnosisBannerLeft}>
+            <FIcon name="heart" size={15} color="#C84B72" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.diagnosisBannerTitle}>
+                {isKo
+                  ? "연애 스타일 진단을 완료해 매칭을 개선하세요"
+                  : "恋愛スタイル診断を完了してマッチングを改善"}
+              </Text>
+              <Text style={styles.diagnosisBannerSub}>
+                {isKo ? "AI 코칭 티켓 1장 증정" : "AIコーチングチケット1枚プレゼント"}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.diagnosisBannerCta}>
+            {isKo ? "시작" : "開始"}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* ── Card stack ─────────────────────────────────────────────────── */}
       <View style={[styles.stack, { bottom: TAB_BAR_H + 106 }]}>
@@ -1315,5 +1341,43 @@ const filterStyles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 14,
     color: "#fff",
+  },
+
+  // ── Diagnosis reminder ────────────────────────────────────────────────────
+  diagnosisBanner: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 14,
+    backgroundColor: "#FFF0F5",
+    borderWidth: 1.2,
+    borderColor: "#F2BDCA",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  diagnosisBannerLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  diagnosisBannerTitle: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    color: "#8A1A35",
+    marginBottom: 1,
+  },
+  diagnosisBannerSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11.5,
+    color: "#C84B72",
+  },
+  diagnosisBannerCta: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+    color: "#C84B72",
+    paddingHorizontal: 4,
   },
 });

@@ -22,7 +22,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Type**: Expo (React Native) mobile app
 - **Preview Path**: `/`
 - **Stack**: Expo Router, React Native, TypeScript, AsyncStorage
-- **Key screens**: Onboarding (3 slides), Login, Profile Setup, Discover (swipe cards), Matches, Chats, Chat Detail, Profile, Settings
+- **Key screens**: Onboarding (3 slides), Login, Profile Setup, Discover (swipe cards), Matches, Chats, Chat Detail, Profile, Settings, Dating Style Diagnosis (6-question flow)
 - **Data**: Mock data only (6 users, 3 matches, 1 sample conversation)
 - **Theme**: White background, rose/pink (#D85870) accent, dark charcoal text
 - **UX improvements done**:
