@@ -121,7 +121,7 @@ const HINT_GENERIC = [
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function DiagnosisScreen() {
-  const { completeDiagnosis, skipDiagnosis, diagnosisRewardClaimed, profile } = useApp();
+  const { completeDiagnosis, skipDiagnosis, markDiagnosisSeen, diagnosisRewardClaimed, profile } = useApp();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ from?: string }>();
@@ -166,6 +166,7 @@ export default function DiagnosisScreen() {
   function handleSkipConfirm() {
     setShowSkipModal(false);
     skipDiagnosis();
+    markDiagnosisSeen();
     if (fromProfile) {
       router.back();
     } else {
@@ -174,6 +175,7 @@ export default function DiagnosisScreen() {
   }
 
   function handleComplete(goProfile: boolean) {
+    markDiagnosisSeen();
     if (goProfile) {
       router.replace("/(tabs)/profile");
     } else {

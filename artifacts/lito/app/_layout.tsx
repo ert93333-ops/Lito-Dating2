@@ -29,7 +29,7 @@ if (process.env.EXPO_PUBLIC_DOMAIN) {
 const queryClient = new QueryClient();
 
 function RootNavigator() {
-  const { hasCompletedOnboarding, isLoggedIn, hasCompletedProfileSetup } = useApp();
+  const { hasCompletedOnboarding, isLoggedIn, hasCompletedProfileSetup, hasSeenDiagnosisPrompt } = useApp();
 
   useEffect(() => {
     if (!hasCompletedOnboarding) {
@@ -38,10 +38,12 @@ function RootNavigator() {
       router.replace("/login");
     } else if (!hasCompletedProfileSetup) {
       router.replace("/profile-setup");
+    } else if (!hasSeenDiagnosisPrompt) {
+      router.replace("/diagnosis");
     } else {
       router.replace("/(tabs)/discover");
     }
-  }, [hasCompletedOnboarding, isLoggedIn, hasCompletedProfileSetup]);
+  }, [hasCompletedOnboarding, isLoggedIn, hasCompletedProfileSetup, hasSeenDiagnosisPrompt]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

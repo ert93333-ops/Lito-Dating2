@@ -131,9 +131,11 @@ interface AppContextType {
   datingStyleAnswers: DatingStyleAnswers;
   diagnosisRewardClaimed: boolean;
   aiCoachingTickets: number;
+  hasSeenDiagnosisPrompt: boolean;
   completeDiagnosis: (answers: DatingStyleAnswers) => void;
   skipDiagnosis: () => void;
   resetDiagnosis: () => void;
+  markDiagnosisSeen: () => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -169,6 +171,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [datingStyleAnswers, setDatingStyleAnswers] = useState<DatingStyleAnswers>(EMPTY_ANSWERS);
   const [diagnosisRewardClaimed, setDiagnosisRewardClaimed] = useState(false);
   const [aiCoachingTickets, setAiCoachingTickets] = useState(0);
+  const [hasSeenDiagnosisPrompt, setHasSeenDiagnosisPrompt] = useState(false);
 
   const profileRef = useRef(profile);
   useEffect(() => { profileRef.current = profile; }, [profile]);
@@ -209,6 +212,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       "lito_diagnosis_answers",
       "lito_diagnosis_reward",
       "lito_ai_tickets",
+      "lito_diagnosis_seen",
     ]).then((pairs) => {
       const map = Object.fromEntries(pairs.map(([k, v]) => [k, v]));
       if (map["lito_onboarding"] === "done") setHasCompletedOnboarding(true);
@@ -222,6 +226,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       if (map["lito_diagnosis_reward"] === "true") setDiagnosisRewardClaimed(true);
       if (map["lito_ai_tickets"]) setAiCoachingTickets(Number(map["lito_ai_tickets"]) || 0);
+      // 이미 프로필 설정을 마친 기존 사용자는 진단 프롬프트를 다시 보지 않음
+      if (map["lito_diagnosis_seen"] === "true" || map["lito_profile_setup"] === "done") {
+        setHasSeenDiagnosisPrompt(true);
+      }
     });
     fetchDiscover();
   }, [fetchDiscover]);
@@ -270,6 +278,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.multiRemove(["lito_diagnosis_status", "lito_diagnosis_answers"]);
   }, []);
 
+  const markDiagnosisSeen = useCallback(() => {
+    setHasSeenDiagnosisPrompt(true);
+    AsyncStorage.setItem("lito_diagnosis_seen", "true");
+  }, []);
+
   const login = useCallback(() => {
     setIsLoggedIn(true);
     AsyncStorage.setItem("lito_logged_in", "true");
@@ -285,10 +298,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setMatches(INITIAL_MATCHES);
     setConversations(mockConversations);
     setMessages(INITIAL_MESSAGES);
+    setHasSeenDiagnosisPrompt(false);
+    setDiagnosisStatus("not_started");
+    setDiagnosisRewardClaimed(false);
+    setAiCoachingTickets(0);
     AsyncStorage.multiRemove([
       "lito_logged_in",
       "lito_onboarding",
       "lito_profile_setup",
+      "lito_diagnosis_status",
+      "lito_diagnosis_answers",
+      "lito_diagnosis_reward",
+      "lito_ai_tickets",
+      "lito_diagnosis_seen",
     ]);
     // Reset server-side likes/passes so the deck resets too
     fetch(`${API_BASE}/api/users/reset`, {
@@ -558,9 +580,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         datingStyleAnswers,
         diagnosisRewardClaimed,
         aiCoachingTickets,
+        hasSeenDiagnosisPrompt,
         completeDiagnosis,
         skipDiagnosis,
         resetDiagnosis,
+        markDiagnosisSeen,
       }}
     >
       {children}
