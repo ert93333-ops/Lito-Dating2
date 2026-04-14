@@ -2,21 +2,90 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import {
-  aiTestUsers,
   mockConversations,
   mockMatches,
   mockMessages,
   mockMessagesAiJia,
   mockMessagesAiMio,
   mockMessagesConv3,
-  mockUsers,
   myProfile,
 } from "@/data/mockData";
-import { Conversation, Match, Message, MyProfile, User } from "@/types";
+import { Conversation, Match, Message, MyProfile, TrustProfile, User } from "@/types";
 
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
   : "http://localhost:8080";
+
+// ── ServerUser → app User conversion ─────────────────────────────────────────
+
+interface ServerUser {
+  id: string;
+  nickname: string;
+  age: number;
+  country: "KR" | "JP";
+  language: "ko" | "ja";
+  city: string;
+  bio: string;
+  photos: string[];
+  compatibilityScore: number;
+  compatibilityReasons: string[];
+  lastActive: string;
+  isOnline?: boolean;
+  studyingLanguage?: boolean;
+  languageLevel?: "beginner" | "intermediate" | "advanced";
+  interests: string[];
+  trustScore: number;
+  trustLayers: {
+    humanVerified: boolean;
+    faceMatched: boolean;
+    idVerified: boolean;
+    institutionVerified: boolean;
+  };
+  instagramHandle?: string;
+  isAI?: boolean;
+  personaId?: string;
+}
+
+function serverUserToAppUser(u: ServerUser): User {
+  const tp: TrustProfile = {
+    humanVerified: u.trustLayers.humanVerified
+      ? { status: "verified", verifiedAt: "2025-01-01T00:00:00Z" }
+      : { status: "not_verified" },
+    faceMatched: u.trustLayers.faceMatched
+      ? { status: "verified", verifiedAt: "2025-01-01T00:00:00Z" }
+      : { status: "not_verified" },
+    idVerified: u.trustLayers.idVerified
+      ? { status: "verified", verifiedAt: "2025-01-01T00:00:00Z", expiresAt: "2027-01-01T00:00:00Z" }
+      : { status: "not_verified" },
+    ...(u.trustLayers.institutionVerified
+      ? { institutionVerified: { status: "verified" as const, verifiedAt: "2025-01-01T00:00:00Z" } }
+      : {}),
+  };
+
+  return {
+    id: u.id,
+    nickname: u.nickname,
+    age: u.age,
+    country: u.country,
+    language: u.language,
+    city: u.city,
+    bio: u.bio,
+    photos: u.photos,
+    compatibilityScore: u.compatibilityScore,
+    compatibilityReasons: u.compatibilityReasons,
+    lastActive: u.lastActive,
+    isOnline: u.isOnline,
+    studyingLanguage: u.studyingLanguage,
+    languageLevel: u.languageLevel,
+    interests: u.interests,
+    trustProfile: tp,
+    instagramHandle: u.instagramHandle,
+    isAI: u.isAI,
+    personaId: u.personaId,
+  };
+}
+
+// ── Context type ──────────────────────────────────────────────────────────────
 
 interface AppContextType {
   hasCompletedOnboarding: boolean;
@@ -24,6 +93,10 @@ interface AppContextType {
   isLoggedIn: boolean;
   profile: MyProfile;
   discoverUsers: User[];
+  discoverLoading: boolean;
+  newMatch: User | null;
+  dismissMatch: () => void;
+  refetchDiscover: () => void;
   matches: Match[];
   conversations: Conversation[];
   messages: Record<string, Message[]>;
@@ -52,7 +125,6 @@ const INITIAL_MESSAGES = {
   conv_ai_jia: mockMessagesAiJia,
 };
 
-const INITIAL_DISCOVER = [...mockUsers, ...aiTestUsers];
 const INITIAL_MATCHES = mockMatches;
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -60,13 +132,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [hasCompletedProfileSetup, setHasCompletedProfileSetupState] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [profile, setProfile] = useState<MyProfile>(myProfile);
-  const [discoverUsers, setDiscoverUsers] = useState<User[]>(INITIAL_DISCOVER);
+  const [discoverUsers, setDiscoverUsers] = useState<User[]>([]);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
+  const [newMatch, setNewMatch] = useState<User | null>(null);
   const [matches, setMatches] = useState<Match[]>(INITIAL_MATCHES);
   const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
   const [messages, setMessages] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
   const [activeConversationId, setActiveConversation] = useState<string | null>(null);
 
-  // Keep refs to avoid stale closures
   const profileRef = useRef(profile);
   useEffect(() => { profileRef.current = profile; }, [profile]);
 
@@ -76,6 +149,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const conversationsRef = useRef(conversations);
   useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
 
+  // ── Fetch discover users from API ─────────────────────────────────────────
+  const fetchDiscover = useCallback(async () => {
+    setDiscoverLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/users/discover?viewerId=me&limit=20`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { users: ServerUser[] };
+      setDiscoverUsers(data.users.map(serverUserToAppUser));
+    } catch (err) {
+      console.warn("[AppContext] fetchDiscover failed, using empty list:", err);
+      setDiscoverUsers([]);
+    } finally {
+      setDiscoverLoading(false);
+    }
+  }, []);
+
+  const refetchDiscover = useCallback(() => {
+    fetchDiscover();
+  }, [fetchDiscover]);
+
+  // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
     AsyncStorage.multiGet([
       "lito_onboarding",
@@ -87,7 +181,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (map["lito_profile_setup"] === "done") setHasCompletedProfileSetupState(true);
       if (map["lito_logged_in"] === "true") setIsLoggedIn(true);
     });
-  }, []);
+    fetchDiscover();
+  }, [fetchDiscover]);
 
   const completeOnboarding = useCallback(() => {
     setHasCompletedOnboarding(true);
@@ -109,7 +204,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setHasCompletedOnboarding(false);
     setHasCompletedProfileSetupState(false);
     setProfile(myProfile);
-    setDiscoverUsers(INITIAL_DISCOVER);
+    setDiscoverUsers([]);
+    setNewMatch(null);
     setMatches(INITIAL_MATCHES);
     setConversations(mockConversations);
     setMessages(INITIAL_MESSAGES);
@@ -118,26 +214,95 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       "lito_onboarding",
       "lito_profile_setup",
     ]);
+    // Reset server-side likes/passes so the deck resets too
+    fetch(`${API_BASE}/api/users/reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ viewerId: "me" }),
+    }).catch(() => {});
+    setTimeout(() => fetchDiscover(), 300);
+  }, [fetchDiscover]);
+
+  const dismissMatch = useCallback(() => setNewMatch(null), []);
+
+  // ── Like user — calls API, handles match ─────────────────────────────────
+  const likeUser = useCallback(async (userId: string) => {
+    // Optimistic: remove from deck immediately
+    setDiscoverUsers((prev) => prev.filter((u) => u.id !== userId));
+
+    try {
+      const res = await fetch(`${API_BASE}/api/users/${userId}/like`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ viewerId: "me" }),
+      });
+      if (!res.ok) return;
+      const data = await res.json() as {
+        liked: boolean;
+        matched: boolean;
+        matchId: string | null;
+        matchedUser: ServerUser | null;
+      };
+
+      if (data.matched && data.matchedUser) {
+        const matchedAppUser = serverUserToAppUser(data.matchedUser);
+        // Show match popup
+        setNewMatch(matchedAppUser);
+
+        // Add to matches list
+        const newMatchEntry: Match = {
+          id: data.matchId ?? `match_${userId}_${Date.now()}`,
+          userId: matchedAppUser.id,
+          user: matchedAppUser,
+          matchedAt: new Date().toISOString(),
+          isNew: true,
+        };
+        setMatches((prev) => [newMatchEntry, ...prev]);
+
+        // Create a new conversation if one doesn't exist
+        const convId = `conv_${userId}`;
+        setConversations((prev) => {
+          if (prev.some((c) => c.user.id === userId)) return prev;
+          const newConv: Conversation = {
+            id: convId,
+            matchId: newMatchEntry.id,
+            user: matchedAppUser,
+            lastMessage: undefined,
+            unreadCount: 0,
+            translationEnabled: true,
+            externalUnlocked: matchedAppUser.isAI ?? false,
+          };
+          return [newConv, ...prev];
+        });
+        setMessages((prev) => ({ ...prev, [convId]: [] }));
+      }
+    } catch (err) {
+      console.warn("[AppContext] likeUser API error:", err);
+    }
   }, []);
 
-  const likeUser = useCallback((userId: string) => {
+  // ── Pass user — calls API ─────────────────────────────────────────────────
+  const passUser = useCallback(async (userId: string) => {
     setDiscoverUsers((prev) => prev.filter((u) => u.id !== userId));
-    // TODO: In production, call Supabase to record the like and check for mutual match
-  }, []);
 
-  const passUser = useCallback((userId: string) => {
-    setDiscoverUsers((prev) => prev.filter((u) => u.id !== userId));
-    // TODO: In production, call Supabase to record the pass
+    try {
+      await fetch(`${API_BASE}/api/users/${userId}/pass`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ viewerId: "me" }),
+      });
+    } catch (err) {
+      console.warn("[AppContext] passUser API error:", err);
+    }
   }, []);
 
   const blockUser = useCallback((userId: string) => {
     setDiscoverUsers((prev) => prev.filter((u) => u.id !== userId));
     setMatches((prev) => prev.filter((m) => m.userId !== userId));
     setConversations((prev) => prev.filter((c) => c.user.id !== userId));
-    // TODO: In production, POST /api/blocks { blockerId, blockedUserId }
   }, []);
 
-  // ── AI Persona auto-reply ────────────────────────────────────────────────────
+  // ── AI Persona auto-reply ─────────────────────────────────────────────────
   const triggerAiReply = useCallback(async (conversationId: string, personaId: string) => {
     await new Promise((r) => setTimeout(r, 1200 + Math.random() * 800));
 
@@ -187,7 +352,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         )
       );
     } catch {
-      // silently ignore network errors in test mode
+      // silently ignore network errors
     }
   }, []);
 
@@ -211,12 +376,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       )
     );
 
-    // Auto-reply if this is an AI persona conversation
     const conv = conversationsRef.current.find((c) => c.id === conversationId);
     if (conv?.user.isAI && conv.user.personaId) {
       triggerAiReply(conversationId, conv.user.personaId);
     }
-    // TODO: In production, send to Supabase and trigger OpenAI translation
   }, [triggerAiReply]);
 
   const toggleTranslation = useCallback((conversationId: string) => {
@@ -235,19 +398,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         c.id === conversationId ? { ...c, externalUnlocked: true } : c
       )
     );
-    // TODO: In production, check safety criteria and record unlock in Supabase
   }, []);
 
   const updateProfile = useCallback((updates: Partial<MyProfile>) => {
     setProfile((prev) => {
       const next = { ...prev, ...updates };
-      // Auto-derive language from country when country changes
       if (updates.country !== undefined) {
         next.language = updates.country === "KR" ? "ko" : "ja";
       }
       return next;
     });
-    // TODO: In production, save to Supabase
   }, []);
 
   return (
@@ -258,6 +418,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isLoggedIn,
         profile,
         discoverUsers,
+        discoverLoading,
+        newMatch,
+        dismissMatch,
+        refetchDiscover,
         matches,
         conversations,
         messages,

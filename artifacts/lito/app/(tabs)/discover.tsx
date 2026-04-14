@@ -570,7 +570,7 @@ function ActionButton({ onPress, hapticStyle = "light", style, children }: Actio
 export default function DiscoverScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { discoverUsers, likeUser, passUser, profile } = useApp();
+  const { discoverUsers, discoverLoading, newMatch, dismissMatch, refetchDiscover, likeUser, passUser, profile } = useApp();
   const { chemistryPicks, track } = useGrowth();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const TAB_BAR_H = Platform.OS === "web" ? 84 : 70;
@@ -578,6 +578,23 @@ export default function DiscoverScreen() {
   const handleLike = (userId: string) => { setTimeout(() => likeUser(userId), 240); };
   const handlePass = (userId: string) => { setTimeout(() => passUser(userId), 240); };
 
+  const isKo = profile.language === "ko";
+
+  // ── Loading state ──────────────────────────────────────────────────────────
+  if (discoverLoading) {
+    return (
+      <View style={[styles.empty, { paddingTop: topPad + 20, backgroundColor: colors.background }]}>
+        <View style={[styles.emptyIcon, { backgroundColor: colors.roseLight }]}>
+          <FIcon name="heart" size={32} color={colors.rose} />
+        </View>
+        <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>
+          {isKo ? "추천 찾는 중..." : "探しています..."}
+        </Text>
+      </View>
+    );
+  }
+
+  // ── Empty deck ─────────────────────────────────────────────────────────────
   if (discoverUsers.length === 0) {
     return (
       <View
@@ -590,13 +607,23 @@ export default function DiscoverScreen() {
           <FIcon name="heart" size={32} color={colors.rose} />
         </View>
         <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>
-          {profile.language === "ko" ? "오늘의 추천을 모두 봤어요" : "今日のおすすめを全部見ました"}
+          {isKo ? "오늘의 추천을 모두 봤어요" : "今日のおすすめを全部見ました"}
         </Text>
         <Text style={[styles.emptySub, { color: colors.charcoalLight }]}>
-          {profile.language === "ko"
+          {isKo
             ? "새 사람이 주변에 나타나면 알려드릴게요"
             : "新しい人が現れたらお知らせします"}
         </Text>
+        <TouchableOpacity
+          style={[styles.refetchBtn, { backgroundColor: colors.rose }]}
+          onPress={refetchDiscover}
+          activeOpacity={0.85}
+        >
+          <FIcon name="refresh-cw" size={16} color="#fff" />
+          <Text style={styles.refetchBtnText}>
+            {isKo ? "다시 찾기" : "もう一度"}
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -719,6 +746,47 @@ export default function DiscoverScreen() {
           </View>
         </ActionButton>
       </View>
+
+      {/* ── Match popup ────────────────────────────────────────────────── */}
+      {newMatch && (
+        <View style={styles.matchOverlay}>
+          <View style={[styles.matchCard, { backgroundColor: colors.background }]}>
+            <View style={[styles.matchIconRow]}>
+              <View style={[styles.matchHeart, { backgroundColor: colors.roseLight }]}>
+                <FIcon name="heart" size={28} color={colors.rose} />
+              </View>
+            </View>
+            <Text style={[styles.matchTitle, { color: colors.charcoal }]}>
+              {isKo ? "매칭됐어요!" : "マッチしました！"}
+            </Text>
+            <Text style={[styles.matchName, { color: colors.rose }]}>
+              {newMatch.nickname}
+            </Text>
+            <Text style={[styles.matchSub, { color: colors.charcoalLight }]}>
+              {isKo
+                ? "서로 좋아요를 눌렀어요. 지금 대화를 시작해보세요!"
+                : "お互いにいいねしました。今すぐ話しかけましょう！"}
+            </Text>
+            <TouchableOpacity
+              style={[styles.matchBtn, { backgroundColor: colors.rose }]}
+              activeOpacity={0.85}
+              onPress={() => {
+                dismissMatch();
+                router.push("/(tabs)/matches" as any);
+              }}
+            >
+              <Text style={styles.matchBtnText}>
+                {isKo ? "대화 시작하기" : "メッセージを送る"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={dismissMatch} activeOpacity={0.7} style={styles.matchSkip}>
+              <Text style={[styles.matchSkipText, { color: colors.charcoalLight }]}>
+                {isKo ? "나중에" : "あとで"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -846,5 +914,88 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     lineHeight: 22,
+  },
+  refetchBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 24,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 30,
+  },
+  refetchBtnText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+    color: "#fff",
+  },
+
+  // ── Match popup ───────────────────────────────────────────────────────────
+  matchOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 999,
+    paddingHorizontal: 28,
+  },
+  matchCard: {
+    width: "100%",
+    borderRadius: 28,
+    padding: 32,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.18,
+    shadowRadius: 30,
+    elevation: 20,
+  },
+  matchIconRow: {
+    marginBottom: 20,
+  },
+  matchHeart: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  matchTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 24,
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  matchName: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 18,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  matchSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: 28,
+  },
+  matchBtn: {
+    width: "100%",
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  matchBtnText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 16,
+    color: "#fff",
+  },
+  matchSkip: {
+    paddingVertical: 8,
+  },
+  matchSkipText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
   },
 });
