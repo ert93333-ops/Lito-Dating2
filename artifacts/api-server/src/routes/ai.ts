@@ -33,9 +33,10 @@ const router = Router();
  */
 router.post("/ai/suggest-reply", async (req, res) => {
   try {
-    const { messages, targetLang } = req.body as {
+    const { messages, targetLang, count = 1 } = req.body as {
       messages: Array<{ sender: string; text: string }>;
       targetLang?: "ko" | "ja";
+      count?: number;
     };
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -43,7 +44,7 @@ router.post("/ai/suggest-reply", async (req, res) => {
       return;
     }
 
-    // Build a readable conversation excerpt (last 6 messages max)
+    const safeCount = Math.min(Math.max(Number(count) || 1, 1), 3);
     const recent = messages.slice(-6);
     const conversationText = recent
       .map((m) => `${m.sender === "me" ? "Me" : "Them"}: ${m.text}`)
@@ -52,34 +53,49 @@ router.post("/ai/suggest-reply", async (req, res) => {
     const lang = targetLang === "ko" ? "Korean" : "Japanese";
 
     const systemPrompt = `You are a dating app assistant helping someone reply naturally and warmly.
-The user is on a Korean-Japanese dating app. Generate ONE short, friendly, and natural reply in ${lang}.
+The user is on a Korean-Japanese dating app. Generate exactly ${safeCount} distinct, short reply option(s) in ${lang}.
 Rules:
-- Keep it to 1–2 sentences
-- Sound genuine, warm, and curious (ask a follow-up question when fitting)
-- Use natural ${lang} phrasing, not overly formal
-- Do NOT include any explanation or translation — just the reply text itself
-- Do NOT include quotation marks around the reply`;
+- Each reply must be 1–2 sentences only
+- Each reply should feel different in tone (e.g. warm, playful, curious)
+- Sound genuine and natural, not overly formal
+- Output ONLY a JSON array of strings, e.g. ["reply1","reply2","reply3"]
+- No explanations, no extra keys, no markdown — just the raw JSON array`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-5.2",
-      max_completion_tokens: 120,
+      max_completion_tokens: 300,
       messages: [
         { role: "system", content: systemPrompt },
         {
           role: "user",
-          content: `Here is the recent conversation:\n${conversationText}\n\nWrite a reply I can send:`,
+          content: `Conversation:\n${conversationText}\n\nGenerate ${safeCount} reply option(s):`,
         },
       ],
     });
 
-    const suggestion = completion.choices[0]?.message?.content?.trim() ?? "";
+    const raw = completion.choices[0]?.message?.content?.trim() ?? "";
 
-    if (!suggestion) {
+    // Parse JSON array; fall back to a single-item array
+    let suggestions: string[] = [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        suggestions = parsed.filter((s): s is string => typeof s === "string" && s.length > 0);
+      } else if (typeof parsed === "string") {
+        suggestions = [parsed];
+      }
+    } catch {
+      // If JSON parse fails, use raw text as single suggestion
+      if (raw) suggestions = [raw];
+    }
+
+    if (suggestions.length === 0) {
       res.status(500).json({ error: "No suggestion generated" });
       return;
     }
 
-    res.json({ suggestion });
+    // Backward compat: keep `suggestion` (first item) + new `suggestions` array
+    res.json({ suggestion: suggestions[0], suggestions });
   } catch (err) {
     console.error("[ai/suggest-reply] error:", err);
     res.status(500).json({ error: "Failed to generate suggestion" });

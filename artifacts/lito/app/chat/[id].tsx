@@ -540,9 +540,10 @@ interface AiCoachPopupProps {
   data: CoachResult | null;
   topOffset: number;
   onClose: () => void;
+  onSuggestionSelect: (text: string) => void;
 }
 
-function AiCoachPopup({ visible, data, topOffset, onClose }: AiCoachPopupProps) {
+function AiCoachPopup({ visible, data, topOffset, onClose, onSuggestionSelect }: AiCoachPopupProps) {
   const colors = useColors();
   const slideAnim = useRef(new Animated.Value(-320)).current;
   const [selectedTone, setSelectedTone] = useState<number | null>(null);
@@ -657,19 +658,29 @@ function AiCoachPopup({ visible, data, topOffset, onClose }: AiCoachPopupProps) 
               </Text>
             ) : (
               tone.suggestions.map((s, i) => (
-                <View
+                <Pressable
                   key={i}
-                  style={[
+                  style={({ pressed }) => [
                     popup.suggestionRow,
                     i < tone.suggestions.length - 1 && {
                       borderBottomWidth: StyleSheet.hairlineWidth,
                       borderBottomColor: colors.border,
                     },
+                    pressed && { backgroundColor: colors.roseLight, borderRadius: 10 },
                   ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    onSuggestionSelect(s);
+                  }}
                 >
                   <Text style={[popup.bullet, { color: "#D85870" }]}>•</Text>
-                  <Text style={[popup.suggestionText, { color: colors.charcoal }]}>{s}</Text>
-                </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[popup.suggestionText, { color: colors.charcoal }]}>{s}</Text>
+                    <Text style={[popup.tapHint, { color: colors.charcoalFaint }]}>
+                      탭하면 입력창에 채워져요
+                    </Text>
+                  </View>
+                </Pressable>
               ))
             )}
             {tone.tip ? (
@@ -791,6 +802,12 @@ const popup = StyleSheet.create({
     fontSize: 13.5,
     lineHeight: 20,
   },
+  tapHint: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 10.5,
+    marginTop: 2,
+    letterSpacing: 0.1,
+  },
 });
 
 // ─── ChatDetailScreen ────────────────────────────────────────────────────────
@@ -839,6 +856,11 @@ export default function ChatDetailScreen() {
   const [enrichmentMap, setEnrichmentMap] = useState<Record<string, Enrichment>>({});
   const inflight = useRef<Set<string>>(new Set());
   const flatRef = useRef<FlatList>(null);
+
+  // ── Quick reply chips state ───────────────────────────────────────────────
+  const [quickReplies, setQuickReplies] = useState<string[]>([]);
+  const [quickRepliesLoading, setQuickRepliesLoading] = useState(false);
+  const lastFetchedMsgId = useRef<string | null>(null);
 
   const conversation = conversations.find((c) => c.id === id);
   const convMessages = messages[id || "conv1"] || [];
@@ -998,6 +1020,53 @@ export default function ChatDetailScreen() {
     }
   }, [enrichmentMap]); // enrichmentMap needed for toggle-visibility check
 
+  // ── Quick reply chips: auto-fetch when last message is from partner ─────────
+  const fetchQuickReplies = useCallback(async (msgs: typeof convMessages) => {
+    if (msgs.length === 0) return;
+    const lastMsg = msgs[msgs.length - 1];
+    if (lastMsg.senderId === CURRENT_USER_ID) {
+      // Last message is mine — clear chips
+      setQuickReplies([]);
+      return;
+    }
+    // Already fetched for this message
+    if (lastFetchedMsgId.current === lastMsg.id) return;
+    lastFetchedMsgId.current = lastMsg.id;
+
+    setQuickRepliesLoading(true);
+    setQuickReplies([]);
+    try {
+      const recentMsgs = msgs.slice(-8).map((m) => ({
+        sender: m.senderId === CURRENT_USER_ID ? "me" : "them",
+        text: m.originalText,
+      }));
+      const res = await fetch(`${API_BASE}/api/ai/suggest-reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: recentMsgs, targetLang: viewerLang, count: 3 }),
+      });
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      const data = (await res.json()) as { suggestions?: string[]; suggestion?: string };
+      const chips = Array.isArray(data.suggestions) && data.suggestions.length > 0
+        ? data.suggestions
+        : data.suggestion ? [data.suggestion] : [];
+      setQuickReplies(chips);
+    } catch {
+      setQuickReplies([]);
+    } finally {
+      setQuickRepliesLoading(false);
+    }
+  // viewerLang is derived from profile which doesn't change mid-session
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewerLang]);
+
+  useEffect(() => {
+    if (convMessages.length > 0) {
+      fetchQuickReplies(convMessages);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [convMessages.length]);
+
   // ── NOTE: Batch enrichment effect removed ─────────────────────────────────
   // Translation is now purely per-message tap-to-toggle.
   // No global "translation ON/OFF" toggle exists anymore.
@@ -1046,7 +1115,15 @@ export default function ChatDetailScreen() {
     if (!inputText.trim() || !id) return;
     sendMessage(id, inputText.trim());
     setInputText("");
+    setQuickReplies([]);
+    lastFetchedMsgId.current = null;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleSuggestionSelect = (text: string) => {
+    setInputText(text);
+    setShowCoachSheet(false);
+    setQuickReplies([]);
   };
 
   const handleAiSuggest = async () => {
@@ -1254,7 +1331,46 @@ export default function ChatDetailScreen() {
         data={coachData}
         topOffset={topPad + 72}
         onClose={() => setShowCoachSheet(false)}
+        onSuggestionSelect={handleSuggestionSelect}
       />
+
+      {/* ── Quick reply chips ────────────────────────────────────────────── */}
+      {(quickRepliesLoading || quickReplies.length > 0) && (
+        <View style={[styles.quickRepliesOuter, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
+          <View style={styles.quickRepliesLabelRow}>
+            <FIcon name="zap" size={11} color={colors.rose} />
+            <Text style={[styles.quickRepliesLabel, { color: colors.charcoalLight }]}>
+              {viewerLang === "ko" ? "AI 빠른 답장" : "AIクイック返信"}
+            </Text>
+          </View>
+          <View style={styles.quickRepliesChipRow}>
+            {quickRepliesLoading ? (
+              [0, 1, 2].map((i) => (
+                <View
+                  key={i}
+                  style={[styles.quickReplyChipSkeleton, { backgroundColor: colors.muted, borderColor: colors.border, width: 88 + i * 22 }]}
+                />
+              ))
+            ) : (
+              quickReplies.map((reply, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={[styles.quickReplyChip, { backgroundColor: colors.roseLight, borderColor: colors.roseSoft }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    handleSuggestionSelect(reply);
+                  }}
+                  activeOpacity={0.72}
+                >
+                  <Text style={[styles.quickReplyChipText, { color: colors.rose }]} numberOfLines={2}>
+                    {reply}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        </View>
+      )}
 
       {/* ── Input area ──────────────────────────────────────────────────── */}
       <KeyboardAvoidingView
@@ -1529,5 +1645,48 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     marginBottom: 4,
+  },
+
+  // ── Quick reply chips ──────────────────────────────────────────────────────
+  quickRepliesOuter: {
+    paddingHorizontal: 14,
+    paddingTop: 9,
+    paddingBottom: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+  },
+  quickRepliesLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  quickRepliesLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 10.5,
+    letterSpacing: 0.2,
+  },
+  quickRepliesChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+  },
+  quickReplyChip: {
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    maxWidth: "100%",
+    flexShrink: 1,
+  },
+  quickReplyChipText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  quickReplyChipSkeleton: {
+    height: 32,
+    borderRadius: 20,
+    borderWidth: 1,
+    opacity: 0.5,
   },
 });
