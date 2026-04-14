@@ -20,7 +20,8 @@ function isUriString(key: string): boolean {
     key.startsWith("http://") ||
     key.startsWith("https://") ||
     key.startsWith("content://") ||
-    key.startsWith("ph://")
+    key.startsWith("ph://") ||
+    key.startsWith("data:")
   );
 }
 
