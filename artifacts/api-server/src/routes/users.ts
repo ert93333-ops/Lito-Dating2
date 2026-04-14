@@ -29,6 +29,13 @@ const likes: Like[] = [];
 const passes: PassRecord[] = [];
 const matches: MatchRecord[] = [];
 
+// ── Demo: pre-seed incoming likes so "me" gets instant matches on swipe ──────
+// In production this would be driven by real mutual activity.
+// These simulate users who already liked "me" before they open the app.
+["user1", "user2", "user3", "user4", "user5", "user6", "ai_mio_jp", "ai_jia_kr"].forEach((uid) => {
+  likes.push({ fromId: uid, toId: "me", ts: Date.now() });
+});
+
 // ── Server-side user profiles ─────────────────────────────────────────────────
 // Photo IDs map to local assets in the app (profile1 → require("@/assets/images/profile1.jpg"))
 // compatibilityScore is computed client-side for personalisation; we send a base value.

@@ -461,7 +461,7 @@ export default function OnboardingScreen() {
           onPress={goNext}
           label={
             currentIndex === SLIDES.length - 1
-              ? (appLang === "ko" ? "국가 선택하기 →" : "国を選ぶ →")
+              ? (appLang === "ko" ? "LITO 시작하기 →" : "LITO をはじめる →")
               : (appLang === "ko" ? "다음 →" : "次へ →")
           }
         />
