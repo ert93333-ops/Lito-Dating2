@@ -136,6 +136,8 @@ interface AppContextType {
   joinConversation: (conversationId: string) => void;
   leaveConversation: (conversationId: string) => void;
   wsConnected: boolean;
+  toast: { id: string; title: string; body: string; type: "match" | "message" } | null;
+  dismissToast: () => void;
   diagnosisStatus: DiagnosisStatus;
   datingStyleAnswers: DatingStyleAnswers;
   diagnosisRewardClaimed: boolean;
@@ -183,6 +185,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [aiCoachingTickets, setAiCoachingTickets] = useState(0);
   const [hasSeenDiagnosisPrompt, setHasSeenDiagnosisPrompt] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
+  const [toast, setToast] = useState<{ id: string; title: string; body: string; type: "match" | "message" } | null>(null);
+  const dismissToast = () => setToast(null);
 
   const profileRef = useRef(profile);
   useEffect(() => { profileRef.current = profile; }, [profile]);
@@ -199,6 +203,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeConvRef = useRef<string | null>(null);
+  const toastSetterRef = useRef(setToast);
+  useEffect(() => { toastSetterRef.current = setToast; }, [setToast]);
 
   // ── Fetch discover users from API ─────────────────────────────────────────
   const fetchDiscover = useCallback(async () => {
@@ -382,6 +388,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               c.id === conversationId ? { ...c, lastMessage: incomingMsg } : c
             )
           );
+
+          // 현재 대화 화면이 아닌 경우에만 토스트 표시
+          if (activeConvRef.current !== conversationId) {
+            const conv = conversationsRef.current.find((c) => c.id === conversationId);
+            const senderName = conv?.user.nickname ?? "새 메시지";
+            toastSetterRef.current({
+              id: `msg_${incomingMsg.id}`,
+              title: senderName,
+              body: incomingMsg.originalText,
+              type: "message",
+            });
+          }
         }
       } catch {
         // ignore parse errors
@@ -507,6 +525,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const matchedAppUser = serverUserToAppUser(data.matchedUser);
         // Show match popup
         setNewMatch(matchedAppUser);
+        // 인앱 토스트
+        setToast({
+          id: `match_${matchedAppUser.id}_${Date.now()}`,
+          title: "새로운 매치!",
+          body: `${matchedAppUser.nickname}님과 매칭되었어요`,
+          type: "match",
+        });
 
         // Add to matches list
         const newMatchEntry: Match = {
@@ -816,6 +841,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         joinConversation,
         leaveConversation,
         wsConnected,
+        toast,
+        dismissToast,
         diagnosisStatus,
         datingStyleAnswers,
         diagnosisRewardClaimed,

@@ -178,6 +178,27 @@ export default function ProfileScreen() {
         </View>
       </TouchableOpacity>
 
+      {/* ── 사진 없음 경고 배너 ───────────────────────────────────────────── */}
+      {profile.photos.length === 0 && (
+        <TouchableOpacity
+          style={[styles.nophotoBanner, { backgroundColor: "#FFF8E7", borderColor: "#F5C842" }]}
+          onPress={() => router.push("/profile-edit" as any)}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.nophotoIconWrap, { backgroundColor: "#F5C842" }]}>
+            <FIcon name="camera" size={14} color="#7A5C00" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.nophotoTitle, { color: "#7A5C00" }]}>
+              {lang === "ko" ? "사진을 올리면 Discover에 노출돼요" : "写真を追加するとDiscoverに表示されます"}
+            </Text>
+            <Text style={[styles.nophotoSub, { color: "#A07800" }]}>
+              {lang === "ko" ? "지금 사진 추가하기 →" : "今すぐ写真を追加 →"}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
       {/* ── Language badges ───────────────────────────────────────────────── */}
       <View style={[styles.section, { backgroundColor: colors.surface }]}>
         <Text style={[styles.sectionLabel, { color: colors.charcoalLight }]}>
@@ -535,6 +556,35 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     color: "rgba(255,255,255,0.75)",
     lineHeight: 20,
+  },
+
+  // ── No photo banner ───────────────────────────────────────────────────────
+  nophotoBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 16,
+    marginTop: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  nophotoIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nophotoTitle: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+    marginBottom: 2,
+  },
+  nophotoSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
   },
 
   // ── Trust card ────────────────────────────────────────────────────────────

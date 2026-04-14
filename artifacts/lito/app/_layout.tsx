@@ -10,11 +10,13 @@ import { setBaseUrl } from "@workspace/api-client-react";
 import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
+import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { NotificationToast } from "@/components/NotificationToast";
 import { AppProvider, useApp } from "@/context/AppContext";
 import { GrowthProvider } from "@/context/GrowthContext";
 
@@ -29,7 +31,7 @@ if (process.env.EXPO_PUBLIC_DOMAIN) {
 const queryClient = new QueryClient();
 
 function RootNavigator() {
-  const { hasCompletedOnboarding, isLoggedIn, hasCompletedProfileSetup, hasSeenDiagnosisPrompt } = useApp();
+  const { hasCompletedOnboarding, isLoggedIn, hasCompletedProfileSetup, hasSeenDiagnosisPrompt, toast, dismissToast } = useApp();
 
   useEffect(() => {
     if (!hasCompletedOnboarding) {
@@ -46,23 +48,26 @@ function RootNavigator() {
   }, [hasCompletedOnboarding, isLoggedIn, hasCompletedProfileSetup, hasSeenDiagnosisPrompt]);
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
-      <Stack.Screen name="login" options={{ headerShown: false, gestureEnabled: false }} />
-      <Stack.Screen name="profile-setup" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
-      <Stack.Screen name="settings" options={{ headerShown: false }} />
-      <Stack.Screen name="paywall" options={{ headerShown: false, presentation: "modal" }} />
-      <Stack.Screen name="profile-coach" options={{ headerShown: false }} />
-      <Stack.Screen name="referral" options={{ headerShown: false }} />
-      <Stack.Screen name="trust-center" options={{ headerShown: false }} />
-      <Stack.Screen name="verify-id" options={{ headerShown: false }} />
-      <Stack.Screen name="report-user" options={{ headerShown: false, presentation: "modal" }} />
-      <Stack.Screen name="profile-edit" options={{ headerShown: false }} />
-      <Stack.Screen name="diagnosis" options={{ headerShown: false }} />
-      <Stack.Screen name="ai-photo" options={{ headerShown: false }} />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+        <Stack.Screen name="login" options={{ headerShown: false, gestureEnabled: false }} />
+        <Stack.Screen name="profile-setup" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="settings" options={{ headerShown: false }} />
+        <Stack.Screen name="paywall" options={{ headerShown: false, presentation: "modal" }} />
+        <Stack.Screen name="profile-coach" options={{ headerShown: false }} />
+        <Stack.Screen name="referral" options={{ headerShown: false }} />
+        <Stack.Screen name="trust-center" options={{ headerShown: false }} />
+        <Stack.Screen name="verify-id" options={{ headerShown: false }} />
+        <Stack.Screen name="report-user" options={{ headerShown: false, presentation: "modal" }} />
+        <Stack.Screen name="profile-edit" options={{ headerShown: false }} />
+        <Stack.Screen name="diagnosis" options={{ headerShown: false }} />
+        <Stack.Screen name="ai-photo" options={{ headerShown: false }} />
+      </Stack>
+      <NotificationToast notification={toast} onDismiss={dismissToast} />
+    </View>
   );
 }
 

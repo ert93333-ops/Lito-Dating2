@@ -824,7 +824,7 @@ export default function ChatDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t, lang } = useLocale();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, draft } = useLocalSearchParams<{ id: string; draft?: string }>();
   const {
     conversations,
     messages,
@@ -857,7 +857,7 @@ export default function ChatDetailScreen() {
   const [prsCardState, setPrsCardState] = useState<PRSCardState>({ status: "loading" });
   const [prsExpanded, setPrsExpanded] = useState(false);
 
-  const [inputText, setInputText] = useState("");
+  const [inputText, setInputText] = useState(draft ? decodeURIComponent(draft) : "");
   const sendBtnScale = useRef(new Animated.Value(1)).current;
 
   const handleSendPressIn = () => {

@@ -708,4 +708,89 @@ router.post("/ai/generate-profile-photo", async (req, res) => {
   }
 });
 
+/**
+ * POST /api/ai/conversation-starter
+ *
+ * 매칭 직후 첫 메시지 제안 — 상대방 프로필 기반으로 자연스러운 대화 시작 문장 생성.
+ *
+ * Body: {
+ *   myLang: "ko" | "ja"          — 내가 쓸 언어
+ *   theirProfile: {
+ *     nickname: string
+ *     bio?: string
+ *     interests?: string[]
+ *     country: "KR" | "JP"
+ *   }
+ * }
+ * Response: { starters: string[] }
+ */
+router.post("/ai/conversation-starter", async (req, res) => {
+  try {
+    const { myLang, theirProfile } = req.body as {
+      myLang?: "ko" | "ja";
+      theirProfile?: {
+        nickname?: string;
+        bio?: string;
+        interests?: string[];
+        country?: string;
+      };
+    };
+
+    if (!theirProfile) {
+      res.status(400).json({ error: "theirProfile is required" });
+      return;
+    }
+
+    const lang = myLang === "ko" ? "Korean" : "Japanese";
+    const { nickname = "상대방", bio = "", interests = [], country = "JP" } = theirProfile;
+
+    const profileContext = [
+      `Name: ${nickname}`,
+      `Country: ${country === "JP" ? "Japan" : "Korea"}`,
+      bio ? `Bio: ${bio}` : "",
+      interests.length > 0 ? `Interests: ${interests.slice(0, 5).join(", ")}` : "",
+    ].filter(Boolean).join("\n");
+
+    const systemPrompt = `You are a dating app assistant for a Korean-Japanese dating app.
+Generate 3 warm, natural, and engaging first-message starters in ${lang} for someone reaching out to their new match.
+Each starter should feel personal (use their name or reference their profile info), friendly, and not too long (1-2 sentences max).
+Output ONLY a JSON array of 3 strings, e.g. ["starter1","starter2","starter3"]
+No explanations, no extra text, no markdown — just the raw JSON array.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      max_completion_tokens: 250,
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: `Match profile:\n${profileContext}\n\nGenerate 3 first-message starters in ${lang}:`,
+        },
+      ],
+    });
+
+    const raw = completion.choices[0]?.message?.content?.trim() ?? "";
+
+    let starters: string[] = [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        starters = parsed.filter((s): s is string => typeof s === "string" && s.length > 0);
+      }
+    } catch {
+      if (raw) starters = [raw];
+    }
+
+    if (starters.length === 0) {
+      res.status(500).json({ error: "No starters generated" });
+      return;
+    }
+
+    res.json({ starters });
+  } catch (err) {
+    console.error("[ai/conversation-starter] error:", err);
+    res.status(500).json({ error: "Failed to generate conversation starters" });
+  }
+});
+
 export default router;
