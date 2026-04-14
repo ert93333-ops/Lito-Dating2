@@ -36,7 +36,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **채팅 DB 저장+로드**: `chat_messages` 테이블. 채팅방 열릴 때 서버에서 과거 메시지 로드. 앱 재시작 후 대화 복구
 - **Discovery JWT**: `/api/users/discover`, `/api/users/:id/like`, `/api/users/:id/pass` 모두 optionalAuth로 사용자별 스와이프 이력 분리
 - **Object Storage 사진 저장**: GCS 기반. `/api/storage/uploads/request-url` (JWT 필요) → presigned PUT URL → GCS 직접 업로드 → `/api/storage/objects/*` 서빙. 업로드 중 로딩 인디케이터 표시. `utils/photoUpload.ts`에 유틸리티 구현. profile-setup/profile-edit 양쪽에서 사진 선택 즉시 GCS 업로드
-- **TODO**: Discovery/Matches → 실제 DB 전환, Kakao/LINE OAuth
+- **DB 기반 Discovery**: 실제 가입 사용자가 Discover에 등장. `swipe_passes` 테이블 신규 추가. 좋아요/패스/매칭 모두 DB 저장 (실제 유저 간). AI 페르소나는 좋아요 즉시 자동 매칭. 데모 유저는 인메모리 폴백으로 유지. 비인증 게스트는 데모+AI 유저만 표시
+- **TODO**: Kakao/LINE OAuth, 프로필 완성도 기반 필터링
 
 ### Lito Admin — Trust & Safety Dashboard (`artifacts/admin`)
 - **Type**: data-visualization (React + Vite)

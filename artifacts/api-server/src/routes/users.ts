@@ -1,45 +1,11 @@
 import { Router } from "express";
-import { optionalAuth } from "../middleware/auth";
+import { and, eq, notInArray, or, gte, lte } from "drizzle-orm";
+import { db, users, userProfiles, swipeLikes, swipePasses, matchesTable } from "@workspace/db";
+import { optionalAuth, requireAuth } from "../middleware/auth";
 
 const router = Router();
 
-// ── In-memory store (MVP — no DB required) ────────────────────────────────────
-// Keyed by viewerId (in production: JWT sub / session user ID)
-// For demo: we use a single viewer ID "me"
-
-interface Like {
-  fromId: string;
-  toId: string;
-  ts: number;
-}
-
-interface PassRecord {
-  fromId: string;
-  toId: string;
-  ts: number;
-}
-
-interface MatchRecord {
-  id: string;
-  userA: string;
-  userB: string;
-  ts: number;
-}
-
-const likes: Like[] = [];
-const passes: PassRecord[] = [];
-const matches: MatchRecord[] = [];
-
-// ── Demo: pre-seed incoming likes so "me" gets instant matches on swipe ──────
-// In production this would be driven by real mutual activity.
-// These simulate users who already liked "me" before they open the app.
-["user1", "user2", "user3", "user4", "user5", "user6", "ai_mio_jp", "ai_jia_kr"].forEach((uid) => {
-  likes.push({ fromId: uid, toId: "me", ts: Date.now() });
-});
-
-// ── Server-side user profiles ─────────────────────────────────────────────────
-// Photo IDs map to local assets in the app (profile1 → require("@/assets/images/profile1.jpg"))
-// compatibilityScore is computed client-side for personalisation; we send a base value.
+// ── ServerUser 타입 ────────────────────────────────────────────────────────────
 
 export interface ServerUser {
   id: string;
@@ -69,7 +35,52 @@ export interface ServerUser {
   personaId?: string;
 }
 
-const SERVER_USERS: ServerUser[] = [
+// ── 목업 AI 페르소나 + 데모 유저 (항상 풀에 포함) ─────────────────────────────
+
+const AI_MOCK_USERS: ServerUser[] = [
+  {
+    id: "ai_mio_jp",
+    nickname: "미오 (Mio) AI",
+    age: 23,
+    country: "JP",
+    language: "ja",
+    city: "東京 · Tokyo",
+    bio: "東京在住のAI文化交流パートナーです。韓国語の練習に付き合います。いつでも話しかけてね！\n\nAI cultural exchange partner based in Tokyo. Happy to help you practice Korean anytime!",
+    photos: ["profile3"],
+    compatibilityScore: 95,
+    compatibilityReasons: ["Always available", "Patient teacher", "Cultural insight", "Language practice"],
+    lastActive: "방금",
+    isOnline: true,
+    studyingLanguage: false,
+    interests: ["語学交換", "K-POP", "旅行", "料理"],
+    trustScore: 100,
+    trustLayers: { humanVerified: true, faceMatched: true, idVerified: true, institutionVerified: true },
+    isAI: true,
+    personaId: "ai_mio_jp",
+  },
+  {
+    id: "ai_jia_kr",
+    nickname: "지아 (Jia) AI",
+    age: 25,
+    country: "KR",
+    language: "ko",
+    city: "서울 · Seoul",
+    bio: "서울에 사는 AI 문화 교류 파트너예요. 일본어 연습 언제든지 도와드려요. 편하게 말 걸어요!\n\nAI cultural exchange partner in Seoul. Here to help you practice Japanese whenever you want!",
+    photos: ["profile5"],
+    compatibilityScore: 93,
+    compatibilityReasons: ["Always available", "Warm personality", "Cultural bridge", "Language practice"],
+    lastActive: "방금",
+    isOnline: true,
+    studyingLanguage: false,
+    interests: ["일본어", "애니메이션", "카페", "독서"],
+    trustScore: 100,
+    trustLayers: { humanVerified: true, faceMatched: true, idVerified: true, institutionVerified: true },
+    isAI: true,
+    personaId: "ai_jia_kr",
+  },
+];
+
+const DEMO_USERS: ServerUser[] = [
   {
     id: "user1",
     nickname: "유나 (Yuna)",
@@ -186,77 +197,74 @@ const SERVER_USERS: ServerUser[] = [
     trustLayers: { humanVerified: true, faceMatched: true, idVerified: true, institutionVerified: false },
     instagramHandle: "@hyunwoo.md",
   },
-  {
-    id: "ai_mio_jp",
-    nickname: "미오 (Mio) AI",
-    age: 23,
-    country: "JP",
-    language: "ja",
-    city: "東京 · Tokyo",
-    bio: "東京在住のAI文化交流パートナーです。韓国語の練習に付き合います。いつでも話しかけてね！\n\nAI cultural exchange partner based in Tokyo. Happy to help you practice Korean anytime!",
-    photos: ["profile3"],
-    compatibilityScore: 95,
-    compatibilityReasons: ["Always available", "Patient teacher", "Cultural insight", "Language practice"],
-    lastActive: "방금",
-    isOnline: true,
-    studyingLanguage: false,
-    interests: ["語学交換", "K-POP", "旅行", "料理"],
-    trustScore: 100,
-    trustLayers: { humanVerified: true, faceMatched: true, idVerified: true, institutionVerified: true },
-    isAI: true,
-    personaId: "ai_mio_jp",
-  },
-  {
-    id: "ai_jia_kr",
-    nickname: "지아 (Jia) AI",
-    age: 25,
-    country: "KR",
-    language: "ko",
-    city: "서울 · Seoul",
-    bio: "서울에 사는 AI 문화 교류 파트너예요. 일본어 연습 언제든지 도와드려요. 편하게 말 걸어요!\n\nAI cultural exchange partner in Seoul. Here to help you practice Japanese whenever you want!",
-    photos: ["profile5"],
-    compatibilityScore: 93,
-    compatibilityReasons: ["Always available", "Warm personality", "Cultural bridge", "Language practice"],
-    lastActive: "방금",
-    isOnline: true,
-    studyingLanguage: false,
-    interests: ["일본어", "애니메이션", "카페", "독서"],
-    trustScore: 100,
-    trustLayers: { humanVerified: true, faceMatched: true, idVerified: true, institutionVerified: true },
-    isAI: true,
-    personaId: "ai_jia_kr",
-  },
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// 인증 없는 게스트용 인메모리 스와이프 기록
+const guestLikes: { fromId: string; toId: string }[] = [];
+const guestPasses: { fromId: string; toId: string }[] = [];
+const guestMatches: { id: string; userA: string; userB: string; ts: number }[] = [];
 
-function hasMutualLike(aId: string, bId: string): boolean {
-  const aLikedB = likes.some((l) => l.fromId === aId && l.toId === bId);
-  const bLikedA = likes.some((l) => l.fromId === bId && l.toId === aId);
-  return aLikedB && bLikedA;
+// AI/데모 유저가 "me" (게스트)를 미리 좋아한 상태로 시뮬레이션
+[...DEMO_USERS, ...AI_MOCK_USERS].forEach((u) => {
+  guestLikes.push({ fromId: u.id, toId: "me" });
+});
+
+// ── 헬퍼 ──────────────────────────────────────────────────────────────────────
+
+function isDbUserId(id: string): boolean {
+  return /^\d+$/.test(id);
 }
 
-function alreadyMatched(aId: string, bId: string): boolean {
-  return matches.some(
-    (m) =>
-      (m.userA === aId && m.userB === bId) ||
-      (m.userA === bId && m.userB === aId)
-  );
+function buildServerUser(
+  user: typeof users.$inferSelect,
+  profile: typeof userProfiles.$inferSelect
+): ServerUser {
+  const country = (user.country as "KR" | "JP") ?? "KR";
+  const cityMap: Record<string, string> = {
+    KR: "대한민국 · Korea",
+    JP: "日本 · Japan",
+  };
+  return {
+    id: String(user.id),
+    nickname: profile.nickname || "Lito 사용자",
+    age: profile.age,
+    country,
+    language: (user.language as "ko" | "ja") ?? "ko",
+    city: cityMap[country] ?? "대한민국 · Korea",
+    bio: profile.bio || profile.intro || "",
+    photos: profile.photos ?? [],
+    compatibilityScore: 70 + Math.floor(Math.random() * 25),
+    compatibilityReasons: ["실제 사용자", "문화 교류", "언어 연습"],
+    lastActive: "방금",
+    isOnline: true,
+    studyingLanguage: true,
+    languageLevel: (profile.languageLevel as "beginner" | "intermediate" | "advanced") || "beginner",
+    interests: profile.interests ?? [],
+    trustScore: 60,
+    trustLayers: {
+      humanVerified: false,
+      faceMatched: false,
+      idVerified: false,
+      institutionVerified: false,
+    },
+    instagramHandle: profile.instagramHandle || undefined,
+    isAI: false,
+  };
+}
+
+function applyFilters(
+  user: ServerUser,
+  { country, minAge, maxAge, langLevel }: { country: string; minAge: number; maxAge: number; langLevel: string }
+): boolean {
+  if (user.age < minAge || user.age > maxAge) return false;
+  if (country !== "all" && user.country !== country) return false;
+  if (langLevel !== "all" && user.languageLevel !== langLevel) return false;
+  return true;
 }
 
 // ── GET /api/users/discover ───────────────────────────────────────────────────
-// Returns users the viewer hasn't liked or passed, filtered by optional params.
-// Query params:
-//   viewerId  (string, required for demo — defaults to "me")
-//   country   (KR|JP|all, default: all)
-//   minAge    (number)
-//   maxAge    (number)
-//   langLevel (beginner|intermediate|advanced|all)
-//   limit     (number, default: 20)
-//   offset    (number, default: 0)
 
-router.get("/users/discover", optionalAuth, (req, res) => {
-  const viewerId = req.user ? `user:${req.user.userId}` : (req.query.viewerId as string) || "me";
+router.get("/users/discover", optionalAuth, async (req, res) => {
   const country = (req.query.country as string) || "all";
   const minAge = req.query.minAge ? Number(req.query.minAge) : 18;
   const maxAge = req.query.maxAge ? Number(req.query.maxAge) : 99;
@@ -264,153 +272,440 @@ router.get("/users/discover", optionalAuth, (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 20, 50);
   const offset = Number(req.query.offset) || 0;
 
+  const filterOpts = { country, minAge, maxAge, langLevel };
+
+  // ── 인증된 실제 사용자 ──────────────────────────────────────────────────────
+  if (req.user) {
+    const viewerDbId = req.user.userId;
+
+    try {
+      // 이미 좋아요/패스한 DB 유저 ID 조회
+      const [likedRows, passedRows] = await Promise.all([
+        db.select({ id: swipeLikes.toUserId }).from(swipeLikes).where(eq(swipeLikes.fromUserId, viewerDbId)),
+        db.select({ id: swipePasses.toUserId }).from(swipePasses).where(eq(swipePasses.fromUserId, viewerDbId)),
+      ]);
+
+      const excludeIds = [
+        viewerDbId,
+        ...likedRows.map((r) => r.id),
+        ...passedRows.map((r) => r.id),
+      ];
+
+      // DB에서 다른 실제 사용자 조회 (프로필 완성된 사람만)
+      const whereConditions = excludeIds.length > 0
+        ? and(notInArray(users.id, excludeIds))
+        : undefined;
+
+      const dbRows = await db
+        .select()
+        .from(users)
+        .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+        .where(whereConditions);
+
+      const dbServerUsers: ServerUser[] = dbRows
+        .map((r) => buildServerUser(r.users, r.user_profiles))
+        .filter((u) => applyFilters(u, filterOpts));
+
+      // AI/데모 유저는 항상 표시 (로그인 사용자에게도)
+      const viewerKey = `db:${viewerDbId}`;
+      const dbLikedMockIds = new Set(
+        guestLikes.filter((l) => l.fromId === viewerKey).map((l) => l.toId)
+      );
+      const dbPassedMockIds = new Set(
+        guestPasses.filter((p) => p.fromId === viewerKey).map((p) => p.toId)
+      );
+
+      const mockPool = [...AI_MOCK_USERS, ...DEMO_USERS].filter(
+        (u) =>
+          !dbLikedMockIds.has(u.id) &&
+          !dbPassedMockIds.has(u.id) &&
+          applyFilters(u, filterOpts)
+      );
+
+      // AI 우선, 그 다음 호환성 점수 내림차순
+      const pool = [...mockPool, ...dbServerUsers].sort((a, b) => {
+        if (a.isAI && !b.isAI) return -1;
+        if (!a.isAI && b.isAI) return 1;
+        return b.compatibilityScore - a.compatibilityScore;
+      });
+
+      const total = pool.length;
+      const page = pool.slice(offset, offset + limit);
+      res.json({ users: page, total, offset, limit });
+      return;
+    } catch (err) {
+      console.error("[discover] DB 오류, 인메모리 폴백:", err);
+    }
+  }
+
+  // ── 비인증 게스트: 데모+AI 유저만 ────────────────────────────────────────
+  const viewerId = (req.query.viewerId as string) || "me";
   const seenIds = new Set([
-    ...likes.filter((l) => l.fromId === viewerId).map((l) => l.toId),
-    ...passes.filter((p) => p.fromId === viewerId).map((p) => p.toId),
+    ...guestLikes.filter((l) => l.fromId === viewerId).map((l) => l.toId),
+    ...guestPasses.filter((p) => p.fromId === viewerId).map((p) => p.toId),
     viewerId,
   ]);
 
-  let pool = SERVER_USERS.filter((u) => {
-    if (seenIds.has(u.id)) return false;
-    if (u.age < minAge || u.age > maxAge) return false;
-    if (country !== "all" && u.country !== country) return false;
-    if (langLevel !== "all" && u.languageLevel !== langLevel) return false;
-    return true;
-  });
+  const pool = [...AI_MOCK_USERS, ...DEMO_USERS].filter(
+    (u) => !seenIds.has(u.id) && applyFilters(u, filterOpts)
+  );
 
-  // Sort: AI users always first, then by compatibilityScore desc
   pool.sort((a, b) => {
     if (a.isAI && !b.isAI) return -1;
     if (!a.isAI && b.isAI) return 1;
     return b.compatibilityScore - a.compatibilityScore;
   });
 
-  const total = pool.length;
-  const page = pool.slice(offset, offset + limit);
-
-  res.json({ users: page, total, offset, limit });
+  res.json({ users: pool.slice(offset, offset + limit), total: pool.length, offset, limit });
 });
 
 // ── POST /api/users/:id/like ──────────────────────────────────────────────────
-// Records a like. Returns { matched: boolean, matchId?: string, matchedUser?: ServerUser }
 
-router.post("/users/:id/like", optionalAuth, (req, res) => {
+router.post("/users/:id/like", optionalAuth, async (req, res) => {
   const toId = req.params.id;
-  const viewerId = req.user ? `user:${req.user.userId}` : (req.body?.viewerId as string) || "me";
 
-  const target = SERVER_USERS.find((u) => u.id === toId);
-  if (!target) {
+  // ── 인증된 사용자 ──────────────────────────────────────────────────────────
+  if (req.user) {
+    const fromDbId = req.user.userId;
+
+    // 실제 DB 유저를 좋아요한 경우
+    if (isDbUserId(toId)) {
+      const toDbId = parseInt(toId, 10);
+      try {
+        // 좋아요 기록 저장 (이미 있으면 무시)
+        await db
+          .insert(swipeLikes)
+          .values({ fromUserId: fromDbId, toUserId: toDbId })
+          .onConflictDoNothing();
+
+        // 상대방도 나를 좋아했는지 확인 → 매칭
+        const [mutualLike] = await db
+          .select()
+          .from(swipeLikes)
+          .where(
+            and(eq(swipeLikes.fromUserId, toDbId), eq(swipeLikes.toUserId, fromDbId))
+          )
+          .limit(1);
+
+        let matched = false;
+        let matchId: string | null = null;
+
+        if (mutualLike) {
+          // 이미 매치가 있는지 확인
+          const [existingMatch] = await db
+            .select()
+            .from(matchesTable)
+            .where(
+              or(
+                and(eq(matchesTable.user1Id, fromDbId), eq(matchesTable.user2Id, toDbId)),
+                and(eq(matchesTable.user1Id, toDbId), eq(matchesTable.user2Id, fromDbId))
+              )
+            )
+            .limit(1);
+
+          if (!existingMatch) {
+            const [newMatch] = await db
+              .insert(matchesTable)
+              .values({ user1Id: fromDbId, user2Id: toDbId })
+              .onConflictDoNothing()
+              .returning();
+            if (newMatch) {
+              matched = true;
+              matchId = String(newMatch.id);
+              console.log(`[users] DB 매칭 생성: ${fromDbId} <-> ${toDbId} (match ${matchId})`);
+            }
+          } else {
+            matched = true;
+            matchId = String(existingMatch.id);
+          }
+        }
+
+        // 매칭 상대 프로필 조회
+        let matchedUser: ServerUser | null = null;
+        if (matched) {
+          const [row] = await db
+            .select()
+            .from(users)
+            .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+            .where(eq(users.id, toDbId))
+            .limit(1);
+          if (row) matchedUser = buildServerUser(row.users, row.user_profiles);
+        }
+
+        res.json({ liked: true, matched, matchId, matchedUser });
+        return;
+      } catch (err) {
+        console.error("[like] DB 오류:", err);
+        res.status(500).json({ error: "서버 오류" });
+        return;
+      }
+    }
+
+    // AI/데모 유저를 좋아요 (인메모리)
+    const viewerKey = `db:${fromDbId}`;
+    const target = [...AI_MOCK_USERS, ...DEMO_USERS].find((u) => u.id === toId) ?? null;
+
+    const alreadyLiked = guestLikes.some((l) => l.fromId === viewerKey && l.toId === toId);
+    if (!alreadyLiked) guestLikes.push({ fromId: viewerKey, toId });
+
+    // AI 유저는 항상 상대를 좋아함 (즉시 매칭)
+    const isAiTarget = AI_MOCK_USERS.some((u) => u.id === toId);
+    if (isAiTarget) {
+      const aiLikedBack = guestLikes.some((l) => l.fromId === toId && l.toId === viewerKey);
+      if (!aiLikedBack) guestLikes.push({ fromId: toId, toId: viewerKey });
+    }
+
+    const mutual = guestLikes.some((l) => l.fromId === viewerKey && l.toId === toId) &&
+                   guestLikes.some((l) => l.fromId === toId && l.toId === viewerKey);
+    const alreadyMatched = guestMatches.some(
+      (m) => (m.userA === viewerKey && m.userB === toId) || (m.userA === toId && m.userB === viewerKey)
+    );
+    let matchId: string | null = null;
+    let matched = false;
+
+    if (mutual && !alreadyMatched) {
+      matchId = `match_${viewerKey}_${toId}_${Date.now()}`;
+      guestMatches.push({ id: matchId, userA: viewerKey, userB: toId, ts: Date.now() });
+      matched = true;
+    }
+
+    res.json({ liked: true, matched, matchId, matchedUser: matched ? target : null });
+    return;
+  }
+
+  // ── 비인증 게스트 (인메모리) ───────────────────────────────────────────────
+  const viewerId = (req.body?.viewerId as string) || "me";
+  const target = [...AI_MOCK_USERS, ...DEMO_USERS].find((u) => u.id === toId);
+  if (!target && !isDbUserId(toId)) {
     res.status(404).json({ error: "User not found" });
     return;
   }
 
-  const alreadyLiked = likes.some((l) => l.fromId === viewerId && l.toId === toId);
-  if (!alreadyLiked) {
-    likes.push({ fromId: viewerId, toId, ts: Date.now() });
-  }
+  const alreadyLiked = guestLikes.some((l) => l.fromId === viewerId && l.toId === toId);
+  if (!alreadyLiked) guestLikes.push({ fromId: viewerId, toId });
 
-  // Check for mutual match
-  const mutual = hasMutualLike(viewerId, toId) && !alreadyMatched(viewerId, toId);
-  let matchId: string | undefined;
+  const mutual =
+    guestLikes.some((l) => l.fromId === viewerId && l.toId === toId) &&
+    guestLikes.some((l) => l.fromId === toId && l.toId === viewerId);
+  const alreadyMatched = guestMatches.some(
+    (m) => (m.userA === viewerId && m.userB === toId) || (m.userA === toId && m.userB === viewerId)
+  );
+  let matchId: string | null = null;
 
-  if (mutual) {
+  if (mutual && !alreadyMatched) {
     matchId = `match_${viewerId}_${toId}_${Date.now()}`;
-    matches.push({ id: matchId, userA: viewerId, userB: toId, ts: Date.now() });
-    console.log(`[users] New match: ${viewerId} <-> ${toId} (${matchId})`);
+    guestMatches.push({ id: matchId, userA: viewerId, userB: toId, ts: Date.now() });
   }
 
   res.json({
     liked: true,
-    matched: mutual,
-    matchId: matchId ?? null,
-    matchedUser: mutual ? target : null,
+    matched: mutual && !alreadyMatched,
+    matchId,
+    matchedUser: mutual && !alreadyMatched ? target ?? null : null,
   });
 });
 
 // ── POST /api/users/:id/pass ──────────────────────────────────────────────────
-// Records a pass.
 
-router.post("/users/:id/pass", optionalAuth, (req, res) => {
+router.post("/users/:id/pass", optionalAuth, async (req, res) => {
   const toId = req.params.id;
-  const viewerId = req.user ? `user:${req.user.userId}` : (req.body?.viewerId as string) || "me";
 
-  const alreadyPassed = passes.some((p) => p.fromId === viewerId && p.toId === toId);
-  if (!alreadyPassed) {
-    passes.push({ fromId: viewerId, toId, ts: Date.now() });
+  if (req.user) {
+    const fromDbId = req.user.userId;
+
+    if (isDbUserId(toId)) {
+      const toDbId = parseInt(toId, 10);
+      try {
+        await db
+          .insert(swipePasses)
+          .values({ fromUserId: fromDbId, toUserId: toDbId })
+          .onConflictDoNothing();
+        res.json({ passed: true });
+        return;
+      } catch (err) {
+        console.error("[pass] DB 오류:", err);
+        res.status(500).json({ error: "서버 오류" });
+        return;
+      }
+    }
+
+    // AI/데모 유저 패스 (인메모리)
+    const viewerKey = `db:${fromDbId}`;
+    const alreadyPassed = guestPasses.some((p) => p.fromId === viewerKey && p.toId === toId);
+    if (!alreadyPassed) guestPasses.push({ fromId: viewerKey, toId });
+    res.json({ passed: true });
+    return;
   }
 
+  const viewerId = (req.body?.viewerId as string) || "me";
+  const alreadyPassed = guestPasses.some((p) => p.fromId === viewerId && p.toId === toId);
+  if (!alreadyPassed) guestPasses.push({ fromId: viewerId, toId });
   res.json({ passed: true });
 });
 
 // ── GET /api/users/matches ────────────────────────────────────────────────────
-// Returns all matched users for the viewer.
 
-router.get("/users/matches", (req, res) => {
+router.get("/users/matches", optionalAuth, async (req, res) => {
+  if (req.user) {
+    const viewerDbId = req.user.userId;
+
+    try {
+      // DB 매칭 조회
+      const dbMatchRows = await db
+        .select()
+        .from(matchesTable)
+        .where(
+          or(eq(matchesTable.user1Id, viewerDbId), eq(matchesTable.user2Id, viewerDbId))
+        );
+
+      const dbMatchResults = await Promise.all(
+        dbMatchRows.map(async (m) => {
+          const partnerId = m.user1Id === viewerDbId ? m.user2Id : m.user1Id;
+          const [row] = await db
+            .select()
+            .from(users)
+            .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+            .where(eq(users.id, partnerId))
+            .limit(1);
+          if (!row) return null;
+          return {
+            matchId: String(m.id),
+            matchedAt: m.createdAt.getTime(),
+            user: buildServerUser(row.users, row.user_profiles),
+          };
+        })
+      );
+
+      // AI/데모 유저와의 인메모리 매칭도 포함
+      const viewerKey = `db:${viewerDbId}`;
+      const mockMatchResults = guestMatches
+        .filter((m) => m.userA === viewerKey || m.userB === viewerKey)
+        .map((m) => {
+          const partnerId = m.userA === viewerKey ? m.userB : m.userA;
+          const partner = [...AI_MOCK_USERS, ...DEMO_USERS].find((u) => u.id === partnerId);
+          return partner ? { matchId: m.id, matchedAt: m.ts, user: partner } : null;
+        })
+        .filter(Boolean);
+
+      const allMatches = [...dbMatchResults.filter(Boolean), ...mockMatchResults];
+      res.json({ matches: allMatches });
+      return;
+    } catch (err) {
+      console.error("[matches] DB 오류:", err);
+    }
+  }
+
+  // 게스트
   const viewerId = (req.query.viewerId as string) || "me";
-
-  const userMatches = matches
+  const guestMatchResults = guestMatches
     .filter((m) => m.userA === viewerId || m.userB === viewerId)
     .map((m) => {
       const partnerId = m.userA === viewerId ? m.userB : m.userA;
-      const partner = SERVER_USERS.find((u) => u.id === partnerId);
+      const partner = [...AI_MOCK_USERS, ...DEMO_USERS].find((u) => u.id === partnerId);
       return partner ? { matchId: m.id, matchedAt: m.ts, user: partner } : null;
     })
     .filter(Boolean);
 
-  res.json({ matches: userMatches });
+  res.json({ matches: guestMatchResults });
 });
 
 // ── GET /api/users/:id ────────────────────────────────────────────────────────
-// Returns a single user profile.
 
-router.get("/users/:id", (req, res) => {
-  const user = SERVER_USERS.find((u) => u.id === req.params.id);
-  if (!user) {
-    res.status(404).json({ error: "User not found" });
+router.get("/users/:id", async (req, res) => {
+  const { id } = req.params;
+
+  // 실제 DB 유저
+  if (isDbUserId(id)) {
+    try {
+      const [row] = await db
+        .select()
+        .from(users)
+        .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+        .where(eq(users.id, parseInt(id, 10)))
+        .limit(1);
+      if (row) {
+        res.json(buildServerUser(row.users, row.user_profiles));
+        return;
+      }
+    } catch (err) {
+      console.error("[users/:id] DB 오류:", err);
+    }
+  }
+
+  // AI/데모 유저
+  const mockUser = [...AI_MOCK_USERS, ...DEMO_USERS].find((u) => u.id === id);
+  if (mockUser) {
+    res.json(mockUser);
     return;
   }
-  res.json(user);
+
+  res.status(404).json({ error: "User not found" });
 });
 
 // ── POST /api/users/:id/like-back ─────────────────────────────────────────────
-// Simulate the other user liking back (for demo/testing — creates a match)
+// 데모/테스트용: 상대방이 나를 좋아요한 것을 시뮬레이션 (인메모리만)
 
 router.post("/users/:id/like-back", (req, res) => {
   const fromId = req.params.id;
   const toId = (req.body?.viewerId as string) || "me";
 
-  const alreadyLiked = likes.some((l) => l.fromId === fromId && l.toId === toId);
-  if (!alreadyLiked) {
-    likes.push({ fromId, toId, ts: Date.now() });
-  }
+  const alreadyLiked = guestLikes.some((l) => l.fromId === fromId && l.toId === toId);
+  if (!alreadyLiked) guestLikes.push({ fromId, toId });
 
-  const mutual = hasMutualLike(toId, fromId) && !alreadyMatched(toId, fromId);
-  let matchId: string | undefined;
+  const mutual =
+    guestLikes.some((l) => l.fromId === fromId && l.toId === toId) &&
+    guestLikes.some((l) => l.fromId === toId && l.toId === fromId);
+  const alreadyMatched = guestMatches.some(
+    (m) => (m.userA === toId && m.userB === fromId) || (m.userA === fromId && m.userB === toId)
+  );
+  let matchId: string | null = null;
 
-  if (mutual) {
+  if (mutual && !alreadyMatched) {
     matchId = `match_${toId}_${fromId}_${Date.now()}`;
-    matches.push({ id: matchId, userA: toId, userB: fromId, ts: Date.now() });
+    guestMatches.push({ id: matchId, userA: toId, userB: fromId, ts: Date.now() });
   }
 
-  res.json({ liked: true, matched: mutual, matchId: matchId ?? null });
+  res.json({ liked: true, matched: mutual && !alreadyMatched, matchId });
 });
 
 // ── POST /api/users/reset ─────────────────────────────────────────────────────
-// Reset all likes/passes/matches for the viewer (dev/demo only)
+// 인메모리 상태 초기화 (개발/데모용)
 
-router.post("/users/reset", (req, res) => {
+router.post("/users/reset", optionalAuth, async (req, res) => {
   const viewerId = (req.body?.viewerId as string) || "me";
+
+  if (req.user) {
+    const viewerDbId = req.user.userId;
+    try {
+      await Promise.all([
+        db.delete(swipeLikes).where(eq(swipeLikes.fromUserId, viewerDbId)),
+        db.delete(swipePasses).where(eq(swipePasses.fromUserId, viewerDbId)),
+      ]);
+    } catch (err) {
+      console.error("[reset] DB 오류:", err);
+    }
+
+    const viewerKey = `db:${viewerDbId}`;
+    const before = {
+      guestLikes: guestLikes.filter((l) => l.fromId === viewerKey).length,
+      guestPasses: guestPasses.filter((p) => p.fromId === viewerKey).length,
+      guestMatches: guestMatches.filter((m) => m.userA === viewerKey || m.userB === viewerKey).length,
+    };
+    guestLikes.splice(0, guestLikes.length, ...guestLikes.filter((l) => l.fromId !== viewerKey));
+    guestPasses.splice(0, guestPasses.length, ...guestPasses.filter((p) => p.fromId !== viewerKey));
+    guestMatches.splice(0, guestMatches.length, ...guestMatches.filter((m) => m.userA !== viewerKey && m.userB !== viewerKey));
+    res.json({ reset: true, cleared: before });
+    return;
+  }
+
   const before = {
-    likes: likes.filter((l) => l.fromId === viewerId).length,
-    passes: passes.filter((p) => p.fromId === viewerId).length,
-    matches: matches.filter((m) => m.userA === viewerId || m.userB === viewerId).length,
+    likes: guestLikes.filter((l) => l.fromId === viewerId).length,
+    passes: guestPasses.filter((p) => p.fromId === viewerId).length,
+    matches: guestMatches.filter((m) => m.userA === viewerId || m.userB === viewerId).length,
   };
-
-  const removeLikes = likes.splice(0, likes.length, ...likes.filter((l) => l.fromId !== viewerId));
-  const removePasses = passes.splice(0, passes.length, ...passes.filter((p) => p.fromId !== viewerId));
-  const removeMatches = matches.splice(0, matches.length, ...matches.filter((m) => m.userA !== viewerId && m.userB !== viewerId));
-
-  console.log(`[users/reset] Cleared viewer=${viewerId}:`, before);
+  guestLikes.splice(0, guestLikes.length, ...guestLikes.filter((l) => l.fromId !== viewerId));
+  guestPasses.splice(0, guestPasses.length, ...guestPasses.filter((p) => p.fromId !== viewerId));
+  guestMatches.splice(0, guestMatches.length, ...guestMatches.filter((m) => m.userA !== viewerId && m.userB !== viewerId));
   res.json({ reset: true, cleared: before });
 });
 
