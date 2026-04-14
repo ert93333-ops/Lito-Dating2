@@ -580,6 +580,23 @@ export default function DiscoverScreen() {
 
   const isKo = profile.language === "ko";
 
+  // ── Match popup animation ──────────────────────────────────────────────────
+  const matchScale = useSharedValue(0.72);
+  const matchOpacity = useSharedValue(0);
+  const matchAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: matchScale.value }],
+    opacity: matchOpacity.value,
+  }));
+  useEffect(() => {
+    if (newMatch) {
+      matchScale.value = 0.72;
+      matchOpacity.value = 0;
+      matchScale.value = withSpring(1, { damping: 18, stiffness: 300, mass: 0.8 });
+      matchOpacity.value = withSpring(1, { damping: 20, stiffness: 260 });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  }, [newMatch]);
+
   // ── Loading state ──────────────────────────────────────────────────────────
   if (discoverLoading) {
     return (
@@ -750,12 +767,26 @@ export default function DiscoverScreen() {
       {/* ── Match popup ────────────────────────────────────────────────── */}
       {newMatch && (
         <View style={styles.matchOverlay}>
-          <View style={[styles.matchCard, { backgroundColor: colors.background }]}>
-            <View style={[styles.matchIconRow]}>
-              <View style={[styles.matchHeart, { backgroundColor: colors.roseLight }]}>
-                <FIcon name="heart" size={28} color={colors.rose} />
+          <Animated.View style={[styles.matchCard, { backgroundColor: colors.background }, matchAnimStyle]}>
+            {/* ── Dual avatar row ── */}
+            <View style={styles.matchAvatarRow}>
+              <View style={styles.matchAvatarLeft}>
+                <ProfileImage photoKey={profile.photos?.[0] ?? "profile1"} size={72} />
+                <View style={[styles.matchAvatarFlag]}>
+                  <CountryFlag country={profile.country} size={16} />
+                </View>
+              </View>
+              <View style={[styles.matchHeartBubble, { backgroundColor: colors.rose }]}>
+                <FIcon name="heart" size={18} color="#fff" />
+              </View>
+              <View style={styles.matchAvatarRight}>
+                <ProfileImage photoKey={newMatch.photos?.[0] ?? "profile2"} size={72} />
+                <View style={[styles.matchAvatarFlag]}>
+                  <CountryFlag country={newMatch.country} size={16} />
+                </View>
               </View>
             </View>
+
             <Text style={[styles.matchTitle, { color: colors.charcoal }]}>
               {isKo ? "매칭됐어요!" : "マッチしました！"}
             </Text>
@@ -772,7 +803,7 @@ export default function DiscoverScreen() {
               activeOpacity={0.85}
               onPress={() => {
                 dismissMatch();
-                router.push("/(tabs)/matches" as any);
+                router.push("/(tabs)/chats" as any);
               }}
             >
               <Text style={styles.matchBtnText}>
@@ -784,7 +815,7 @@ export default function DiscoverScreen() {
                 {isKo ? "나중에" : "あとで"}
               </Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
       )}
     </View>
@@ -950,15 +981,40 @@ const styles = StyleSheet.create({
     shadowRadius: 30,
     elevation: 20,
   },
-  matchIconRow: {
-    marginBottom: 20,
-  },
-  matchHeart: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+  matchAvatarRow: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 0,
+    marginBottom: 24,
+  },
+  matchAvatarLeft: {
+    position: "relative",
+    marginRight: -10,
+    zIndex: 1,
+  },
+  matchAvatarRight: {
+    position: "relative",
+    marginLeft: -10,
+    zIndex: 1,
+  },
+  matchAvatarFlag: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+  },
+  matchHeartBubble: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 6,
   },
   matchTitle: {
     fontFamily: "Inter_700Bold",

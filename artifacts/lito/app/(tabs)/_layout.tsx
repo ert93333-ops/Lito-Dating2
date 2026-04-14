@@ -7,6 +7,7 @@ import FIcon from "@/components/FIcon";
 import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
+import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 
@@ -37,10 +38,16 @@ function NativeTabLayout() {
 function ClassicTabLayout() {
   const colors = useColors();
   const { lang } = useLocale();
+  const { conversations } = useApp();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
+
+  const chatsBadge = conversations.reduce((sum, c) => {
+    const fromLock = c.unlockRequestState === "received" ? 1 : 0;
+    return sum + c.unreadCount + fromLock;
+  }, 0);
 
   return (
     <Tabs
@@ -105,6 +112,8 @@ function ClassicTabLayout() {
         name="chats"
         options={{
           title: lang === "ko" ? "채팅" : "チャット",
+          tabBarBadge: chatsBadge > 0 ? chatsBadge : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.rose, fontSize: 10 },
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="message" tintColor={color} size={24} />

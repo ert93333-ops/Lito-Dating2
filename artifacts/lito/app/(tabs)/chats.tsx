@@ -31,15 +31,24 @@ function ConversationRow({ conversation }: { conversation: Conversation }) {
   const colors = useColors();
   const { lang } = useLocale();
 
+  const hasLockRequest = conversation.unlockRequestState === "received";
+  const hasUnread = conversation.unreadCount > 0;
+
   return (
     <TouchableOpacity
       style={[styles.row, { borderBottomColor: colors.border }]}
       onPress={() => router.push(`/chat/${conversation.id}` as any)}
     >
+      {/* ── Avatar + overlays ── */}
       <View style={styles.avatarWrap}>
         <ProfileImage photoKey={conversation.user.photos[0]} size={56} />
         {conversation.user.isOnline && (
           <View style={[styles.onlineDot, { backgroundColor: colors.green, borderColor: colors.white }]} />
+        )}
+        {hasLockRequest && (
+          <View style={[styles.lockBadge, { backgroundColor: "#F5D98A", borderColor: colors.white }]}>
+            <FIcon name="lock" size={9} color="#7A5200" />
+          </View>
         )}
       </View>
 
@@ -54,25 +63,44 @@ function ConversationRow({ conversation }: { conversation: Conversation }) {
           </Text>
         </View>
 
-        <View style={styles.bottomRow}>
-          <Text style={[styles.lastMsg, { color: colors.charcoalLight }]} numberOfLines={1}>
-            {conversation.lastMessage
-              ? conversation.lastMessage.originalText
-              : "Say hi! 안녕하세요! こんにちは！"}
-          </Text>
-          {conversation.unreadCount > 0 && (
-            <View style={[styles.badge, { backgroundColor: colors.rose }]}>
+        {/* ── Lock request chip (takes over preview line) ── */}
+        {hasLockRequest ? (
+          <View style={[styles.lockChip, { backgroundColor: "#FFF8EC", borderColor: "#F5D98A" }]}>
+            <FIcon name="instagram" size={11} color="#8A5D00" />
+            <Text style={[styles.lockChipText, { color: "#8A5D00" }]}>
+              {lang === "ko" ? "인스타 공개 요청이 왔어요" : "インスタ公開リクエストが届きました"}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.bottomRow}>
+            <Text style={[styles.lastMsg, { color: colors.charcoalLight }]} numberOfLines={1}>
+              {conversation.lastMessage
+                ? conversation.lastMessage.originalText
+                : lang === "ko" ? "대화를 시작해보세요!" : "メッセージを送ってみましょう！"}
+            </Text>
+            {hasUnread && (
+              <View style={[styles.badge, { backgroundColor: colors.rose }]}>
+                <Text style={styles.badgeText}>{conversation.unreadCount}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        <View style={styles.tagRow}>
+          {conversation.translationEnabled && (
+            <View style={[styles.translationTag, { backgroundColor: colors.roseLight }]}>
+              <FIcon name="globe" size={10} color={colors.rose} />
+              <Text style={[styles.translationLabel, { color: colors.rose }]}>
+                {lang === "ko" ? "번역 켜짐" : "翻訳オン"}
+              </Text>
+            </View>
+          )}
+          {hasUnread && hasLockRequest && (
+            <View style={[styles.unreadSmall, { backgroundColor: colors.rose }]}>
               <Text style={styles.badgeText}>{conversation.unreadCount}</Text>
             </View>
           )}
         </View>
-
-        {conversation.translationEnabled && (
-          <View style={[styles.translationTag, { backgroundColor: colors.roseLight }]}>
-            <FIcon name="globe" size={10} color={colors.rose} />
-            <Text style={[styles.translationLabel, { color: colors.rose }]}>{lang === "ko" ? "번역 켜짐" : "翻訳オン"}</Text>
-          </View>
-        )}
       </View>
     </TouchableOpacity>
   );
@@ -152,8 +180,24 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 2,
   },
+  lockBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   body: { flex: 1 },
-  topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   name: {
     fontFamily: "Inter_600SemiBold",
@@ -170,17 +214,38 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   badge: {
-    width: 20,
+    minWidth: 20,
     height: 20,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 8,
+    paddingHorizontal: 4,
   },
   badgeText: {
     fontFamily: "Inter_700Bold",
     fontSize: 11,
     color: "#FFF",
+  },
+  lockChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  lockChipText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+  },
+  tagRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 5,
   },
   translationTag: {
     flexDirection: "row",
@@ -189,12 +254,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
-    marginTop: 4,
     gap: 3,
   },
   translationLabel: {
     fontFamily: "Inter_500Medium",
     fontSize: 10,
+  },
+  unreadSmall: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
   },
   empty: {
     alignItems: "center",

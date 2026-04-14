@@ -24,6 +24,7 @@ export default function SettingsScreen() {
   const { logout, profile, updateProfile } = useApp();
   const { lang } = useLocale();
   const appLanguage = profile.language;
+  const [notificationsOn, setNotificationsOn] = React.useState(true);
 
   const idStatus = profile.trustProfile.idVerified.status;
   const idNeedsAttention = idNeedsAction(profile.trustProfile);
@@ -199,10 +200,13 @@ export default function SettingsScreen() {
             <SettingRow
               icon="bell"
               label={lang === "ko" ? "알림" : "通知"}
+              sublabel={notificationsOn
+                ? lang === "ko" ? "매칭 · 메시지 알림 켜짐" : "マッチ・メッセージ通知オン"
+                : lang === "ko" ? "모든 알림 꺼짐" : "すべての通知オフ"}
               right={
                 <Switch
-                  value={true}
-                  onValueChange={() => {}}
+                  value={notificationsOn}
+                  onValueChange={setNotificationsOn}
                   trackColor={{ true: colors.rose }}
                   thumbColor={colors.white}
                 />
@@ -220,6 +224,20 @@ export default function SettingsScreen() {
               icon="shield"
               label={lang === "ko" ? "차단 · 신고" : "ブロック・報告"}
               onPress={() => {}}
+            />
+            <SettingRow
+              icon="log-out"
+              label={lang === "ko" ? "로그아웃" : "ログアウト"}
+              onPress={() => {
+                Alert.alert(
+                  lang === "ko" ? "로그아웃" : "ログアウト",
+                  lang === "ko" ? "정말 로그아웃하시겠습니까?" : "本当にログアウトしますか？",
+                  [
+                    { text: lang === "ko" ? "취소" : "キャンセル", style: "cancel" },
+                    { text: lang === "ko" ? "로그아웃" : "ログアウト", style: "destructive", onPress: logout },
+                  ]
+                );
+              }}
             />
             <SettingRow
               icon="trash-2"
