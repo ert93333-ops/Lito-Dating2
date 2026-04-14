@@ -27,6 +27,16 @@ import { INTERESTS_I18N } from "@/utils/interests";
 
 const MAX_INTERESTS = 8;
 
+function isUriPhoto(key: string): boolean {
+  return (
+    key.startsWith("file://") ||
+    key.startsWith("http://") ||
+    key.startsWith("https://") ||
+    key.startsWith("content://") ||
+    key.startsWith("ph://")
+  );
+}
+
 function SaveButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
   const colors = useColors();
   const scale = useRef(new Animated.Value(1)).current;
@@ -137,12 +147,15 @@ export default function ProfileEditScreen() {
       updates.introI18n = { ...existingI18n, [lang]: introTrimmed };
     }
 
+    if (localPhotoUri) {
+      const otherPhotos = profile.photos.filter((p) => !isUriPhoto(p));
+      updates.photos = [localPhotoUri, ...otherPhotos];
+    }
+
     updateProfile(updates);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.back();
   };
-
-  const hasPhoto = !!localPhotoUri || (profile.photos.length > 0 && !!profile.photos[0]);
 
   return (
     <KeyboardAvoidingView
@@ -180,12 +193,26 @@ export default function ProfileEditScreen() {
                     style={s.photoPreview}
                     contentFit="cover"
                   />
-                ) : hasPhoto && profile.photos[0] ? (
-                  <View style={[s.photoPreview, { backgroundColor: colors.rose, alignItems: "center", justifyContent: "center" }]}>
-                    <Text style={{ fontFamily: "Inter_700Bold", fontSize: 48, color: "rgba(255,255,255,0.6)" }}>
-                      {(profile.nickname || "U")[0].toUpperCase()}
-                    </Text>
-                  </View>
+                ) : profile.photos[0] ? (
+                  <Image
+                    source={
+                      isUriPhoto(profile.photos[0])
+                        ? { uri: profile.photos[0] }
+                        : (() => {
+                            const map: Record<string, any> = {
+                              profile1: require("@/assets/images/profile1.png"),
+                              profile2: require("@/assets/images/profile2.png"),
+                              profile3: require("@/assets/images/profile3.png"),
+                              profile4: require("@/assets/images/profile4.png"),
+                              profile5: require("@/assets/images/profile5.png"),
+                              profile6: require("@/assets/images/profile6.png"),
+                            };
+                            return map[profile.photos[0]];
+                          })()
+                    }
+                    style={s.photoPreview}
+                    contentFit="cover"
+                  />
                 ) : (
                   <View style={s.photoPlaceholder}>
                     <FIcon name="camera" size={28} color={colors.rose} />

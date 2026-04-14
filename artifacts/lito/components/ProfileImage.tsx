@@ -14,6 +14,16 @@ const profileImages: Record<string, any> = {
   profile6: require("@/assets/images/profile6.png"),
 };
 
+function isUriString(key: string): boolean {
+  return (
+    key.startsWith("file://") ||
+    key.startsWith("http://") ||
+    key.startsWith("https://") ||
+    key.startsWith("content://") ||
+    key.startsWith("ph://")
+  );
+}
+
 interface ProfileImageProps {
   photoKey?: string;
   size?: number;
@@ -24,7 +34,10 @@ interface ProfileImageProps {
 export function ProfileImage({ photoKey, size = 60, borderRadius, style }: ProfileImageProps) {
   const colors = useColors();
   const radius = borderRadius ?? size / 2;
-  const source = photoKey ? profileImages[photoKey] : null;
+
+  const staticSource = photoKey && !isUriString(photoKey) ? profileImages[photoKey] : null;
+  const uriSource = photoKey && isUriString(photoKey) ? { uri: photoKey } : null;
+  const source = staticSource ?? uriSource;
 
   if (!source) {
     return (
