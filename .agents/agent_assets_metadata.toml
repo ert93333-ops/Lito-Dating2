@@ -71,3 +71,9 @@ id = "kFjc9vdoqu1HKg_tk6FsV"
 uri = "file://lito-prelaunch-plan.md"
 type = "text"
 title = "Lito Pre-Launch Improvement Plan v1.0"
+
+[[outputs]]
+id = "043tAX6ZGCb_8Z00tO9wN"
+uri = "file://artifacts/admin/public/lito-source.tar.gz"
+type = "unspecified"
+title = "Lito 소스코드 (tar.gz)"
