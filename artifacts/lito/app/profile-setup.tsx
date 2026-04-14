@@ -245,13 +245,14 @@ export default function ProfileSetupScreen() {
                   color: colors.charcoal,
                 },
               ]}
-              value={nickname}
+              defaultValue={nickname}
               onChangeText={setNickname}
               placeholder={lang === "ko" ? "닉네임을 입력하세요" : "ニックネームを入力"}
               placeholderTextColor={colors.charcoalFaint}
               returnKeyType="next"
               autoFocus
               maxLength={20}
+              autoCorrect={false}
             />
             {nickname.trim().length > 0 && nickname.trim().length < 2 && (
               <Text style={[s.fieldHint, { color: colors.rose }]}>
@@ -315,7 +316,7 @@ export default function ProfileSetupScreen() {
                   color: colors.charcoal,
                 },
               ]}
-              value={intro}
+              defaultValue={intro}
               onChangeText={setIntro}
               placeholder={
                 lang === "ko"
@@ -325,6 +326,7 @@ export default function ProfileSetupScreen() {
               placeholderTextColor={colors.charcoalFaint}
               maxLength={80}
               returnKeyType="done"
+              autoCorrect={false}
             />
             <Text style={[s.charCount, { color: colors.charcoalFaint }]}>
               {intro.length}/80

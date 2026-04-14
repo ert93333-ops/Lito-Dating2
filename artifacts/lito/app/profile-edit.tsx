@@ -266,12 +266,13 @@ export default function ProfileEditScreen() {
                   color: colors.charcoal,
                 },
               ]}
-              value={nickname}
+              defaultValue={nickname}
               onChangeText={setNickname}
               placeholder={lang === "ko" ? "닉네임 입력" : "ニックネームを入力"}
               placeholderTextColor={colors.charcoalFaint}
               maxLength={20}
               returnKeyType="next"
+              autoCorrect={false}
             />
             {nickname.trim().length > 0 && nickname.trim().length < 2 && (
               <Text style={[s.fieldError, { color: colors.rose }]}>
@@ -321,12 +322,13 @@ export default function ProfileEditScreen() {
                   color: colors.charcoal,
                 },
               ]}
-              value={intro}
+              defaultValue={intro}
               onChangeText={setIntro}
               placeholder={lang === "ko" ? "예) 커피 좋아하는 개발자" : "例）コーヒー好きのエンジニア"}
               placeholderTextColor={colors.charcoalFaint}
               maxLength={60}
               returnKeyType="next"
+              autoCorrect={false}
             />
             <Text style={[s.fieldCount, { color: colors.charcoalFaint }]}>{intro.length}/60</Text>
           </View>
@@ -345,7 +347,7 @@ export default function ProfileEditScreen() {
                   color: colors.charcoal,
                 },
               ]}
-              value={bio}
+              defaultValue={bio}
               onChangeText={setBio}
               placeholder={
                 lang === "ko"
@@ -355,8 +357,8 @@ export default function ProfileEditScreen() {
               placeholderTextColor={colors.charcoalFaint}
               multiline
               maxLength={500}
-              returnKeyType="default"
               textAlignVertical="top"
+              autoCorrect={false}
             />
             <Text style={[s.fieldCount, { color: colors.charcoalFaint }]}>{bio.length}/500</Text>
           </View>
