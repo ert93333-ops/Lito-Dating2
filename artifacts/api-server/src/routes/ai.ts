@@ -16,6 +16,7 @@ import {
   type LocalePair,
 } from "../lib/prsAnalytics.js";
 import { aiRateLimit, getAiRateLimitStats } from "../middleware/aiRateLimit.js";
+import { requireAdmin } from "../middleware/requireAdmin.js";
 
 const router = Router();
 
@@ -68,7 +69,7 @@ Rules:
 - No explanations, no extra keys, no markdown — just the raw JSON array`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model: "gpt-4o-mini",
       max_completion_tokens: 300,
       messages: [
         { role: "system", content: systemPrompt },
@@ -169,7 +170,7 @@ Rules:
 - Line 2 must be a genuine phonetic guide using the appropriate script`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model: "gpt-4o-mini",
       max_completion_tokens: 200,
       messages: [
         { role: "system", content: systemPrompt },
@@ -326,7 +327,7 @@ ${toneLabelRule}
 ${coachingContextBlock ? `\n${coachingContextBlock}` : ""}`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model: "gpt-4o-mini",
       max_completion_tokens: 600,
       messages: [
         { role: "system", content: systemPrompt },
@@ -453,7 +454,7 @@ ${recentMsgs || "(no messages yet)"}`;
 
     try {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4.1-mini",
+        model: "gpt-4o-mini",
         max_completion_tokens: 60,
         messages: [
           { role: "system", content: semanticPrompt },
@@ -621,7 +622,7 @@ router.post("/ai/persona", async (req, res) => {
       : "The user you are chatting with is Japanese.";
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: `${systemPrompt}\n\n${contextNote}` },
         ...history.map((m) => ({ role: m.role, content: m.text })),
@@ -647,17 +648,17 @@ router.post("/ai/persona", async (req, res) => {
 // GET /api/admin/prs/aggregates — live telemetry aggregates
 // GET /api/admin/prs/events     — last 50 raw telemetry events
 
-router.get("/admin/prs/aggregates", (_req, res) => {
+router.get("/admin/prs/aggregates", requireAdmin, (_req, res) => {
   res.json(getAggregates());
 });
 
-router.get("/admin/prs/events", (req, res) => {
+router.get("/admin/prs/events", requireAdmin, (req, res) => {
   const n = Math.min(Number(req.query.n ?? 50), 200);
   res.json({ events: getRecentEvents(n) });
 });
 
 // GET /api/admin/ai/rate-limits — AI 사용량 현황 (관리자용)
-router.get("/admin/ai/rate-limits", (_req, res) => {
+router.get("/admin/ai/rate-limits", requireAdmin, (_req, res) => {
   res.json(getAiRateLimitStats());
 });
 
@@ -766,7 +767,7 @@ Output ONLY a JSON array of 3 strings, e.g. ["starter1","starter2","starter3"]
 No explanations, no extra text, no markdown — just the raw JSON array.`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: "gpt-4o-mini",
       max_completion_tokens: 250,
       messages: [
         { role: "system", content: systemPrompt },

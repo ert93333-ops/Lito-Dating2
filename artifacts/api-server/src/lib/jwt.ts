@@ -3,9 +3,12 @@ import jwt from "jsonwebtoken";
 const JWT_SECRET = process.env.SESSION_SECRET ?? "lito-dev-secret-change-in-prod";
 const JWT_EXPIRES_IN = "30d";
 
+export type PlanId = "free" | "plus" | "premium";
+
 export interface JwtPayload {
   userId: number;
   email: string;
+  plan: PlanId;
 }
 
 export function signToken(payload: JwtPayload): string {

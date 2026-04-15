@@ -126,7 +126,7 @@ router.get("/auth/kakao/callback", async (req, res) => {
 
     const userId = await findOrCreateSocialUser("kakao", String(profile.id), email, name, stateData.country ?? "KR", stateData.language ?? "ko");
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    const token = signToken({ userId: user.id, email: user.email });
+    const token = signToken({ userId: user.id, email: user.email, plan: (user.plan ?? "free") as "free" | "plus" | "premium" });
 
     logger.info({ provider: "kakao", userId }, "Kakao login success");
     res.redirect(`${APP_DEEP_LINK}?token=${token}`);
@@ -190,7 +190,7 @@ router.get("/auth/line/callback", async (req, res) => {
 
     const userId = await findOrCreateSocialUser("line", profile.userId, email, profile.displayName, stateData.country ?? "JP", stateData.language ?? "ja");
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    const token = signToken({ userId: user.id, email: user.email });
+    const token = signToken({ userId: user.id, email: user.email, plan: (user.plan ?? "free") as "free" | "plus" | "premium" });
 
     logger.info({ provider: "line", userId }, "LINE login success");
     res.redirect(`${APP_DEEP_LINK}?token=${token}`);
@@ -264,7 +264,7 @@ router.get("/auth/google/callback", async (req, res) => {
       stateData.country ?? "KR", stateData.language ?? "ko"
     );
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    const token = signToken({ userId: user.id, email: user.email });
+    const token = signToken({ userId: user.id, email: user.email, plan: (user.plan ?? "free") as "free" | "plus" | "premium" });
 
     logger.info({ provider: "google", userId }, "Google login success");
     res.redirect(`${APP_DEEP_LINK}?token=${token}`);

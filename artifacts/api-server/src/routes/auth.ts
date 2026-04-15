@@ -45,7 +45,7 @@ router.post("/auth/register", async (req, res) => {
 
     await db.insert(userProfiles).values({ userId: user.id });
 
-    const token = signToken({ userId: user.id, email: user.email });
+    const token = signToken({ userId: user.id, email: user.email, plan: (user.plan ?? "free") as "free" | "plus" | "premium" });
     res.status(201).json({
       token,
       user: {
@@ -53,6 +53,7 @@ router.post("/auth/register", async (req, res) => {
         email: user.email,
         country: user.country,
         language: user.language,
+        plan: user.plan,
       },
     });
   } catch (err) {
@@ -94,7 +95,7 @@ router.post("/auth/login", async (req, res) => {
       .where(eq(userProfiles.userId, user.id))
       .limit(1);
 
-    const token = signToken({ userId: user.id, email: user.email });
+    const token = signToken({ userId: user.id, email: user.email, plan: (user.plan ?? "free") as "free" | "plus" | "premium" });
     res.json({
       token,
       user: {
@@ -102,6 +103,7 @@ router.post("/auth/login", async (req, res) => {
         email: user.email,
         country: user.country,
         language: user.language,
+        plan: user.plan,
       },
       profile: profile ?? null,
     });
@@ -138,6 +140,7 @@ router.get("/auth/me", requireAuth, async (req, res) => {
         email: user.email,
         country: user.country,
         language: user.language,
+        plan: user.plan,
       },
       profile: profile ?? null,
     });

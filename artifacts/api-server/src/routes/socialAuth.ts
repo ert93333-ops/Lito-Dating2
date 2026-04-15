@@ -181,7 +181,7 @@ router.post("/auth/social", async (req, res) => {
       .where(eq(userProfiles.userId, userId))
       .limit(1);
 
-    const token = signToken({ userId: user.id, email: user.email });
+    const token = signToken({ userId: user.id, email: user.email, plan: (user.plan ?? "free") as "free" | "plus" | "premium" });
     logger.info({ provider, userId }, "Social login success");
 
     res.json({
