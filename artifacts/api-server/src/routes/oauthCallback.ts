@@ -26,6 +26,15 @@ function errorRedirect(res: any, message: string) {
   res.redirect(`${APP_DEEP_LINK}?error=${encoded}`);
 }
 
+/** 실제 서버 베이스 URL (EXPO_PUBLIC_DOMAIN 우선, 없으면 req에서 추출) */
+function getServerBase(req: any): string {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  if (domain) return `https://${domain}`;
+  const proto = req.headers["x-forwarded-proto"] ?? req.protocol ?? "http";
+  const host = req.headers["x-forwarded-host"] ?? req.get?.("host") ?? req.hostname;
+  return `${proto}://${host}`;
+}
+
 async function findOrCreateSocialUser(
   provider: string,
   providerUserId: string,
@@ -68,7 +77,7 @@ router.get("/auth/kakao/start", (req, res) => {
   const appKey = process.env.KAKAO_APP_KEY;
   if (!appKey) { errorRedirect(res, "카카오 설정 오류"); return; }
 
-  const redirectUri = `${req.protocol}://${req.hostname}${req.baseUrl ?? ""}/api/auth/kakao/callback`;
+  const redirectUri = `${getServerBase(req)}/api/auth/kakao/callback`;
   const state = Buffer.from(JSON.stringify({
     country: req.query.country ?? "KR",
     language: req.query.language ?? "ko",
@@ -87,7 +96,7 @@ router.get("/auth/kakao/callback", async (req, res) => {
   if (error || !code) { errorRedirect(res, "카카오 로그인이 취소되었습니다."); return; }
 
   try {
-    const redirectUri = `${req.protocol}://${req.hostname}${req.baseUrl ?? ""}/api/auth/kakao/callback`;
+    const redirectUri = `${getServerBase(req)}/api/auth/kakao/callback`;
     const tokenRes = await fetch("https://kauth.kakao.com/oauth/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -133,7 +142,7 @@ router.get("/auth/line/start", (req, res) => {
   const channelId = process.env.LINE_CHANNEL_ID;
   if (!channelId) { errorRedirect(res, "LINE 설정 오류"); return; }
 
-  const redirectUri = `${req.protocol}://${req.hostname}${req.baseUrl ?? ""}/api/auth/line/callback`;
+  const redirectUri = `${getServerBase(req)}/api/auth/line/callback`;
   const state = Buffer.from(JSON.stringify({
     country: req.query.country ?? "JP",
     language: req.query.language ?? "ja",
@@ -155,7 +164,7 @@ router.get("/auth/line/callback", async (req, res) => {
   }
 
   try {
-    const redirectUri = `${req.protocol}://${req.hostname}${req.baseUrl ?? ""}/api/auth/line/callback`;
+    const redirectUri = `${getServerBase(req)}/api/auth/line/callback`;
     const tokenRes = await fetch("https://api.line.me/oauth2/v2.1/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -197,7 +206,7 @@ router.get("/auth/google/start", (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) { errorRedirect(res, "Google 설정 오류"); return; }
 
-  const redirectUri = `${req.protocol}://${req.hostname}${req.baseUrl ?? ""}/api/auth/google/callback`;
+  const redirectUri = `${getServerBase(req)}/api/auth/google/callback`;
   const state = Buffer.from(JSON.stringify({
     country: req.query.country ?? "KR",
     language: req.query.language ?? "ko",
@@ -227,7 +236,7 @@ router.get("/auth/google/callback", async (req, res) => {
   }
 
   try {
-    const redirectUri = `${req.protocol}://${req.hostname}${req.baseUrl ?? ""}/api/auth/google/callback`;
+    const redirectUri = `${getServerBase(req)}/api/auth/google/callback`;
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
