@@ -34,6 +34,7 @@ EXPO_PUBLIC_DOMAIN = "897d9e56-871c-4974-ac62-08cd46e83fb1-00-1t8plx8vfjhzz.rike
 GOOGLE_CLIENT_ID = "840328984949-dmkcsc712o17tqv0qdd9g7f184dfi1tf.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET = "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"
 KAKAO_APP_KEY = "7ecc0da3f08b73fec3c545cc852777d1"
+GITHUB_TOKEN = "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"
 
 [nix]
 channel = "stable-25_05"
