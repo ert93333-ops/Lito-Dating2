@@ -36,7 +36,7 @@ import { Message, computeTrustScore } from "@/types";
 
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : "http://localhost:8080";
+  : "http://localhost:3000";
 
 // ── Module-level translation cache ───────────────────────────────────────────
 // Persists across remounts. Key = "<msgId>:<targetLang>"

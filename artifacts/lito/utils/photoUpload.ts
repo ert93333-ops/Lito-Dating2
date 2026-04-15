@@ -10,7 +10,7 @@
 
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : "http://localhost:8080";
+  : "http://localhost:3000";
 
 // ── 에러 클래스 ────────────────────────────────────────────────────────────────
 

@@ -26,7 +26,7 @@ import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 import { INTERESTS_I18N } from "@/utils/interests";
-import { uploadPhotoToStorage } from "@/utils/photoUpload";
+import { uploadPhotoToStorage, UploadError } from "@/utils/photoUpload";
 
 // ── AnimatedPressable CTA ─────────────────────────────────────────────────────
 
@@ -112,6 +112,7 @@ export default function ProfileSetupScreen() {
   const [mainPhoto, setMainPhoto] = useState<string | null>(null);
   const [extraPhotos, setExtraPhotos] = useState<(string | null)[]>([null, null, null]);
   const [photoUploading, setPhotoUploading] = useState<Record<string, boolean>>({});
+  const [photoFailed, setPhotoFailed] = useState<Record<string, boolean>>({});
 
   // Step 2 — Identity
   const [nickname, setNickname] = useState("");
@@ -180,6 +181,13 @@ export default function ProfileSetupScreen() {
           })
           .catch((err) => {
             console.warn("[profile-setup] 사진 업로드 실패, 로컬 URI 유지:", err);
+            setPhotoFailed((prev) => ({ ...prev, [slotKey]: true }));
+            if (err instanceof UploadError && !err.retryable) {
+              Alert.alert(
+                lang === "ko" ? "업로드 실패" : "アップロード失敗",
+                err.message
+              );
+            }
           })
           .finally(() => {
             setPhotoUploading((prev) => ({ ...prev, [slotKey]: false }));
@@ -237,7 +245,7 @@ export default function ProfileSetupScreen() {
     if (token) {
       const apiBase = process.env.EXPO_PUBLIC_DOMAIN
         ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-        : "http://localhost:8080";
+        : "http://localhost:3000";
       fetch(`${apiBase}/api/auth/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -375,6 +383,21 @@ export default function ProfileSetupScreen() {
                     <ActivityIndicator size="small" color="#fff" />
                   </View>
                 )}
+                {photoFailed["main"] && !photoUploading["main"] && (
+                  <TouchableOpacity
+                    style={[s.uploadOverlay, { backgroundColor: "rgba(220,50,50,0.7)" }]}
+                    onPress={() => {
+                      setPhotoFailed((prev) => ({ ...prev, main: false }));
+                      pickPhoto("main");
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <FIcon name="refresh-cw" size={20} color="#fff" />
+                    <Text style={{ color: "#fff", fontFamily: "Inter_500Medium", fontSize: 11, marginTop: 4 }}>
+                      {lang === "ko" ? "재시도" : "再試行"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity
                   style={[s.removeBtn, { backgroundColor: colors.charcoal }]}
                   onPress={() => removePhoto("main")}
@@ -441,6 +464,18 @@ export default function ProfileSetupScreen() {
                           <View style={[s.uploadOverlay, { borderRadius: 14 }]}>
                             <ActivityIndicator size="small" color="#fff" />
                           </View>
+                        )}
+                        {photoFailed[String(i)] && !photoUploading[String(i)] && (
+                          <TouchableOpacity
+                            style={[s.uploadOverlay, { borderRadius: 14, backgroundColor: "rgba(220,50,50,0.7)" }]}
+                            onPress={() => {
+                              setPhotoFailed((prev) => ({ ...prev, [String(i)]: false }));
+                              pickPhoto(i);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <FIcon name="refresh-cw" size={16} color="#fff" />
+                          </TouchableOpacity>
                         )}
                         <TouchableOpacity
                           style={[s.removeBtn, s.removeBtnSmall, { backgroundColor: colors.charcoal }]}

@@ -50,7 +50,7 @@ import type { UserReportCategory } from "@/types";
 
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : "http://localhost:8080";
+  : "http://localhost:3000";
 
 // ── Category config ────────────────────────────────────────────────────────────
 // Ordered by prevalence in the KR-JP dating context.

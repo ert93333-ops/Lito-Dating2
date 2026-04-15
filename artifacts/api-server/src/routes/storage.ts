@@ -8,8 +8,10 @@ const storageService = new ObjectStorageService();
 
 /**
  * POST /api/storage/uploads/request-url
- * JWT 필수. 파일 메타데이터를 받아 GCS presigned PUT URL을 반환합니다.
- * 클라이언트는 반환된 URL에 파일을 직접 PUT 업로드합니다.
+ * JWT 필수. 파일 메타데이터를 받아 업로드 URL을 반환합니다.
+ *
+ * - GCS 모드: GCS presigned PUT URL 반환
+ * - 로컬 모드: 로컬 업로드 엔드포인트 URL 반환
  */
 router.post("/storage/uploads/request-url", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -24,8 +26,20 @@ router.post("/storage/uploads/request-url", requireAuth, async (req: Request, re
       return;
     }
 
-    const uploadURL = await storageService.getObjectEntityUploadURL();
-    const objectPath = storageService.normalizeObjectEntityPath(uploadURL);
+    // 파일 크기 제한 (10MB)
+    if (size && size > 10 * 1024 * 1024) {
+      res.status(413).json({ error: "파일 크기는 10MB 이하여야 합니다." });
+      return;
+    }
+
+    // 이미지 타입만 허용
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowedTypes.includes(contentType)) {
+      res.status(400).json({ error: "허용되지 않는 파일 형식입니다. (JPEG, PNG, GIF, WebP만 가능)" });
+      return;
+    }
+
+    const { uploadURL, objectPath } = await storageService.getUploadURL(contentType);
 
     res.json({
       uploadURL,
@@ -35,6 +49,60 @@ router.post("/storage/uploads/request-url", requireAuth, async (req: Request, re
   } catch (err) {
     console.error("[storage] request-url error:", err);
     res.status(500).json({ error: "업로드 URL 생성 실패" });
+  }
+});
+
+/**
+ * PUT /api/storage/local-upload/:objectId
+ * 로컬 개발 모드 전용 — 파일을 직접 서버에 업로드합니다.
+ * GCS 모드에서는 사용되지 않습니다.
+ */
+router.put("/storage/local-upload/:objectId", async (req: Request, res: Response) => {
+  try {
+    const { objectId } = req.params;
+    if (!objectId || !/^[a-f0-9-]+$/.test(objectId)) {
+      res.status(400).json({ error: "잘못된 objectId" });
+      return;
+    }
+
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(Buffer.from(chunk));
+    }
+    const data = Buffer.concat(chunks);
+
+    if (data.length === 0) {
+      res.status(400).json({ error: "빈 파일" });
+      return;
+    }
+
+    if (data.length > 10 * 1024 * 1024) {
+      res.status(413).json({ error: "파일 크기는 10MB 이하여야 합니다." });
+      return;
+    }
+
+    await storageService.saveLocalFile(objectId, data, req.headers["content-type"]);
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error("[storage] local-upload error:", err);
+    res.status(500).json({ error: "로컬 업로드 실패" });
+  }
+});
+
+/**
+ * DELETE /api/storage/objects/*path
+ * JWT 필수. 업로드된 파일을 삭제합니다.
+ */
+router.delete("/storage/objects/*path", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const raw = req.params.path as string | string[];
+    const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
+    const objectPath = `/objects/${wildcardPath}`;
+    await storageService.deleteObject(objectPath);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[storage] delete error:", err);
+    res.status(500).json({ error: "파일 삭제 실패" });
   }
 });
 
@@ -68,7 +136,6 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
 /**
  * GET /api/storage/objects/*
  * 프라이빗 오브젝트 서빙 (프로필 사진 등)
- * 현재는 인증 없이 공개 — 필요시 requireAuth 추가
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {

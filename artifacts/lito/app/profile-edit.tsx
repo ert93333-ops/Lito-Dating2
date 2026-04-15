@@ -2,7 +2,7 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -25,9 +25,23 @@ import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 import { INTERESTS_I18N } from "@/utils/interests";
-import { uploadPhotoToStorage } from "@/utils/photoUpload";
+import { uploadPhotoToStorage, UploadError } from "@/utils/photoUpload";
 
+const MAX_PHOTOS = 6;
 const MAX_INTERESTS = 8;
+
+// ── 사진 슬롯 타입 ─────────────────────────────────────────────────────────────
+
+interface PhotoSlot {
+  /** 로컬 URI 또는 서버 URL */
+  uri: string;
+  /** 서버에 업로드 완료된 URL (null이면 아직 업로드 중이거나 실패) */
+  serverUrl: string | null;
+  /** 업로드 중 여부 */
+  uploading: boolean;
+  /** 업로드 실패 여부 */
+  failed: boolean;
+}
 
 function isUriPhoto(key: string): boolean {
   return (
@@ -38,6 +52,8 @@ function isUriPhoto(key: string): boolean {
     key.startsWith("ph://")
   );
 }
+
+// ── SaveButton ──────────────────────────────────────────────────────────────────
 
 function SaveButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
   const colors = useColors();
@@ -67,6 +83,207 @@ function SaveButton({ label, onPress, disabled }: { label: string; onPress: () =
   );
 }
 
+// ── PhotoGrid 컴포넌트 ──────────────────────────────────────────────────────────
+
+function PhotoGrid({
+  photos,
+  onAdd,
+  onRemove,
+  onRetry,
+  onMoveUp,
+  lang,
+}: {
+  photos: PhotoSlot[];
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+  onRetry: (index: number) => void;
+  onMoveUp: (index: number) => void;
+  lang: string;
+}) {
+  const colors = useColors();
+  const SLOT_SIZE = (Platform.OS === "web" ? 320 : 340) / 3 - 12;
+
+  const slots: (PhotoSlot | null)[] = [];
+  for (let i = 0; i < MAX_PHOTOS; i++) {
+    slots.push(photos[i] ?? null);
+  }
+
+  return (
+    <View style={ps.grid}>
+      {slots.map((slot, i) => {
+        const isMain = i === 0;
+        const hasPhoto = !!slot;
+
+        return (
+          <View key={i} style={[ps.slotWrapper, { width: SLOT_SIZE, height: SLOT_SIZE * 1.25 }]}>
+            {hasPhoto ? (
+              <View style={[ps.slot, { borderColor: isMain ? colors.rose : colors.border }]}>
+                <Image
+                  source={{ uri: slot.uri }}
+                  style={ps.slotImage}
+                  contentFit="cover"
+                />
+
+                {/* 업로드 중 오버레이 */}
+                {slot.uploading && (
+                  <View style={ps.overlay}>
+                    <ActivityIndicator size="small" color="#fff" />
+                    <Text style={ps.overlayText}>
+                      {lang === "ko" ? "업로드 중..." : "アップロード中..."}
+                    </Text>
+                  </View>
+                )}
+
+                {/* 업로드 실패 오버레이 */}
+                {slot.failed && !slot.uploading && (
+                  <TouchableOpacity
+                    style={[ps.overlay, { backgroundColor: "rgba(220,50,50,0.7)" }]}
+                    onPress={() => onRetry(i)}
+                    activeOpacity={0.8}
+                  >
+                    <FIcon name="refresh-cw" size={20} color="#fff" />
+                    <Text style={ps.overlayText}>
+                      {lang === "ko" ? "재시도" : "再試行"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* 메인 뱃지 */}
+                {isMain && (
+                  <View style={[ps.mainBadge, { backgroundColor: colors.rose }]}>
+                    <Text style={ps.mainBadgeText}>
+                      {lang === "ko" ? "대표" : "メイン"}
+                    </Text>
+                  </View>
+                )}
+
+                {/* 삭제 버튼 */}
+                <TouchableOpacity
+                  style={[ps.removeBtn, { backgroundColor: colors.charcoal }]}
+                  onPress={() => onRemove(i)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <FIcon name="x" size={10} color="#fff" />
+                </TouchableOpacity>
+
+                {/* 순서 올리기 버튼 (첫 번째가 아닐 때만) */}
+                {i > 0 && !slot.uploading && !slot.failed && (
+                  <TouchableOpacity
+                    style={[ps.moveBtn, { backgroundColor: colors.rose }]}
+                    onPress={() => onMoveUp(i)}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  >
+                    <FIcon name="arrow-up" size={10} color="#fff" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  ps.slot,
+                  ps.emptySlot,
+                  { borderColor: colors.border, backgroundColor: colors.muted },
+                ]}
+                onPress={onAdd}
+                activeOpacity={0.7}
+              >
+                <FIcon name="plus" size={24} color={colors.charcoalFaint} />
+                {i === 0 && photos.length === 0 && (
+                  <Text style={[ps.emptyLabel, { color: colors.charcoalLight }]}>
+                    {lang === "ko" ? "필수" : "必須"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const ps = StyleSheet.create({
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "flex-start",
+  },
+  slotWrapper: {
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  slot: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    overflow: "hidden",
+  },
+  emptySlot: {
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  emptyLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 11,
+  },
+  slotImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 12,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    borderRadius: 12,
+  },
+  overlayText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 11,
+    color: "#fff",
+  },
+  mainBadge: {
+    position: "absolute",
+    top: 6,
+    left: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  mainBadgeText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 10,
+    color: "#fff",
+  },
+  removeBtn: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  moveBtn: {
+    position: "absolute",
+    bottom: 6,
+    left: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
+
+// ── 메인 화면 ───────────────────────────────────────────────────────────────────
+
 export default function ProfileEditScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -76,21 +293,82 @@ export default function ProfileEditScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
+  // ── 사진 상태 ─────────────────────────────────────────────────────────────
+  const initPhotos: PhotoSlot[] = (profile.photos ?? [])
+    .filter((p) => !!p)
+    .map((uri) => ({
+      uri,
+      serverUrl: isUriPhoto(uri) ? uri : null,
+      uploading: false,
+      failed: false,
+    }));
+
+  const [photos, setPhotos] = useState<PhotoSlot[]>(initPhotos);
+
+  // ── 폼 상태 ───────────────────────────────────────────────────────────────
   const [nickname, setNickname] = useState(profile.nickname);
   const [age, setAge] = useState(String(profile.age));
   const [intro, setIntro] = useState(profile.introI18n?.[lang] ?? profile.intro ?? "");
   const [bio, setBio] = useState(profile.bio ?? "");
   const [instagramHandle, setInstagramHandle] = useState(profile.instagramHandle ?? "");
   const [selectedInterests, setSelectedInterests] = useState<string[]>(profile.interests ?? []);
-  const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
-  const [isPhotoUploading, setIsPhotoUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const parsedAge = parseInt(age, 10);
   const ageValid = age === "" || (!isNaN(parsedAge) && parsedAge >= 18 && parsedAge <= 99);
   const nicknameValid = nickname.trim().length >= 2;
-  const canSave = nicknameValid && ageValid;
+  const hasAnyUploading = photos.some((p) => p.uploading);
+  const canSave = nicknameValid && ageValid && !hasAnyUploading && !saving;
 
-  const handlePickPhoto = async () => {
+  // ── 사진 업로드 ───────────────────────────────────────────────────────────
+  const uploadPhoto = useCallback(async (uri: string, index: number) => {
+    if (!token) return;
+
+    setPhotos((prev) => {
+      const next = [...prev];
+      if (next[index]) {
+        next[index] = { ...next[index], uploading: true, failed: false };
+      }
+      return next;
+    });
+
+    try {
+      const serverUrl = await uploadPhotoToStorage(uri, token);
+      setPhotos((prev) => {
+        const next = [...prev];
+        if (next[index]) {
+          next[index] = { ...next[index], uri: serverUrl, serverUrl, uploading: false, failed: false };
+        }
+        return next;
+      });
+    } catch (err) {
+      console.warn(`[profile-edit] 사진 ${index} 업로드 실패:`, err);
+      setPhotos((prev) => {
+        const next = [...prev];
+        if (next[index]) {
+          next[index] = { ...next[index], uploading: false, failed: true };
+        }
+        return next;
+      });
+
+      if (err instanceof UploadError && !err.retryable) {
+        Alert.alert(
+          lang === "ko" ? "업로드 실패" : "アップロード失敗",
+          err.message
+        );
+      }
+    }
+  }, [token, lang]);
+
+  const handleAddPhoto = useCallback(async () => {
+    if (photos.length >= MAX_PHOTOS) {
+      Alert.alert(
+        lang === "ko" ? "사진 한도" : "写真の上限",
+        lang === "ko" ? `최대 ${MAX_PHOTOS}장까지 등록할 수 있어요.` : `最大${MAX_PHOTOS}枚まで登録できます。`
+      );
+      return;
+    }
+
     if (Platform.OS !== "web") {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
@@ -113,22 +391,42 @@ export default function ProfileEditScreen() {
 
     if (!result.canceled && result.assets[0]) {
       const uri = result.assets[0].uri;
-      setLocalPhotoUri(uri);
+      const newIndex = photos.length;
+
+      setPhotos((prev) => [
+        ...prev,
+        { uri, serverUrl: null, uploading: false, failed: false },
+      ]);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-      // 토큰 있을 때 GCS에 업로드
-      if (token) {
-        setIsPhotoUploading(true);
-        uploadPhotoToStorage(uri, token)
-          .then((servingUrl) => setLocalPhotoUri(servingUrl))
-          .catch((err) => {
-            console.warn("[profile-edit] 사진 업로드 실패, 로컬 URI 유지:", err);
-          })
-          .finally(() => setIsPhotoUploading(false));
-      }
+      // 백그라운드 업로드
+      uploadPhoto(uri, newIndex);
     }
-  };
+  }, [photos.length, lang, uploadPhoto]);
 
+  const handleRemovePhoto = useCallback((index: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleRetryPhoto = useCallback((index: number) => {
+    const photo = photos[index];
+    if (!photo) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    uploadPhoto(photo.uri, index);
+  }, [photos, uploadPhoto]);
+
+  const handleMoveUp = useCallback((index: number) => {
+    if (index <= 0) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPhotos((prev) => {
+      const next = [...prev];
+      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+      return next;
+    });
+  }, []);
+
+  // ── 관심사 ────────────────────────────────────────────────────────────────
   const toggleInterest = (storedKey: string) => {
     setSelectedInterests((prev) => {
       if (prev.includes(storedKey)) return prev.filter((t) => t !== storedKey);
@@ -138,14 +436,21 @@ export default function ProfileEditScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleSave = () => {
+  // ── 저장 ──────────────────────────────────────────────────────────────────
+  const handleSave = async () => {
     if (!canSave) return;
+    setSaving(true);
+
+    const photoUrls = photos
+      .filter((p) => !p.failed)
+      .map((p) => p.serverUrl ?? p.uri);
 
     const updates: Parameters<typeof updateProfile>[0] = {
       nickname: nickname.trim(),
       age: !isNaN(parsedAge) && parsedAge >= 18 && parsedAge <= 99 ? parsedAge : profile.age,
       bio: bio.trim() || profile.bio,
       interests: selectedInterests.length > 0 ? selectedInterests : profile.interests,
+      photos: photoUrls.length > 0 ? photoUrls : profile.photos,
     };
 
     if (instagramHandle.trim()) {
@@ -162,15 +467,39 @@ export default function ProfileEditScreen() {
       updates.introI18n = { ...existingI18n, [lang]: introTrimmed };
     }
 
-    if (localPhotoUri) {
-      const otherPhotos = profile.photos.filter((p) => !isUriPhoto(p));
-      updates.photos = [localPhotoUri, ...otherPhotos];
+    updateProfile(updates);
+
+    // 서버에도 저장
+    if (token) {
+      const apiBase = process.env.EXPO_PUBLIC_DOMAIN
+        ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+        : "http://localhost:3000";
+      try {
+        await fetch(`${apiBase}/api/auth/profile`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            nickname: updates.nickname,
+            age: updates.age,
+            bio: updates.bio,
+            intro: updates.intro,
+            interests: updates.interests,
+            photos: updates.photos,
+            instagramHandle: updates.instagramHandle,
+            languageLevel: profile.languageLevel ?? "beginner",
+          }),
+        });
+      } catch (err) {
+        console.warn("[profile-edit] 서버 저장 실패:", err);
+      }
     }
 
-    updateProfile(updates);
+    setSaving(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.back();
   };
+
+  // ── 렌더링 ────────────────────────────────────────────────────────────────
 
   return (
     <KeyboardAvoidingView
@@ -196,77 +525,32 @@ export default function ProfileEditScreen() {
       >
         {/* ── Photo section ─────────────────────────────────────────────────── */}
         <View style={[s.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[s.sectionLabel, { color: colors.charcoalLight }]}>
-            {lang === "ko" ? "프로필 사진" : "プロフィール写真"}
-          </Text>
-          <View style={s.photoRow}>
-            <TouchableOpacity onPress={handlePickPhoto} activeOpacity={0.8}>
-              <View style={[s.photoFrame, { borderColor: colors.roseSoft, backgroundColor: colors.roseLight }]}>
-                {localPhotoUri ? (
-                  <>
-                    <Image
-                      source={{ uri: localPhotoUri }}
-                      style={s.photoPreview}
-                      contentFit="cover"
-                    />
-                    {isPhotoUploading && (
-                      <View style={s.uploadOverlay}>
-                        <ActivityIndicator size="small" color="#fff" />
-                      </View>
-                    )}
-                  </>
-                ) : profile.photos[0] ? (
-                  <Image
-                    source={
-                      isUriPhoto(profile.photos[0])
-                        ? { uri: profile.photos[0] }
-                        : (() => {
-                            const map: Record<string, any> = {
-                              profile1: require("@/assets/images/profile1.png"),
-                              profile2: require("@/assets/images/profile2.png"),
-                              profile3: require("@/assets/images/profile3.png"),
-                              profile4: require("@/assets/images/profile4.png"),
-                              profile5: require("@/assets/images/profile5.png"),
-                              profile6: require("@/assets/images/profile6.png"),
-                            };
-                            return map[profile.photos[0]];
-                          })()
-                    }
-                    style={s.photoPreview}
-                    contentFit="cover"
-                  />
-                ) : (
-                  <View style={s.photoPlaceholder}>
-                    <FIcon name="camera" size={28} color={colors.rose} />
-                    <Text style={[s.photoPlaceholderText, { color: colors.charcoalLight }]}>
-                      {lang === "ko" ? "사진 추가" : "写真を追加"}
-                    </Text>
-                  </View>
-                )}
-                <View style={[s.photoEditBadge, { backgroundColor: colors.rose }]}>
-                  <FIcon name="camera" size={11} color="#fff" />
-                </View>
-              </View>
-            </TouchableOpacity>
-            <View style={s.photoHint}>
-              <Text style={[s.photoHintTitle, { color: colors.charcoal }]}>
-                {lang === "ko" ? "사진 선택 팁" : "写真選択のヒント"}
-              </Text>
-              <Text style={[s.photoHintText, { color: colors.charcoalLight }]}>
-                {lang === "ko"
-                  ? "밝고 자연스러운 사진이 매칭률을 높여요. 얼굴이 잘 보이는 사진을 추천해요."
-                  : "明るく自然な写真がマッチ率を高めます。顔がよく見える写真がおすすめです。"}
-              </Text>
-            </View>
+          <View style={s.sectionHeader}>
+            <Text style={[s.sectionLabel, { color: colors.charcoalLight }]}>
+              {lang === "ko" ? "프로필 사진" : "プロフィール写真"}
+            </Text>
+            <Text style={[s.photoCount, { color: colors.charcoalFaint }]}>
+              {photos.length}/{MAX_PHOTOS}
+            </Text>
           </View>
-          {localPhotoUri && (
-            <View style={[s.photoSavedNote, { backgroundColor: colors.roseLight, borderColor: colors.roseSoft }]}>
-              <FIcon name="check-circle" size={13} color={colors.rose} />
-              <Text style={[s.photoSavedNoteText, { color: colors.rose }]}>
-                {lang === "ko" ? "새 사진이 선택됐어요" : "新しい写真が選択されました"}
-              </Text>
-            </View>
-          )}
+
+          <PhotoGrid
+            photos={photos}
+            onAdd={handleAddPhoto}
+            onRemove={handleRemovePhoto}
+            onRetry={handleRetryPhoto}
+            onMoveUp={handleMoveUp}
+            lang={lang}
+          />
+
+          <View style={[s.tipCard, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+            <FIcon name="info" size={13} color={colors.charcoalLight} />
+            <Text style={[s.tipText, { color: colors.charcoalMid }]}>
+              {lang === "ko"
+                ? "첫 번째 사진이 대표 사진으로 사용됩니다. 화살표(↑) 버튼으로 순서를 변경할 수 있어요."
+                : "最初の写真がメイン写真として使用されます。矢印(↑)ボタンで順序を変更できます。"}
+            </Text>
+          </View>
         </View>
 
         {/* ── Basic info ─────────────────────────────────────────────────────── */}
@@ -398,63 +682,52 @@ export default function ProfileEditScreen() {
                 },
               ]}
             >
-              <FIcon name="instagram" size={16} color="#7C3AED" />
+              <FIcon name="instagram" size={16} color={instagramHandle ? "#C13584" : colors.charcoalFaint} />
               <TextInput
                 style={[s.inputWithIcon, { color: colors.charcoal }]}
-                value={instagramHandle}
+                defaultValue={instagramHandle}
                 onChangeText={setInstagramHandle}
                 placeholder="@username"
                 placeholderTextColor={colors.charcoalFaint}
+                maxLength={30}
                 autoCapitalize="none"
                 autoCorrect={false}
-                returnKeyType="done"
               />
             </View>
           </View>
         </View>
 
-        {/* ── Interests ─────────────────────────────────────────────────────── */}
+        {/* ── Interests ──────────────────────────────────────────────────────── */}
         <View style={[s.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={s.sectionHeaderRow}>
-            <Text style={[s.sectionLabel, { color: colors.charcoalLight }]}>
-              {lang === "ko" ? "관심사" : "興味・趣味"}
-            </Text>
-            <Text style={[s.interestCount, { color: colors.charcoalLight }]}>
-              {selectedInterests.length}/{MAX_INTERESTS}
-            </Text>
-          </View>
-          <Text style={[s.interestHint, { color: colors.charcoalFaint }]}>
+          <Text style={[s.sectionLabel, { color: colors.charcoalLight }]}>
+            {lang === "ko" ? "관심사" : "興味・関心"}
+          </Text>
+          <Text style={[s.interestHint, { color: colors.charcoalLight }]}>
             {lang === "ko"
-              ? `최대 ${MAX_INTERESTS}개까지 선택할 수 있어요`
-              : `最大${MAX_INTERESTS}個まで選択できます`}
+              ? "공통 관심사가 많을수록 매칭 확률이 높아져요"
+              : "共通の興味が多いほどマッチング率が上がります"}
+          </Text>
+          <Text style={[s.interestCount, { color: colors.rose }]}>
+            {selectedInterests.length}/{MAX_INTERESTS}
           </Text>
           <View style={s.tagsWrap}>
-            {INTERESTS_I18N.map((entry) => {
-              const storedKey = entry.ja;
-              const displayLabel = entry[lang === "ko" ? "ko" : "ja"];
-              const isSelected = selectedInterests.includes(storedKey);
-              const isDisabled = !isSelected && selectedInterests.length >= MAX_INTERESTS;
+            {Object.entries(INTERESTS_I18N).map(([key, labels]) => {
+              const selected = selectedInterests.includes(key);
               return (
                 <TouchableOpacity
-                  key={storedKey}
-                  onPress={() => !isDisabled && toggleInterest(storedKey)}
-                  activeOpacity={isDisabled ? 1 : 0.75}
+                  key={key}
                   style={[
                     s.tag,
                     {
-                      backgroundColor: isSelected ? colors.rose : colors.muted,
-                      borderColor: isSelected ? colors.rose : colors.border,
-                      opacity: isDisabled ? 0.4 : 1,
+                      backgroundColor: selected ? colors.roseLight : colors.muted,
+                      borderColor: selected ? colors.rose : colors.border,
                     },
                   ]}
+                  onPress={() => toggleInterest(key)}
+                  activeOpacity={0.7}
                 >
-                  <Text
-                    style={[
-                      s.tagText,
-                      { color: isSelected ? "#fff" : colors.charcoalMid },
-                    ]}
-                  >
-                    {displayLabel}
+                  <Text style={[s.tagText, { color: selected ? colors.rose : colors.charcoalMid }]}>
+                    {lang === "ko" ? labels.ko : labels.ja}
                   </Text>
                 </TouchableOpacity>
               );
@@ -462,10 +735,14 @@ export default function ProfileEditScreen() {
           </View>
         </View>
 
-        {/* ── Save button ───────────────────────────────────────────────────── */}
+        {/* ── Save ───────────────────────────────────────────────────────────── */}
         <View style={s.saveBtnWrap}>
           <SaveButton
-            label={lang === "ko" ? "저장하기" : "保存する"}
+            label={
+              saving
+                ? (lang === "ko" ? "저장 중..." : "保存中...")
+                : (lang === "ko" ? "저장하기" : "保存する")
+            }
             onPress={handleSave}
             disabled={!canSave}
           />
@@ -475,10 +752,12 @@ export default function ProfileEditScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1 },
+// ── 스타일 ──────────────────────────────────────────────────────────────────────
 
-  // ── Header ────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -497,111 +776,45 @@ const s = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 17,
   },
-
-  // ── Scroll ────────────────────────────────────────────────────────────────
   scroll: {
-    paddingHorizontal: 0,
-    gap: 12,
-    paddingTop: 12,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    gap: 16,
   },
-
-  // ── Section card ─────────────────────────────────────────────────────────
   section: {
-    marginHorizontal: 16,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 16,
-    gap: 4,
+    gap: 12,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   sectionLabel: {
     fontFamily: "Inter_600SemiBold",
-    fontSize: 11,
-    letterSpacing: 0.8,
+    fontSize: 14,
     textTransform: "uppercase",
-    marginBottom: 8,
+    letterSpacing: 0.5,
   },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-
-  // ── Photo ─────────────────────────────────────────────────────────────────
-  photoRow: {
-    flexDirection: "row",
-    gap: 16,
-    alignItems: "flex-start",
-    marginBottom: 4,
-  },
-  photoFrame: {
-    width: 100,
-    height: 130,
-    borderRadius: 14,
-    borderWidth: 2,
-    overflow: "hidden",
-    position: "relative",
-  },
-  photoPreview: {
-    width: "100%",
-    height: "100%",
-  },
-  uploadOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  photoPlaceholder: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  photoPlaceholderText: {
+  photoCount: {
     fontFamily: "Inter_500Medium",
-    fontSize: 12,
-  },
-  photoEditBadge: {
-    position: "absolute",
-    bottom: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  photoHint: {
-    flex: 1,
-    gap: 6,
-  },
-  photoHintTitle: {
-    fontFamily: "Inter_600SemiBold",
     fontSize: 13,
   },
-  photoHintText: {
+  tipCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  tipText: {
+    flex: 1,
     fontFamily: "Inter_400Regular",
     fontSize: 12,
     lineHeight: 18,
-  },
-  photoSavedNote: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginTop: 4,
-  },
-  photoSavedNoteText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 12,
   },
 
   // ── Form fields ──────────────────────────────────────────────────────────
@@ -656,7 +869,7 @@ const s = StyleSheet.create({
   interestHint: {
     fontFamily: "Inter_400Regular",
     fontSize: 12,
-    marginBottom: 10,
+    marginBottom: 4,
   },
   interestCount: {
     fontFamily: "Inter_500Medium",
@@ -682,7 +895,7 @@ const s = StyleSheet.create({
 
   // ── Save button ───────────────────────────────────────────────────────────
   saveBtnWrap: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
     marginTop: 4,
     marginBottom: 8,
   },

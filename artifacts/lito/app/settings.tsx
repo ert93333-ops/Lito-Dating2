@@ -153,7 +153,7 @@ export default function SettingsScreen() {
               onPress={() => {
                 const base = process.env.EXPO_PUBLIC_DOMAIN
                   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-                  : "http://localhost:8080";
+                  : "http://localhost:3000";
                 Linking.openURL(`${base}/api/legal/privacy`);
               }}
             />
@@ -163,7 +163,7 @@ export default function SettingsScreen() {
               onPress={() => {
                 const base = process.env.EXPO_PUBLIC_DOMAIN
                   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-                  : "http://localhost:8080";
+                  : "http://localhost:3000";
                 Linking.openURL(`${base}/api/legal/terms`);
               }}
             />

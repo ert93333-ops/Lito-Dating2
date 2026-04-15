@@ -60,7 +60,7 @@ const INTEREST_OPTIONS = [
 
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : "http://localhost:8080";
+  : "http://localhost:3000";
 
 interface BioResult { translation: string; }
 const bioCache = new Map<string, BioResult>();

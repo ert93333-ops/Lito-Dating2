@@ -23,7 +23,7 @@ import { useLocale } from "@/hooks/useLocale";
 
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : "http://localhost:8080";
+  : "http://localhost:3000";
 
 const MAX_PHOTOS = 5;
 const MIN_PHOTOS = 4;

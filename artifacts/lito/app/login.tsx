@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : "http://localhost:8080";
+  : "http://localhost:3000";
 
 type Mode = "login" | "register";
 
@@ -327,7 +327,7 @@ export default function LoginScreen() {
             onPress={() => {
               const base = process.env.EXPO_PUBLIC_DOMAIN
                 ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-                : "http://localhost:8080";
+                : "http://localhost:3000";
               Linking.openURL(`${base}/api/legal/terms`);
             }}
           >{lang === "ko" ? "이용약관" : "利用規約"}</Text>
@@ -337,7 +337,7 @@ export default function LoginScreen() {
             onPress={() => {
               const base = process.env.EXPO_PUBLIC_DOMAIN
                 ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-                : "http://localhost:8080";
+                : "http://localhost:3000";
               Linking.openURL(`${base}/api/legal/privacy`);
             }}
           >{lang === "ko" ? "개인정보 보호정책" : "プライバシーポリシー"}</Text>
