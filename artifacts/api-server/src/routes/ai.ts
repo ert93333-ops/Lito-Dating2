@@ -15,15 +15,18 @@ import {
   getRecentEvents,
   type LocalePair,
 } from "../lib/prsAnalytics.js";
+import { aiRateLimit, getAiRateLimitStats } from "../middleware/aiRateLimit.js";
 
 const router = Router();
 
-// TODO: Future improvements:
-// - Add per-user rate limiting to prevent abuse
-// - Cache repeated suggestions for identical conversation contexts
-// - Allow callers to specify target language (ko/ja) explicitly
-// - Stream the reply token-by-token for a faster perceived response
-// - Add conversation history summarisation for very long threads
+// 모든 /ai/* 엔드포인트에 사용자별 일일 Rate Limit 적용
+// Free: 30회/일, Plus: 100회/일, Premium: 300회/일
+router.use((req, res, next) => {
+  if (req.path.startsWith("/ai/")) {
+    return aiRateLimit(req, res, next);
+  }
+  next();
+});
 
 /**
  * POST /api/ai/suggest-reply
@@ -651,6 +654,11 @@ router.get("/admin/prs/aggregates", (_req, res) => {
 router.get("/admin/prs/events", (req, res) => {
   const n = Math.min(Number(req.query.n ?? 50), 200);
   res.json({ events: getRecentEvents(n) });
+});
+
+// GET /api/admin/ai/rate-limits — AI 사용량 현황 (관리자용)
+router.get("/admin/ai/rate-limits", (_req, res) => {
+  res.json(getAiRateLimitStats());
 });
 
 /**
