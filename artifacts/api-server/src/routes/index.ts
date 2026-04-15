@@ -6,6 +6,8 @@ import authRouter from "./auth";
 import chatRouter from "./chat";
 import storageRouter from "./storage";
 import reportsRouter from "./reports";
+import socialAuthRouter from "./socialAuth";
+import oauthCallbackRouter from "./oauthCallback";
 
 const router: IRouter = Router();
 
@@ -16,5 +18,7 @@ router.use(aiRouter);
 router.use(usersRouter);
 router.use(storageRouter);
 router.use(reportsRouter);
+router.use(socialAuthRouter);
+router.use(oauthCallbackRouter);
 
 export default router;

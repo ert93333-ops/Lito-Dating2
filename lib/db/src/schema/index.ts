@@ -8,3 +8,4 @@ export * from "./matches";
 export * from "./directMessages";
 export * from "./chatMessages";
 export * from "./reports";
+export * from "./oauthAccounts";
