@@ -592,7 +592,7 @@ function ActionButton({ onPress, hapticStyle = "light", style, children }: Actio
 export default function DiscoverScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { discoverUsers, discoverLoading, newMatch, dismissMatch, refetchDiscover, likeUser, passUser, profile, diagnosisStatus } = useApp();
+  const { discoverUsers, discoverLoading, newMatch, dismissMatch, refetchDiscover, likeUser, superLikeUser, superLikeStatus, fetchSuperLikeStatus, passUser, profile, diagnosisStatus } = useApp();
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [filterCountry, setFilterCountry] = useState<"all" | "KR" | "JP">("all");
   const [filterLevel, setFilterLevel] = useState<"all" | "beginner" | "intermediate" | "advanced">("all");
@@ -605,6 +605,20 @@ export default function DiscoverScreen() {
 
   const handleLike = (userId: string) => { setTimeout(() => likeUser(userId), 240); };
   const handlePass = (userId: string) => { setTimeout(() => passUser(userId), 240); };
+  const handleSuperLike = (userId: string) => {
+    if (superLikeStatus && superLikeStatus.remaining <= 0) {
+      // 한도 초과 시 픽드백
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setTimeout(() => superLikeUser(userId), 240);
+  };
+
+  // 슈퍼 라이크 상태 로드
+  useEffect(() => {
+    fetchSuperLikeStatus();
+  }, [fetchSuperLikeStatus]);
 
   const isKo = profile.language === "ko";
 
@@ -848,15 +862,40 @@ export default function DiscoverScreen() {
           </View>
         </ActionButton>
 
-        {/* Super like — Light haptic */}
-        <ActionButton onPress={() => {}} hapticStyle="light">
+        {/* Super like — 슈퍼 라이크 (하루 1회 무료) */}
+        <ActionButton
+          onPress={() => filteredUsers[0] && handleSuperLike(filteredUsers[0].id)}
+          hapticStyle="light"
+        >
           <View
             style={[
               styles.actionBtn,
-              { backgroundColor: colors.goldLight, borderColor: "transparent" },
+              {
+                backgroundColor: superLikeStatus && superLikeStatus.remaining > 0 ? colors.goldLight : colors.surface,
+                borderColor: superLikeStatus && superLikeStatus.remaining > 0 ? "transparent" : colors.border,
+                opacity: superLikeStatus && superLikeStatus.remaining <= 0 ? 0.5 : 1,
+              },
             ]}
           >
-            <FIcon name="star" size={20} color={colors.gold} />
+            <FIcon name="star" size={20} color={superLikeStatus && superLikeStatus.remaining > 0 ? colors.gold : colors.charcoalMid} />
+            {superLikeStatus && superLikeStatus.remaining > 0 && (
+              <View style={{
+                position: "absolute",
+                top: -4,
+                right: -4,
+                backgroundColor: colors.gold,
+                borderRadius: 8,
+                minWidth: 16,
+                height: 16,
+                alignItems: "center",
+                justifyContent: "center",
+                paddingHorizontal: 4,
+              }}>
+                <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>
+                  {superLikeStatus.remaining}
+                </Text>
+              </View>
+            )}
           </View>
         </ActionButton>
       </View>

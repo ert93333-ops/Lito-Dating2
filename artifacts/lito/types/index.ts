@@ -255,6 +255,7 @@ export interface Message {
   translatedLanguage?: "ko" | "ja";
   createdAt: string;
   isRead: boolean;
+  readAt?: string | null;
 }
 
 export interface Conversation {

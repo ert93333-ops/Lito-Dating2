@@ -1,4 +1,4 @@
-import { integer, pgTable, serial, timestamp, unique } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, serial, timestamp, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -14,6 +14,7 @@ export const swipeLikes = pgTable(
     toUserId: integer("to_user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    isSuper: boolean("is_super").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [unique("uniq_like").on(t.fromUserId, t.toUserId)]

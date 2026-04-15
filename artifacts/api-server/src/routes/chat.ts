@@ -54,14 +54,15 @@ router.get("/chat/conversations", requireAuth, async (req, res) => {
           .orderBy(desc(chatMessages.createdAt))
           .limit(1);
 
-        // 안읽은 메시지 수 (상대방이 보낸 메시지)
+        // 안읽은 메시지 수 (상대방이 보낸 메시지 중 readAt이 NULL인 것)
         const unreadResult = await db
           .select({ count: sql<number>`count(*)::int` })
           .from(chatMessages)
           .where(
             and(
               eq(chatMessages.conversationId, convId),
-              eq(chatMessages.senderUserId, partnerId)
+              eq(chatMessages.senderUserId, partnerId),
+              sql`${chatMessages.readAt} IS NULL`
             )
           );
         const unreadCount = unreadResult[0]?.count ?? 0;
@@ -121,7 +122,14 @@ router.get("/chat/:conversationId/messages", optionalAuth, async (req, res) => {
       .orderBy(asc(chatMessages.createdAt))
       .limit(100);
 
-    res.json({ messages: msgs });
+    // readAt 필드 포함하여 클라이언트에서 읽음 상태 표시 가능
+    res.json({
+      messages: msgs.map((m) => ({
+        ...m,
+        readAt: m.readAt?.toISOString() ?? null,
+        createdAt: m.createdAt.toISOString(),
+      })),
+    });
   } catch (err) {
     console.error("get chat messages error", err);
     res.status(500).json({ error: "서버 오류가 발생했습니다." });
@@ -179,6 +187,59 @@ router.delete("/chat/:conversationId/messages", requireAuth, async (req, res) =>
     res.json({ ok: true });
   } catch (err) {
     console.error("delete chat messages error", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다." });
+  }
+});
+
+// ── PUT /api/chat/:conversationId/read ─────────────────────────────────────────
+// 대화방의 상대방 메시지를 읽음 처리합니다 (카카오톡 스타일 '1' 표시용)
+router.put("/chat/:conversationId/read", requireAuth, async (req, res) => {
+  try {
+    const conversationId = String(req.params.conversationId);
+    const userId = req.user!.userId;
+
+    // 내가 보내지 않은 메시지(상대방 메시지) 중 아직 읽지 않은 것들을 읽음 처리
+    const now = new Date();
+    const result = await db
+      .update(chatMessages)
+      .set({ readAt: now })
+      .where(
+        and(
+          eq(chatMessages.conversationId, conversationId),
+          sql`${chatMessages.senderUserId} != ${userId}`,
+          sql`${chatMessages.readAt} IS NULL`
+        )
+      )
+      .returning({ id: chatMessages.id });
+
+    res.json({ ok: true, readCount: result.length, readAt: now.toISOString() });
+  } catch (err) {
+    console.error("mark read error", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다." });
+  }
+});
+
+// ── GET /api/chat/:conversationId/unread-count ───────────────────────────────
+// 대화방의 안읽은 메시지 수를 조회합니다
+router.get("/chat/:conversationId/unread-count", requireAuth, async (req, res) => {
+  try {
+    const conversationId = String(req.params.conversationId);
+    const userId = req.user!.userId;
+
+    const unreadResult = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(chatMessages)
+      .where(
+        and(
+          eq(chatMessages.conversationId, conversationId),
+          sql`${chatMessages.senderUserId} != ${userId}`,
+          sql`${chatMessages.readAt} IS NULL`
+        )
+      );
+
+    res.json({ unreadCount: unreadResult[0]?.count ?? 0 });
+  } catch (err) {
+    console.error("unread count error", err);
     res.status(500).json({ error: "서버 오류가 발생했습니다." });
   }
 });

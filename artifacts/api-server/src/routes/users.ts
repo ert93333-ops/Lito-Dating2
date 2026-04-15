@@ -401,15 +401,77 @@ router.get("/users/discover", optionalAuth, async (req, res) => {
 
   res.json({ users: pool.slice(offset, offset + limit), total: pool.length, offset, limit });
 });
+// ── GET /api/users/super-like-status ─────────────────────────────────────────────────
+// 오늘 슈퍼 라이크 사용 현황 조회
+router.get("/users/super-like-status", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user!.userId;
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
 
-// ── POST /api/users/:id/like ──────────────────────────────────────────────────
+    const todaySuperLikes = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(swipeLikes)
+      .where(
+        and(
+          eq(swipeLikes.fromUserId, userId),
+          eq(swipeLikes.isSuper, true),
+          gte(swipeLikes.createdAt, todayStart)
+        )
+      );
+    const used = todaySuperLikes[0]?.count ?? 0;
+    const userPlan = (req.user as any).plan ?? "free";
+    const limit = userPlan === "premium" ? 5 : userPlan === "plus" ? 3 : 1;
+
+    res.json({ used, limit, remaining: Math.max(0, limit - used), plan: userPlan });
+  } catch (err) {
+    console.error("[super-like-status] error:", err);
+    res.status(500).json({ error: "서버 오류" });
+  }
+});
+
+// ── POST /api/users/:id/like ────────────────────────────────────────────────────────────
 
 router.post("/users/:id/like", optionalAuth, async (req, res) => {
   const toId = String(req.params.id);
+  const isSuper = req.body?.isSuper === true;
 
   // ── 인증된 사용자 ──────────────────────────────────────────────────────────
   if (req.user) {
     const fromDbId = req.user.userId;
+
+    // ── 슈퍼 라이크 일일 제한 체크 ──────────────────────────────────────────
+    if (isSuper) {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const todaySuperLikes = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(swipeLikes)
+        .where(
+          and(
+            eq(swipeLikes.fromUserId, fromDbId),
+            eq(swipeLikes.isSuper, true),
+            gte(swipeLikes.createdAt, todayStart)
+          )
+        );
+      const superCount = todaySuperLikes[0]?.count ?? 0;
+
+      // 플랜별 일일 슈퍼 라이크 한도: free=1, plus=3, premium=5
+      const userPlan = (req.user as any).plan ?? "free";
+      const superLikeLimit = userPlan === "premium" ? 5 : userPlan === "plus" ? 3 : 1;
+
+      if (superCount >= superLikeLimit) {
+        res.status(429).json({
+          error: "daily_super_like_limit",
+          message: `오늘의 슈퍼 라이크를 모두 사용했습니다 (${superLikeLimit}/${superLikeLimit})`,
+          limit: superLikeLimit,
+          used: superCount,
+          plan: userPlan,
+        });
+        return;
+      }
+    }
 
     // 실제 DB 유저를 좋아요한 경우
     if (isDbUserId(toId)) {
@@ -418,7 +480,7 @@ router.post("/users/:id/like", optionalAuth, async (req, res) => {
         // 좋아요 기록 저장 (이미 있으면 무시)
         await db
           .insert(swipeLikes)
-          .values({ fromUserId: fromDbId, toUserId: toDbId })
+          .values({ fromUserId: fromDbId, toUserId: toDbId, isSuper })
           .onConflictDoNothing();
 
         // 상대방도 나를 좋아했는지 확인 → 매칭
@@ -475,7 +537,7 @@ router.post("/users/:id/like", optionalAuth, async (req, res) => {
           if (row) matchedUser = buildServerUser(row.users, row.user_profiles);
         }
 
-        res.json({ liked: true, matched, matchId, matchedUser });
+        res.json({ liked: true, matched, matchId, matchedUser, isSuper });
         return;
       } catch (err) {
         console.error("[like] DB 오류:", err);

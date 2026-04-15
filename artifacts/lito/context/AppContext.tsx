@@ -126,7 +126,10 @@ interface AppContextType {
   completeProfileSetup: () => void;
   login: (token: string) => void;
   logout: () => void;
-  likeUser: (userId: string) => void;
+  likeUser: (userId: string, isSuper?: boolean) => void;
+  superLikeUser: (userId: string) => void;
+  superLikeStatus: { used: number; limit: number; remaining: number } | null;
+  fetchSuperLikeStatus: () => Promise<void>;
   passUser: (userId: string) => void;
   blockUser: (userId: string) => void;
   sendMessage: (conversationId: string, text: string) => void;
@@ -511,6 +514,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           };
         };
 
+        // ── 읽음 표시 실시간 업데이트 ─────────────────────────────────────
+        if (msg.type === "read_receipt" && msg.conversationId) {
+          const { conversationId, readAt } = msg as { conversationId: string; readAt: string; messageIds?: number[] };
+          // 내가 보낸 메시지들의 읽음 상태 업데이트
+          setMessages((prev) => {
+            const existing = prev[conversationId];
+            if (!existing) return prev;
+            return {
+              ...prev,
+              [conversationId]: existing.map((m) =>
+                !m.isRead ? { ...m, isRead: true, readAt } : m
+              ),
+            };
+          });
+          // unreadCount 초기화
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === conversationId ? { ...c, unreadCount: 0 } : c
+            )
+          );
+          return;
+        }
+
         if (msg.type === "message" && msg.conversationId && msg.message) {
           const { conversationId, message: m } = msg;
 
@@ -595,7 +621,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     activeConvRef.current = conversationId;
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "join", conversationId }));
+      // 대화방 입장 시 읽음 표시 전송 (카카오톡 스타일)
+      wsRef.current.send(JSON.stringify({ type: "read", conversationId }));
     }
+    // REST API로도 읽음 처리 (웹소켓 연결 안 될 때 대비)
+    if (tokenRef.current) {
+      fetch(`${API_BASE}/api/chat/${conversationId}/read`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${tokenRef.current}` },
+      }).catch(() => {});
+    }
+    // 로컬 unreadCount 초기화
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === conversationId ? { ...c, unreadCount: 0 } : c
+      )
+    );
   }, []);
 
   const leaveConversation = useCallback((conversationId: string) => {
@@ -662,7 +703,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Like user — calls API, handles match ─────────────────────────────────
-  const likeUser = useCallback(async (userId: string) => {
+  // ── Super Like status ───────────────────────────────────────────────────
+  const [superLikeStatus, setSuperLikeStatus] = useState<{ used: number; limit: number; remaining: number } | null>(null);
+
+  const fetchSuperLikeStatus = useCallback(async () => {
+    if (!tokenRef.current) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/users/super-like-status`, {
+        headers: { Authorization: `Bearer ${tokenRef.current}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSuperLikeStatus({ used: data.used, limit: data.limit, remaining: data.remaining });
+      }
+    } catch (err) {
+      console.warn("[AppContext] fetchSuperLikeStatus error:", err);
+    }
+  }, []);
+
+  const likeUser = useCallback(async (userId: string, isSuper?: boolean) => {
     // Optimistic: remove from deck immediately
     setDiscoverUsers((prev) => prev.filter((u) => u.id !== userId));
 
@@ -672,7 +731,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch(`${API_BASE}/api/users/${userId}/like`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ viewerId: "me" }),
+        body: JSON.stringify({ viewerId: "me", isSuper: isSuper === true }),
       });
       if (!res.ok) return;
       const data = await res.json() as {
@@ -727,10 +786,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
         setMessages((prev) => ({ ...prev, [convId]: [] }));
       }
+      // 슈퍼 라이크 사용 후 상태 갱신
+      if (isSuper) {
+        fetchSuperLikeStatus();
+      }
     } catch (err) {
       console.warn("[AppContext] likeUser API error:", err);
     }
-  }, []);
+  }, [fetchSuperLikeStatus]);
+
+  const superLikeUser = useCallback((userId: string) => {
+    likeUser(userId, true);
+  }, [likeUser]);
 
   // ── Pass user — calls API ─────────────────────────────────────────────────
   const passUser = useCallback(async (userId: string) => {
@@ -887,6 +954,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           translatedContent: string | null;
           originalLanguage: string | null;
           createdAt: string;
+          readAt: string | null;
         }>;
       };
       if (!data.messages.length) return;
@@ -899,7 +967,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         originalLanguage: (m.originalLanguage as "ko" | "ja") ?? "ko",
         translatedText: m.translatedContent ?? undefined,
         createdAt: m.createdAt,
-        isRead: true,
+        isRead: !!m.readAt,
+        readAt: m.readAt ?? undefined,
       }));
 
       setMessages((prev) => {
@@ -1002,6 +1071,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         login,
         logout,
         likeUser,
+        superLikeUser,
+        superLikeStatus,
+        fetchSuperLikeStatus,
         passUser,
         blockUser,
         sendMessage,

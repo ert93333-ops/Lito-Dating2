@@ -1,6 +1,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { IncomingMessage } from "http";
 import jwt from "jsonwebtoken";
+import { and, eq, sql } from "drizzle-orm";
 import { db, chatMessages } from "@workspace/db";
 
 // 인증된 WebSocket 타입
@@ -124,11 +125,47 @@ export function setupWebSocket(wss: WebSocketServer) {
         return;
       }
 
-      // ── 핑/퐁 ────────────────────────────────────────────────────────────
+       // ── 읽음 표시 (카카오톡 스타일 '1' 실시간 업데이트) ──────────────────
+      if (type === "read") {
+        const conversationId = msg["conversationId"] as string;
+        if (!conversationId || !ws.userId) return;
+
+        try {
+          const now = new Date();
+          const updated = await db
+            .update(chatMessages)
+            .set({ readAt: now })
+            .where(
+              and(
+                eq(chatMessages.conversationId, conversationId),
+                sql`${chatMessages.senderUserId} != ${ws.userId}`,
+                sql`${chatMessages.readAt} IS NULL`
+              )
+            )
+            .returning({ id: chatMessages.id });
+
+          if (updated.length > 0) {
+            const readReceipt = JSON.stringify({
+              type: "read_receipt",
+              conversationId,
+              readBy: ws.userId,
+              readAt: now.toISOString(),
+              messageIds: updated.map((m) => m.id),
+            });
+            // 같은 방의 모든 클라이언트에게 읽음 상태 브로드캐스트
+            broadcast(conversationId, readReceipt);
+          }
+        } catch (err) {
+          console.error("[WS] read receipt error:", err);
+        }
+        return;
+      }
+
+      // ── 핑/퉁 ──────────────────────────────────────────────────────────
       if (type === "ping") {
         ws.send(JSON.stringify({ type: "pong" }));
         return;
-      }
+      }}
     });
 
     ws.on("close", () => {

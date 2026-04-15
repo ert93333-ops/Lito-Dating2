@@ -102,9 +102,15 @@ function MessageBubble({ msg, enrichment, viewerLang, onToggleTranslation, showF
             {msg.originalText}
           </Text>
         </View>
-        <Text style={[bubble.time, { color: colors.charcoalLight, alignSelf: "flex-end" }]}>
-          {fmtTime(msg.createdAt)}
-        </Text>
+        <View style={{ flexDirection: "row", alignSelf: "flex-end", alignItems: "center", gap: 4 }}>
+          {/* 카카오톡 스타일 읽음 표시: 안읽음='1', 읽음=표시 없음 */}
+          {!msg.isRead && (
+            <Text style={{ color: colors.gold, fontSize: 11, fontWeight: "600" }}>1</Text>
+          )}
+          <Text style={[bubble.time, { color: colors.charcoalLight }]}>
+            {fmtTime(msg.createdAt)}
+          </Text>
+        </View>
       </View>
     );
   }

@@ -12,6 +12,7 @@ export const chatMessages = pgTable("chat_messages", {
   content: text("content").notNull(),
   translatedContent: text("translated_content"),
   originalLanguage: varchar("original_language", { length: 5 }),
+  readAt: timestamp("read_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
