@@ -7,6 +7,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -321,9 +322,25 @@ export default function LoginScreen() {
 
         <Text style={[styles.terms, { color: colors.charcoalLight }]}>
           {lang === "ko" ? "계속하면 " : "続けることで、"}
-          <Text style={[styles.termsLink, { color: colors.rose }]}>{lang === "ko" ? "이용약관" : "利用規約"}</Text>
+          <Text
+            style={[styles.termsLink, { color: colors.rose }]}
+            onPress={() => {
+              const base = process.env.EXPO_PUBLIC_DOMAIN
+                ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+                : "http://localhost:8080";
+              Linking.openURL(`${base}/api/legal/terms`);
+            }}
+          >{lang === "ko" ? "이용약관" : "利用規約"}</Text>
           {lang === "ko" ? " 및 " : "・"}
-          <Text style={[styles.termsLink, { color: colors.rose }]}>{lang === "ko" ? "개인정보 보호정책" : "プライバシーポリシー"}</Text>
+          <Text
+            style={[styles.termsLink, { color: colors.rose }]}
+            onPress={() => {
+              const base = process.env.EXPO_PUBLIC_DOMAIN
+                ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+                : "http://localhost:8080";
+              Linking.openURL(`${base}/api/legal/privacy`);
+            }}
+          >{lang === "ko" ? "개인정보 보호정책" : "プライバシーポリシー"}</Text>
           {lang === "ko" ? "에 동의하는 것으로 간주됩니다." : "に同意したことになります。"}
         </Text>
       </View>

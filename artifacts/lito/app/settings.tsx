@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import React from "react";
 import {
   Alert,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -149,7 +150,22 @@ export default function SettingsScreen() {
             <SettingRow
               icon="file-text"
               label={lang === "ko" ? "개인정보 보호정책" : "プライバシーポリシー"}
-              onPress={() => {}}
+              onPress={() => {
+                const base = process.env.EXPO_PUBLIC_DOMAIN
+                  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+                  : "http://localhost:8080";
+                Linking.openURL(`${base}/api/legal/privacy`);
+              }}
+            />
+            <SettingRow
+              icon="book-open"
+              label={lang === "ko" ? "이용약관" : "利用規約"}
+              onPress={() => {
+                const base = process.env.EXPO_PUBLIC_DOMAIN
+                  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+                  : "http://localhost:8080";
+                Linking.openURL(`${base}/api/legal/terms`);
+              }}
             />
             <SettingRow
               icon="help-circle"
