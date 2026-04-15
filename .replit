@@ -30,6 +30,9 @@ timeoutMs = 20000
 [userenv.development]
 EXPO_PUBLIC_DOMAIN = "897d9e56-871c-4974-ac62-08cd46e83fb1-00-1t8plx8vfjhzz.riker.replit.dev"
 
+[userenv.shared]
+GOOGLE_CLIENT_ID = "840328984949-dmkcsc712o17tqv0qdd9g7f184dfi1tf.apps.googleusercontent.com"
+
 [nix]
 channel = "stable-25_05"
 
