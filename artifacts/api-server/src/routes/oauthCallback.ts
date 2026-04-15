@@ -1,11 +1,13 @@
 /**
- * 서버사이드 OAuth 콜백 핸들러 (Kakao, LINE)
+ * 서버사이드 OAuth 콜백 핸들러 (Google, Kakao, LINE)
  *
  * 플로우:
  *   1. 앱 → /api/auth/{provider}/start  (브라우저 오픈)
  *   2. 제공자 → /api/auth/{provider}/callback  (코드 전달)
  *   3. 서버: 코드 교환 → 유저 정보 → JWT 발급
  *   4. 서버 → lito://auth/callback?token=JWT  (앱으로 복귀)
+ *
+ * Google도 서버사이드로 처리 — expo-auth-session은 Expo Go 네이티브 모듈 충돌로 제외
  */
 
 import { Router } from "express";
@@ -186,6 +188,80 @@ router.get("/auth/line/callback", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "LINE callback error");
     errorRedirect(res, "LINE 로그인 처리 중 오류가 발생했습니다.");
+  }
+});
+
+// ── Google ────────────────────────────────────────────────────────────────────
+
+router.get("/auth/google/start", (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) { errorRedirect(res, "Google 설정 오류"); return; }
+
+  const redirectUri = `${req.protocol}://${req.hostname}${req.baseUrl ?? ""}/api/auth/google/callback`;
+  const state = Buffer.from(JSON.stringify({
+    country: req.query.country ?? "KR",
+    language: req.query.language ?? "ko",
+    t: Date.now(),
+  })).toString("base64url");
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: "openid email profile",
+    state,
+    access_type: "offline",
+    prompt: "select_account",
+  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+router.get("/auth/google/callback", async (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const { code, state, error } = req.query as Record<string, string>;
+
+  if (error || !code || !clientId || !clientSecret) {
+    errorRedirect(res, "Google 로그인이 취소되었습니다.");
+    return;
+  }
+
+  try {
+    const redirectUri = `${req.protocol}://${req.hostname}${req.baseUrl ?? ""}/api/auth/google/callback`;
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+      }),
+    });
+    if (!tokenRes.ok) throw new Error("token exchange failed");
+    const { access_token } = await tokenRes.json() as { access_token: string };
+
+    const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    if (!profileRes.ok) throw new Error("profile fetch failed");
+    const profile = await profileRes.json() as { sub: string; email: string; name?: string };
+
+    const stateData = state ? JSON.parse(Buffer.from(state, "base64url").toString()) : {};
+    const userId = await findOrCreateSocialUser(
+      "google", profile.sub, profile.email,
+      profile.name ?? "Google 사용자",
+      stateData.country ?? "KR", stateData.language ?? "ko"
+    );
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const token = signToken({ userId: user.id, email: user.email });
+
+    logger.info({ provider: "google", userId }, "Google login success");
+    res.redirect(`${APP_DEEP_LINK}?token=${token}`);
+  } catch (err) {
+    logger.error({ err }, "Google callback error");
+    errorRedirect(res, "Google 로그인 처리 중 오류가 발생했습니다.");
   }
 });
 

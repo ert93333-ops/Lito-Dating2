@@ -2,8 +2,6 @@ import FIcon from "@/components/FIcon";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
-import * as AppleAuthentication from "expo-apple-authentication";
-import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -20,13 +18,9 @@ import {
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-WebBrowser.maybeCompleteAuthSession();
-
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
   : "http://localhost:8080";
-
-const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
 type Mode = "login" | "register";
 
@@ -57,45 +51,67 @@ export default function LoginScreen() {
     }
   }, [params.socialError]);
 
-  // ── Google OAuth ─────────────────────────────────────────────────────────
-  const redirectUri = AuthSession.makeRedirectUri({ scheme: "lito", path: "auth/callback" });
-
-  const [googleRequest, googleResponse, promptGoogleAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: GOOGLE_CLIENT_ID,
-      scopes: ["openid", "profile", "email"],
-      redirectUri,
-    },
-    { authorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth" }
-  );
-
-  useEffect(() => {
-    if (googleResponse?.type === "success") {
-      const accessToken = googleResponse.authentication?.accessToken;
-      if (accessToken) handleSocialToken("google", accessToken);
-    } else if (googleResponse?.type === "error") {
-      setSocialLoading(null);
-      setError(lang === "ko" ? "Google 로그인에 실패했습니다." : "Googleログインに失敗しました。");
-    } else if (googleResponse?.type === "dismiss") {
+  // ── 서버사이드 OAuth (Google / Kakao / LINE) ───────────────────────────────
+  const handleServerOAuth = async (provider: "google" | "kakao" | "line") => {
+    setError(null);
+    setSocialLoading(provider);
+    const country = lang === "ko" ? "KR" : "JP";
+    const startUrl = `${API_BASE}/api/auth/${provider}/start?country=${country}&language=${lang}`;
+    try {
+      const result = await WebBrowser.openAuthSessionAsync(startUrl, "lito://auth/callback");
+      if (result.type === "cancel" || result.type === "dismiss") return;
+      if (result.type === "success" && result.url) {
+        const url = new URL(result.url);
+        const token = url.searchParams.get("token");
+        const errMsg = url.searchParams.get("error");
+        if (token) {
+          login(token);
+        } else if (errMsg) {
+          setError(decodeURIComponent(errMsg));
+        }
+      }
+    } catch {
+      setError(lang === "ko" ? "로그인 중 오류가 발생했습니다." : "ログイン中にエラーが発生しました。");
+    } finally {
       setSocialLoading(null);
     }
-  }, [googleResponse]);
+  };
 
-  // ── 소셜 토큰 → 서버 인증 ─────────────────────────────────────────────────
-  const handleSocialToken = async (
-    provider: "google" | "apple",
-    accessToken: string,
-    extras?: { providerUserId?: string; email?: string; name?: string }
-  ) => {
-    setSocialLoading(provider);
+  // ── Apple 로그인 (iOS 네이티브 빌드 전용) ────────────────────────────────
+  const handleAppleLogin = async () => {
+    if (Platform.OS !== "ios") {
+      Alert.alert(
+        lang === "ko" ? "iOS 전용" : "iOS専用",
+        lang === "ko" ? "Apple 로그인은 iPhone에서만 가능합니다." : "AppleログインはiPhoneでのみ利用できます。"
+      );
+      return;
+    }
+    setError(null);
+    setSocialLoading("apple");
     try {
+      const AppleAuth = await import("expo-apple-authentication").catch(() => null);
+      if (!AppleAuth) {
+        setError(lang === "ko" ? "Apple 로그인을 사용할 수 없습니다." : "Apple ログインを利用できません。");
+        return;
+      }
+      const credential = await AppleAuth.signInAsync({
+        requestedScopes: [
+          AppleAuth.AppleAuthenticationScope.FULL_NAME,
+          AppleAuth.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      const fullName = [credential.fullName?.givenName, credential.fullName?.familyName]
+        .filter(Boolean)
+        .join(" ");
       const res = await fetch(`${API_BASE}/api/auth/social`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          provider,
-          accessToken,
-          ...extras,
+          provider: "apple",
+          accessToken: credential.authorizationCode ?? "",
+          providerUserId: credential.user,
+          email: credential.email ?? undefined,
+          name: fullName || undefined,
           country: lang === "ko" ? "KR" : "JP",
           language: lang,
         }),
@@ -104,93 +120,20 @@ export default function LoginScreen() {
       if (!res.ok) throw new Error(data.error ?? "오류");
       login(data.token);
     } catch (e: any) {
-      setError(e.message ?? (lang === "ko" ? "소셜 로그인 오류" : "ソーシャルログインエラー"));
+      if (e.code !== "ERR_REQUEST_CANCELED") {
+        setError(lang === "ko" ? "Apple 로그인에 실패했습니다." : "Appleログインに失敗しました。");
+      }
     } finally {
       setSocialLoading(null);
     }
   };
 
-  // ── 소셜 로그인 버튼 핸들러 ───────────────────────────────────────────────
-  const handleSocialLogin = async (provider: "google" | "apple" | "kakao" | "line") => {
-    setError(null);
-
-    if (provider === "google") {
-      if (!GOOGLE_CLIENT_ID) {
-        Alert.alert(
-          lang === "ko" ? "설정 필요" : "設定が必要",
-          lang === "ko"
-            ? "EXPO_PUBLIC_GOOGLE_CLIENT_ID 환경변수를 설정해주세요."
-            : "EXPO_PUBLIC_GOOGLE_CLIENT_IDの環境変数を設定してください。"
-        );
-        return;
-      }
-      setSocialLoading("google");
-      await promptGoogleAsync();
-      return;
-    }
-
-    if (provider === "apple") {
-      if (Platform.OS !== "ios") {
-        Alert.alert(
-          lang === "ko" ? "iOS 전용" : "iOS専用",
-          lang === "ko" ? "Apple 로그인은 iPhone에서만 가능합니다." : "AppleログインはiPhoneでのみ利用できます。"
-        );
-        return;
-      }
-      setSocialLoading("apple");
-      try {
-        const credential = await AppleAuthentication.signInAsync({
-          requestedScopes: [
-            AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-            AppleAuthentication.AppleAuthenticationScope.EMAIL,
-          ],
-        });
-        const fullName = [credential.fullName?.givenName, credential.fullName?.familyName]
-          .filter(Boolean)
-          .join(" ");
-        await handleSocialToken("apple", credential.authorizationCode ?? "", {
-          providerUserId: credential.user,
-          email: credential.email ?? undefined,
-          name: fullName || undefined,
-        });
-      } catch (e: any) {
-        if (e.code !== "ERR_REQUEST_CANCELED") {
-          setError(lang === "ko" ? "Apple 로그인에 실패했습니다." : "Appleログインに失敗しました。");
-        }
-        setSocialLoading(null);
-      }
-      return;
-    }
-
-    if (provider === "kakao" || provider === "line") {
-      const startUrl = `${API_BASE}/api/auth/${provider}/start?country=${lang === "ko" ? "KR" : "JP"}&language=${lang}`;
-      setSocialLoading(provider);
-      try {
-        const result = await WebBrowser.openAuthSessionAsync(startUrl, "lito://auth/callback");
-        if (result.type === "cancel" || result.type === "dismiss") {
-          setSocialLoading(null);
-          return;
-        }
-        if (result.type === "success" && result.url) {
-          const url = new URL(result.url);
-          const token = url.searchParams.get("token");
-          const errMsg = url.searchParams.get("error");
-          if (token) {
-            login(token);
-          } else if (errMsg) {
-            setError(decodeURIComponent(errMsg));
-          }
-        }
-      } catch {
-        setError(lang === "ko" ? "로그인 중 오류가 발생했습니다." : "ログイン中にエラーが発生しました。");
-      } finally {
-        setSocialLoading(null);
-      }
-      return;
-    }
+  const handleSocialLogin = (provider: "google" | "apple" | "kakao" | "line") => {
+    if (provider === "apple") return handleAppleLogin();
+    return handleServerOAuth(provider);
   };
 
-  // ── 이메일/비밀번호 로그인 ────────────────────────────────────────────────
+  // ── 이메일/비밀번호 ─────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!formReady || loading) return;
     setLoading(true);
@@ -224,7 +167,7 @@ export default function LoginScreen() {
     }
   };
 
-  // ── UI ────────────────────────────────────────────────────────────────────
+  // ── UI ─────────────────────────────────────────────────────────────────
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.white }]}
@@ -326,7 +269,7 @@ export default function LoginScreen() {
             <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
           </View>
 
-          {/* Social buttons 2×2 */}
+          {/* Social buttons 2x2 */}
           <View style={styles.socialGrid}>
             <SocialBtn
               label="Google"
@@ -387,7 +330,7 @@ export default function LoginScreen() {
   );
 }
 
-// ── SocialBtn 컴포넌트 ─────────────────────────────────────────────────────────
+// ── SocialBtn ───────────────────────────────────────────────────────────────
 
 function SocialBtn({
   label, bg, border, iconBg, iconText, iconColor, textColor, loading, onPress,
@@ -412,7 +355,7 @@ function SocialBtn({
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────────────────────
+// ── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
