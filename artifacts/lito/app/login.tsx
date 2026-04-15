@@ -108,6 +108,7 @@ export default function LoginScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           provider: "apple",
+          identityToken: credential.identityToken ?? "",
           accessToken: credential.authorizationCode ?? "",
           providerUserId: credential.user,
           email: credential.email ?? undefined,

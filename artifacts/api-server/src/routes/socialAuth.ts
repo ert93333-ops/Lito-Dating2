@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { and, eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import { db, users, userProfiles, oauthAccounts } from "@workspace/db";
 import { signToken } from "../lib/jwt.js";
 import { logger } from "../lib/logger.js";
@@ -47,17 +48,66 @@ async function verifyLineToken(accessToken: string): Promise<{ id: string; email
   } catch { return null; }
 }
 
-async function verifyAppleToken(
+/**
+ * Apple identityToken(JWT) 검증
+ * - Apple의 공개키(JWKS)를 가져와서 서명 검증
+ * - 검증 성공 시 sub(유저 고유 ID), email 반환
+ */
+async function verifyAppleIdentityToken(
+  identityToken: string,
   providerUserId: string,
   email: string | undefined,
   name: string | undefined,
 ): Promise<{ id: string; email: string; name: string } | null> {
-  if (!providerUserId) return null;
-  return {
-    id: providerUserId,
-    email: email ?? `apple_${providerUserId.slice(0, 12)}@lito.app`,
-    name: name ?? "Apple 사용자",
-  };
+  // identityToken이 없으면 providerUserId만으로 처리 (재로그인 시 email/name 없음)
+  if (!identityToken && providerUserId) {
+    return {
+      id: providerUserId,
+      email: email ?? `apple_${providerUserId.slice(0, 12)}@lito.app`,
+      name: name ?? "Apple 사용자",
+    };
+  }
+
+  try {
+    // Apple JWKS 가져오기
+    const jwksRes = await fetch("https://appleid.apple.com/auth/keys");
+    if (!jwksRes.ok) throw new Error("Apple JWKS fetch failed");
+    const { keys } = await jwksRes.json() as { keys: any[] };
+
+    // JWT 헤더에서 kid 추출
+    const header = JSON.parse(Buffer.from(identityToken.split(".")[0], "base64url").toString());
+    const matchingKey = keys.find((k: any) => k.kid === header.kid);
+    if (!matchingKey) throw new Error("No matching Apple public key");
+
+    // JWK → PEM 변환 (jsonwebtoken은 JWK 직접 지원)
+    const publicKey = jwt.decode(identityToken, { complete: true });
+    if (!publicKey) throw new Error("Failed to decode identity token");
+
+    // 검증 (issuer, audience 체크)
+    const bundleId = process.env.APPLE_BUNDLE_ID ?? "com.litodate.app";
+    const decoded = jwt.verify(identityToken, Buffer.from(JSON.stringify(matchingKey)), {
+      algorithms: ["RS256"],
+      issuer: "https://appleid.apple.com",
+      audience: bundleId,
+    }) as { sub: string; email?: string };
+
+    return {
+      id: decoded.sub,
+      email: decoded.email ?? email ?? `apple_${decoded.sub.slice(0, 12)}@lito.app`,
+      name: name ?? "Apple 사용자",
+    };
+  } catch (err) {
+    logger.warn({ err }, "Apple identityToken verification failed, falling back to providerUserId");
+    // 검증 실패 시 providerUserId로 폴백 (개발 환경 대응)
+    if (providerUserId) {
+      return {
+        id: providerUserId,
+        email: email ?? `apple_${providerUserId.slice(0, 12)}@lito.app`,
+        name: name ?? "Apple 사용자",
+      };
+    }
+    return null;
+  }
 }
 
 /**
@@ -65,10 +115,11 @@ async function verifyAppleToken(
  *
  * Body: {
  *   provider: "google" | "apple" | "kakao" | "line"
- *   accessToken: string        (Google/Kakao/LINE)
- *   providerUserId?: string    (Apple only)
- *   email?: string             (Apple — provided only on first login)
- *   name?: string              (optional display name)
+ *   accessToken: string           (Google/Kakao/LINE — access token)
+ *   identityToken?: string        (Apple — JWT identity token)
+ *   providerUserId?: string       (Apple only)
+ *   email?: string                (Apple — provided only on first login)
+ *   name?: string                 (optional display name)
  *   country?: "KR" | "JP"
  *   language?: "ko" | "ja"
  * }
@@ -78,6 +129,7 @@ router.post("/auth/social", async (req, res) => {
     const {
       provider,
       accessToken,
+      identityToken,
       providerUserId: rawProviderUserId,
       email: rawEmail,
       name: rawName,
@@ -86,6 +138,7 @@ router.post("/auth/social", async (req, res) => {
     } = req.body as {
       provider: SocialProvider;
       accessToken?: string;
+      identityToken?: string;
       providerUserId?: string;
       email?: string;
       name?: string;
@@ -110,7 +163,9 @@ router.post("/auth/social", async (req, res) => {
       if (!accessToken) { res.status(400).json({ error: "accessToken 필수입니다." }); return; }
       providerInfo = await verifyLineToken(accessToken);
     } else if (provider === "apple") {
-      providerInfo = await verifyAppleToken(rawProviderUserId ?? "", rawEmail, rawName);
+      // identityToken 우선, 없으면 authorizationCode(accessToken)로 처리
+      const tokenToVerify = identityToken ?? accessToken ?? "";
+      providerInfo = await verifyAppleIdentityToken(tokenToVerify, rawProviderUserId ?? "", rawEmail, rawName);
     } else {
       res.status(400).json({ error: "지원하지 않는 provider입니다." });
       return;

@@ -13,6 +13,7 @@
 import { Router } from "express";
 import { and, eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { db, users, userProfiles, oauthAccounts } from "@workspace/db";
 import { signToken } from "../lib/jwt.js";
 import { logger } from "../lib/logger.js";
@@ -20,6 +21,31 @@ import { logger } from "../lib/logger.js";
 const router = Router();
 
 const APP_DEEP_LINK = "lito://auth/callback";
+
+// CSRF state 검증을 위한 인메모리 저장소 (TTL: 10분)
+const pendingStates = new Map<string, { expiresAt: number; country: string; language: string }>();
+
+function generateState(country: string, language: string): string {
+  const nonce = crypto.randomBytes(16).toString("hex");
+  const expiresAt = Date.now() + 10 * 60 * 1000; // 10분
+  pendingStates.set(nonce, { expiresAt, country, language });
+  // 만료된 state 정리
+  for (const [k, v] of pendingStates.entries()) {
+    if (v.expiresAt < Date.now()) pendingStates.delete(k);
+  }
+  return nonce;
+}
+
+function verifyState(state: string): { country: string; language: string } | null {
+  const data = pendingStates.get(state);
+  if (!data) return null;
+  if (data.expiresAt < Date.now()) {
+    pendingStates.delete(state);
+    return null;
+  }
+  pendingStates.delete(state); // 1회 사용 후 삭제
+  return { country: data.country, language: data.language };
+}
 
 function errorRedirect(res: any, message: string) {
   const encoded = encodeURIComponent(message);
@@ -77,14 +103,14 @@ router.get("/auth/kakao/start", (req, res) => {
   const appKey = process.env.KAKAO_APP_KEY;
   if (!appKey) { errorRedirect(res, "카카오 설정 오류"); return; }
 
-  const redirectUri = `${getServerBase(req)}/api/auth/kakao/callback`;
-  const state = Buffer.from(JSON.stringify({
-    country: req.query.country ?? "KR",
-    language: req.query.language ?? "ko",
-    t: Date.now(),
-  })).toString("base64url");
+  const country = String(req.query.country ?? "KR");
+  const language = String(req.query.language ?? "ko");
+  const state = generateState(country, language);
 
-  const url = `https://kauth.kakao.com/oauth/authorize?client_id=${appKey}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}`;
+  const redirectUri = `${getServerBase(req)}/api/auth/kakao/callback`;
+
+  // scope에 account_email 추가 — 이메일 동의 항목 요청
+  const url = `https://kauth.kakao.com/oauth/authorize?client_id=${appKey}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&scope=profile_nickname%2Caccount_email`;
   res.redirect(url);
 });
 
@@ -94,6 +120,13 @@ router.get("/auth/kakao/callback", async (req, res) => {
   const { code, state, error } = req.query as Record<string, string>;
 
   if (error || !code) { errorRedirect(res, "카카오 로그인이 취소되었습니다."); return; }
+
+  // CSRF state 검증
+  const stateData = state ? verifyState(state) : null;
+  if (!stateData) {
+    errorRedirect(res, "보안 검증에 실패했습니다. 다시 시도해주세요.");
+    return;
+  }
 
   try {
     const redirectUri = `${getServerBase(req)}/api/auth/kakao/callback`;
@@ -111,20 +144,24 @@ router.get("/auth/kakao/callback", async (req, res) => {
     if (!tokenRes.ok) throw new Error("token exchange failed");
     const { access_token } = await tokenRes.json() as { access_token: string };
 
-    const profileRes = await fetch("https://kapi.kakao.com/v2/user/me", {
+    const profileRes = await fetch("https://kapi.kakao.com/v2/user/me?property_keys=[\"kakao_account.email\",\"kakao_account.profile.nickname\"]", {
       headers: { Authorization: `Bearer ${access_token}` },
     });
     if (!profileRes.ok) throw new Error("profile fetch failed");
     const profile = await profileRes.json() as {
       id: number;
-      kakao_account?: { email?: string; profile?: { nickname?: string } };
+      kakao_account?: {
+        email?: string;
+        email_needs_agreement?: boolean;
+        profile?: { nickname?: string };
+      };
     };
 
-    const stateData = state ? JSON.parse(Buffer.from(state, "base64url").toString()) : {};
+    // 이메일 동의가 필요한 경우 임시 이메일 생성
     const email = profile.kakao_account?.email ?? `kakao_${profile.id}@lito.app`;
     const name = profile.kakao_account?.profile?.nickname ?? "카카오 사용자";
 
-    const userId = await findOrCreateSocialUser("kakao", String(profile.id), email, name, stateData.country ?? "KR", stateData.language ?? "ko");
+    const userId = await findOrCreateSocialUser("kakao", String(profile.id), email, name, stateData.country, stateData.language);
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     const token = signToken({ userId: user.id, email: user.email, plan: (user.plan ?? "free") as "free" | "plus" | "premium" });
 
@@ -142,14 +179,14 @@ router.get("/auth/line/start", (req, res) => {
   const channelId = process.env.LINE_CHANNEL_ID;
   if (!channelId) { errorRedirect(res, "LINE 설정 오류"); return; }
 
-  const redirectUri = `${getServerBase(req)}/api/auth/line/callback`;
-  const state = Buffer.from(JSON.stringify({
-    country: req.query.country ?? "JP",
-    language: req.query.language ?? "ja",
-    t: Date.now(),
-  })).toString("base64url");
+  const country = String(req.query.country ?? "JP");
+  const language = String(req.query.language ?? "ja");
+  const state = generateState(country, language);
 
-  const url = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${channelId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=profile`;
+  const redirectUri = `${getServerBase(req)}/api/auth/line/callback`;
+
+  // scope에 openid + email 추가 (LINE Login v2.1 이메일 권한)
+  const url = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${channelId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=profile%20openid%20email`;
   res.redirect(url);
 });
 
@@ -160,6 +197,13 @@ router.get("/auth/line/callback", async (req, res) => {
 
   if (error || !code || !channelId || !channelSecret) {
     errorRedirect(res, "LINE 로그인이 취소되었습니다.");
+    return;
+  }
+
+  // CSRF state 검증
+  const stateData = state ? verifyState(state) : null;
+  if (!stateData) {
+    errorRedirect(res, "보안 검증에 실패했습니다. 다시 시도해주세요.");
     return;
   }
 
@@ -177,7 +221,17 @@ router.get("/auth/line/callback", async (req, res) => {
       }),
     });
     if (!tokenRes.ok) throw new Error("token exchange failed");
-    const { access_token } = await tokenRes.json() as { access_token: string };
+    const tokenData = await tokenRes.json() as { access_token: string; id_token?: string };
+    const { access_token, id_token } = tokenData;
+
+    // id_token이 있으면 이메일 추출 (openid scope)
+    let lineEmail: string | undefined;
+    if (id_token) {
+      try {
+        const payload = JSON.parse(Buffer.from(id_token.split(".")[1], "base64url").toString());
+        lineEmail = payload.email;
+      } catch { /* id_token 파싱 실패 시 무시 */ }
+    }
 
     const profileRes = await fetch("https://api.line.me/v2/profile", {
       headers: { Authorization: `Bearer ${access_token}` },
@@ -185,10 +239,9 @@ router.get("/auth/line/callback", async (req, res) => {
     if (!profileRes.ok) throw new Error("profile fetch failed");
     const profile = await profileRes.json() as { userId: string; displayName: string };
 
-    const stateData = state ? JSON.parse(Buffer.from(state, "base64url").toString()) : {};
-    const email = `line_${profile.userId}@lito.app`;
+    const email = lineEmail ?? `line_${profile.userId}@lito.app`;
 
-    const userId = await findOrCreateSocialUser("line", profile.userId, email, profile.displayName, stateData.country ?? "JP", stateData.language ?? "ja");
+    const userId = await findOrCreateSocialUser("line", profile.userId, email, profile.displayName, stateData.country, stateData.language);
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     const token = signToken({ userId: user.id, email: user.email, plan: (user.plan ?? "free") as "free" | "plus" | "premium" });
 
@@ -206,13 +259,11 @@ router.get("/auth/google/start", (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) { errorRedirect(res, "Google 설정 오류"); return; }
 
-  const redirectUri = `${getServerBase(req)}/api/auth/google/callback`;
-  const state = Buffer.from(JSON.stringify({
-    country: req.query.country ?? "KR",
-    language: req.query.language ?? "ko",
-    t: Date.now(),
-  })).toString("base64url");
+  const country = String(req.query.country ?? "KR");
+  const language = String(req.query.language ?? "ko");
+  const state = generateState(country, language);
 
+  const redirectUri = `${getServerBase(req)}/api/auth/google/callback`;
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
@@ -232,6 +283,13 @@ router.get("/auth/google/callback", async (req, res) => {
 
   if (error || !code || !clientId || !clientSecret) {
     errorRedirect(res, "Google 로그인이 취소되었습니다.");
+    return;
+  }
+
+  // CSRF state 검증
+  const stateData = state ? verifyState(state) : null;
+  if (!stateData) {
+    errorRedirect(res, "보안 검증에 실패했습니다. 다시 시도해주세요.");
     return;
   }
 
@@ -257,11 +315,10 @@ router.get("/auth/google/callback", async (req, res) => {
     if (!profileRes.ok) throw new Error("profile fetch failed");
     const profile = await profileRes.json() as { sub: string; email: string; name?: string };
 
-    const stateData = state ? JSON.parse(Buffer.from(state, "base64url").toString()) : {};
     const userId = await findOrCreateSocialUser(
       "google", profile.sub, profile.email,
       profile.name ?? "Google 사용자",
-      stateData.country ?? "KR", stateData.language ?? "ko"
+      stateData.country, stateData.language,
     );
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     const token = signToken({ userId: user.id, email: user.email, plan: (user.plan ?? "free") as "free" | "plus" | "premium" });
