@@ -405,7 +405,7 @@ router.get("/users/discover", optionalAuth, async (req, res) => {
 // ── POST /api/users/:id/like ──────────────────────────────────────────────────
 
 router.post("/users/:id/like", optionalAuth, async (req, res) => {
-  const toId = req.params.id;
+  const toId = String(req.params.id);
 
   // ── 인증된 사용자 ──────────────────────────────────────────────────────────
   if (req.user) {
@@ -551,7 +551,7 @@ router.post("/users/:id/like", optionalAuth, async (req, res) => {
 // ── POST /api/users/:id/pass ──────────────────────────────────────────────────
 
 router.post("/users/:id/pass", optionalAuth, async (req, res) => {
-  const toId = req.params.id;
+  const toId = String(req.params.id);
 
   if (req.user) {
     const fromDbId = req.user.userId;
@@ -689,7 +689,7 @@ router.get("/users/:id", async (req, res) => {
 // 데모/테스트용: 상대방이 나를 좋아요한 것을 시뮬레이션 (인메모리만)
 
 router.post("/users/:id/like-back", (req, res) => {
-  const fromId = req.params.id;
+  const fromId = String(req.params.id);
   const toId = (req.body?.viewerId as string) || "me";
 
   const alreadyLiked = guestLikes.some((l) => l.fromId === fromId && l.toId === toId);

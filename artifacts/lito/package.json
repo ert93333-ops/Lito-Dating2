@@ -57,7 +57,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
-    "expo-apple-authentication": "^55.0.13",
-    "expo-auth-session": "^55.0.14"
+    "expo-apple-authentication": "^8.0.8",
+    "expo-auth-session": "^7.0.10"
   }
 }

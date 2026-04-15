@@ -9,7 +9,7 @@ const router = Router();
 // 특정 대화의 메시지 목록을 가져옵니다 (최신 100건)
 router.get("/chat/:conversationId/messages", optionalAuth, async (req, res) => {
   try {
-    const { conversationId } = req.params;
+    const conversationId = String(req.params.conversationId);
 
     const msgs = await db
       .select()
@@ -29,7 +29,7 @@ router.get("/chat/:conversationId/messages", optionalAuth, async (req, res) => {
 // 새 메시지를 저장합니다
 router.post("/chat/:conversationId/messages", requireAuth, async (req, res) => {
   try {
-    const { conversationId } = req.params;
+    const conversationId = String(req.params.conversationId);
     const { senderId, content, translatedContent, originalLanguage } = req.body;
     const userId = req.user!.userId;
 
@@ -61,7 +61,7 @@ router.post("/chat/:conversationId/messages", requireAuth, async (req, res) => {
 // 대화의 모든 메시지를 삭제합니다 (회원 탈퇴 등)
 router.delete("/chat/:conversationId/messages", requireAuth, async (req, res) => {
   try {
-    const { conversationId } = req.params;
+    const conversationId = String(req.params.conversationId);
     const userId = req.user!.userId;
 
     await db
