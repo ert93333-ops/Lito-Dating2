@@ -50,6 +50,29 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ### API Server (`artifacts/api-server`)
 - **Type**: Express API server
 - **Stack**: Express 5, TypeScript, Drizzle ORM, Pino logging
+- **Legal pages**: `GET /api/legal/privacy` (개인정보처리방침), `GET /api/legal/terms` (이용약관) — 한국어 HTML 페이지, 앱스토어 심사용
+
+## Launch Readiness
+
+### 1단계 완료 항목
+- **앱 아이콘** (`assets/images/icon.png`): 1024×1024, 두 개 겹친 하트 (코랄 핑크 + 골든 옐로우), 흰 배경
+- **스플래시 스크린** (`assets/images/splash.png`): 9:16, 같은 하트 + "lito" 텍스트, 흰 배경
+- **app.json 설정 완료**: `bundleIdentifier: com.litodate.app`, `package: app.litodate`, 카메라/사진 권한 설명, `expo-apple-authentication` 플러그인 포함
+- **개인정보처리방침**: `https://litodate.app/api/legal/privacy`
+- **이용약관**: `https://litodate.app/api/legal/terms`
+
+### 소셜 로그인 구조 (서버사이드 OAuth)
+- **Google**: `/api/auth/google/start` → 구글 콘솔에 `https://litodate.app/api/auth/google/callback` 등록 필요 (배포 후)
+- **Apple**: 동적 import (`expo-apple-authentication`)
+- **Kakao/LINE**: `/api/auth/kakao/start`, `/api/auth/line/start` (앱 키 등록 필요)
+- **딥링크**: `lito://auth/callback`
+
+### 다음 단계 (런칭 로드맵)
+1. **배포**: Replit 배포 후 `litodate.app` 커스텀 도메인 연결
+2. **환경변수 업데이트**: `EXPO_PUBLIC_DOMAIN=litodate.app`
+3. **Google OAuth**: 구글 클라우드 콘솔 리디렉션 URI 등록
+4. **EAS Build**: `eas build --platform all`
+5. **앱스토어 심사**: App Store Connect + Google Play Console 제출
 
 ## Key Commands
 

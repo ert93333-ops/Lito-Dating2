@@ -8,6 +8,7 @@ import storageRouter from "./storage";
 import reportsRouter from "./reports";
 import socialAuthRouter from "./socialAuth";
 import oauthCallbackRouter from "./oauthCallback";
+import legalRouter from "./legal";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(storageRouter);
 router.use(reportsRouter);
 router.use(socialAuthRouter);
 router.use(oauthCallbackRouter);
+router.use(legalRouter);
 
 export default router;

@@ -4,13 +4,13 @@ uploads = []
 id = "u31TMP3FsIuXRXVtDleqN"
 uri = "file://artifacts/lito/assets/images/icon.png"
 type = "image"
-title = "generated_image"
+title = "lito hearts icon clean"
 
 [[generated]]
 id = "BkPw1398BykMJKxDZDL81"
 uri = "file://artifacts/lito/assets/images/splash.png"
 type = "image"
-title = "generated_image"
+title = "lito splash screen clean"
 
 [[generated]]
 id = "5OeF2hMG98ZZ1GFXuPtOY"
