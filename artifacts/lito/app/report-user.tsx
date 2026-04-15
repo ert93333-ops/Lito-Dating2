@@ -48,6 +48,10 @@ import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 import type { UserReportCategory } from "@/types";
 
+const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+  : "http://localhost:8080";
+
 // ── Category config ────────────────────────────────────────────────────────────
 // Ordered by prevalence in the KR-JP dating context.
 
@@ -178,7 +182,7 @@ export default function ReportUserScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { lang } = useLocale();
-  const { blockUser } = useApp();
+  const { blockUser, token } = useApp();
   const params = useLocalSearchParams<{ userId: string; nickname: string }>();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -187,6 +191,7 @@ export default function ReportUserScreen() {
   const [selected, setSelected] = useState<UserReportCategory | null>(null);
   const [details, setDetails] = useState("");
   const [screen, setScreen] = useState<ScreenState>("select");
+  const [submitting, setSubmitting] = useState(false);
 
   const reportedNickname = params.nickname ?? (lang === "ko" ? "이 사용자" : "このユーザー");
   const selectedConfig = REPORT_CATEGORIES.find((c) => c.key === selected);
@@ -197,23 +202,41 @@ export default function ReportUserScreen() {
     return `LT-${base}`;
   }, []);
 
-  const handleSubmit = () => {
-    if (!selected) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const handleSubmit = async () => {
+    if (!selected || submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/reports`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          reportedUserId: Number(params.userId),
+          category: selected,
+          details: details.trim() || undefined,
+          referenceId: refId,
+        }),
+      });
 
-    // ── INTEGRATION POINT ──────────────────────────────────────────────────
-    // TODO: POST /api/reports {
-    //   reporterId: currentUser.id,
-    //   reportedUserId: params.userId,
-    //   category: selected,
-    //   details: details.trim() || undefined,
-    //   referenceId: refId,
-    // }
-    // On success → increment riskProfile.reportCount on backend
-    // At ≥5 unique reporters → auto-flag "repeated_reports"
-    // ──────────────────────────────────────────────────────────────────────
+      if (!res.ok && res.status !== 409) {
+        throw new Error("서버 오류");
+      }
 
-    setScreen("submitted");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setScreen("submitted");
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        lang === "ko" ? "신고 실패" : "通報に失敗しました",
+        lang === "ko"
+          ? "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+          : "一時的なエラーが発生しました。しばらくしてからもう一度お試しください。"
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleBlock = () => {
@@ -465,15 +488,17 @@ export default function ReportUserScreen() {
             s.submitBtn,
             {
               backgroundColor: selected ? colors.rose : colors.border,
-              opacity: selected ? 1 : 0.6,
+              opacity: selected && !submitting ? 1 : 0.6,
             },
           ]}
           onPress={handleSubmit}
-          disabled={!selected}
+          disabled={!selected || submitting}
           activeOpacity={0.8}
         >
           <Text style={[s.submitBtnText, { color: colors.white }]}>
-            {lang === "ko" ? "신고 제출" : "通報を送信"}
+            {submitting
+              ? (lang === "ko" ? "제출 중..." : "送信中...")
+              : (lang === "ko" ? "신고 제출" : "通報を送信")}
           </Text>
         </TouchableOpacity>
       </View>

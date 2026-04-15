@@ -7,3 +7,4 @@ export * from "./swipePasses";
 export * from "./matches";
 export * from "./directMessages";
 export * from "./chatMessages";
+export * from "./reports";

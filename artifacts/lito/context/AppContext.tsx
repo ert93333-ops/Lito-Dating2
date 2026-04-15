@@ -609,6 +609,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setDiscoverUsers((prev) => prev.filter((u) => u.id !== userId));
     setMatches((prev) => prev.filter((m) => m.userId !== userId));
     setConversations((prev) => prev.filter((c) => c.user.id !== userId));
+    const t = tokenRef.current;
+    if (t && !userId.startsWith("ai_")) {
+      fetch(`${API_BASE}/api/blocks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
+        body: JSON.stringify({ blockedUserId: Number(userId) }),
+      }).catch(() => {});
+    }
   }, []);
 
   // ── AI Persona auto-reply ─────────────────────────────────────────────────
