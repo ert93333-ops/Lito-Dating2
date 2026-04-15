@@ -32,3 +32,19 @@ EXPO_PUBLIC_DOMAIN = "897d9e56-871c-4974-ac62-08cd46e83fb1-00-1t8plx8vfjhzz.rike
 
 [nix]
 channel = "stable-25_05"
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 18688
+externalPort = 3001
+
+[[ports]]
+localPort = 23744
+externalPort = 3000
