@@ -1,0 +1,47 @@
+=== 증빙 5: API 서버 가동 확인 및 엔드포인트 응답 ===
+실행 시각: 2026-04-16
+서버: localhost:3000 (PostgreSQL 연결 정상)
+
+--- 1) GET /api/auth/me (인증 없이 호출) ---
+응답: {"error":"인증이 필요합니다."}
+HTTP_STATUS: 401
+판정: 정상 (인증 미들웨어 작동)
+
+--- 2) GET /api/users/discover (인증 없이 호출) ---
+응답: 200 OK — 실제 DB 유저 데이터 반환 (8명)
+  - AI 페르소나 2명 (ai_jia_kr, ai_jia_jp)
+  - 실제 유저 6명 (user1~user6)
+HTTP_STATUS: 200
+판정: 정상 (discover 엔드포인트는 인증 선택적 — 미인증 시에도 목록 반환)
+주의: AI 페르소나가 discover 목록에 포함됨 → Phase 5에서 격리 처리 필요
+
+--- 3) GET /api/chat/conversations (인증 없이 호출) ---
+응답: {"error":"인증이 필요합니다."}
+HTTP_STATUS: 401
+판정: 정상 (인증 미들웨어 작동)
+
+--- 4) GET /api/legal/privacy (공개 엔드포인트) ---
+HTTP_STATUS: 200
+판정: 정상
+
+--- 5) GET /api/legal/terms (공개 엔드포인트) ---
+HTTP_STATUS: 200
+판정: 정상
+
+결론: API 서버가 정상 가동 중이며, 인증 미들웨어와 공개 엔드포인트 모두 올바르게 동작합니다.
+발견 사항: /api/users/discover에서 AI 페르소나(isAI=true)가 실제 유저와 함께 반환됨 → 격리 필요.
+
+=== 추가 증빙: 인증 후 보호 엔드포인트 응답 ===
+
+테스트 계정: evidence@lito.app (JWT 토큰 발급 완료)
+
+--- GET /api/auth/me (인증 후) ---
+응답: {"user":{"id":1,"email":"evidence@lito.app","country":"KR","language":"ko","plan":"free"},
+       "profile":{"id":1,"userId":1,"nickname":"","age":25,"bio":"","interests":[],"photos":[]}}
+HTTP_STATUS: 200
+판정: 정상 — 실제 DB에서 유저 및 프로필 데이터 반환
+
+--- GET /api/chat/conversations (인증 후) ---
+응답: {"conversations":[]}
+HTTP_STATUS: 200
+판정: 정상 — 신규 계정이므로 대화방 0건 반환

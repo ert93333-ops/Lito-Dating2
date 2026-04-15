@@ -5,6 +5,11 @@ import { optionalAuth, requireAuth } from "../middleware/auth";
 
 const router = Router();
 
+// ── Feature Flag: AI 페르소나 및 데모 유저 활성화 여부 ──────────────────────────
+// 프로덕션에서는 ENABLE_AI_PERSONAS=false로 설정하여 AI/데모 유저를 완전히 숨깁니다.
+const ENABLE_AI_PERSONAS = (process.env.ENABLE_AI_PERSONAS ?? "true").toLowerCase() === "true";
+const ENABLE_DEMO_USERS = (process.env.ENABLE_DEMO_USERS ?? "true").toLowerCase() === "true";
+
 // ── ServerUser 타입 ────────────────────────────────────────────────────────────
 
 export interface ServerUser {
@@ -349,21 +354,28 @@ router.get("/users/discover", optionalAuth, async (req, res) => {
         .map((r) => buildServerUser(r.users, r.user_profiles))
         .filter((u) => applyFilters(u, filterOpts));
 
-      // AI/데모 유저는 항상 표시 (로그인 사용자에게도)
-      const viewerKey = `db:${viewerDbId}`;
-      const dbLikedMockIds = new Set(
-        guestLikes.filter((l) => l.fromId === viewerKey).map((l) => l.toId)
-      );
-      const dbPassedMockIds = new Set(
-        guestPasses.filter((p) => p.fromId === viewerKey).map((p) => p.toId)
-      );
+      // AI/데모 유저: feature flag가 켜져 있을 때만 포함
+      let mockPool: ServerUser[] = [];
+      if (ENABLE_AI_PERSONAS || ENABLE_DEMO_USERS) {
+        const viewerKey = `db:${viewerDbId}`;
+        const dbLikedMockIds = new Set(
+          guestLikes.filter((l) => l.fromId === viewerKey).map((l) => l.toId)
+        );
+        const dbPassedMockIds = new Set(
+          guestPasses.filter((p) => p.fromId === viewerKey).map((p) => p.toId)
+        );
 
-      const mockPool = [...AI_MOCK_USERS, ...DEMO_USERS].filter(
-        (u) =>
-          !dbLikedMockIds.has(u.id) &&
-          !dbPassedMockIds.has(u.id) &&
-          applyFilters(u, filterOpts)
-      );
+        const candidates = [
+          ...(ENABLE_AI_PERSONAS ? AI_MOCK_USERS : []),
+          ...(ENABLE_DEMO_USERS ? DEMO_USERS : []),
+        ];
+        mockPool = candidates.filter(
+          (u) =>
+            !dbLikedMockIds.has(u.id) &&
+            !dbPassedMockIds.has(u.id) &&
+            applyFilters(u, filterOpts)
+        );
+      }
 
       // AI 우선, 그 다음 호환성 점수 내림차순
       const pool = [...mockPool, ...dbServerUsers].sort((a, b) => {
@@ -381,7 +393,7 @@ router.get("/users/discover", optionalAuth, async (req, res) => {
     }
   }
 
-  // ── 비인증 게스트: 데모+AI 유저만 ────────────────────────────────────────
+  // ── 비인증 게스트: feature flag에 따라 데모+AI 유저 표시 ──────────────────
   const viewerId = (req.query.viewerId as string) || "me";
   const seenIds = new Set([
     ...guestLikes.filter((l) => l.fromId === viewerId).map((l) => l.toId),
@@ -389,7 +401,11 @@ router.get("/users/discover", optionalAuth, async (req, res) => {
     viewerId,
   ]);
 
-  const pool = [...AI_MOCK_USERS, ...DEMO_USERS].filter(
+  const guestCandidates = [
+    ...(ENABLE_AI_PERSONAS ? AI_MOCK_USERS : []),
+    ...(ENABLE_DEMO_USERS ? DEMO_USERS : []),
+  ];
+  const pool = guestCandidates.filter(
     (u) => !seenIds.has(u.id) && applyFilters(u, filterOpts)
   );
 

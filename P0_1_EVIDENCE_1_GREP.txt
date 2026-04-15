@@ -1,0 +1,24 @@
+=== 증빙 1: mockData.ts import 참조 전수 조사 ===
+실행 시각: 2026-04-16
+실행 경로: /home/ubuntu/lito-dating
+
+--- grep -rn 'from.*mockData' (mockData.ts 자체 제외) ---
+(결과 0건)
+
+--- grep -rn 'import.*mockData' (mockData.ts 자체 제외) ---
+(결과 0건)
+
+--- grep -rn 'require.*mockData' ---
+(결과 0건)
+
+--- grep -rn 'mockData' (전체 참조, mockData.ts 자체 및 aiPersonas.ts 주석 제외) ---
+(결과 0건)
+
+--- CURRENT_USER_ID 하드코딩 잔여 확인 (mockData.ts 자체 제외) ---
+(결과 0건)
+
+--- MY_ID 상수 잔여 확인 ---
+(결과 0건)
+
+결론: 프로덕션 코드에서 mockData.ts를 참조하는 import/require 구문 0건.
+      CURRENT_USER_ID 및 MY_ID 하드코딩 상수도 0건.

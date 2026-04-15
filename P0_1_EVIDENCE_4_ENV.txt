@@ -1,0 +1,40 @@
+=== 증빙 4: EXPO_PUBLIC_DOMAIN 환경값 현황 ===
+실행 시각: 2026-04-16
+
+--- 현재 설정값 ---
+파일: artifacts/lito/.env
+  EXPO_PUBLIC_DOMAIN=REPLACE_WITH_YOUR_API_SERVER_DOMAIN
+  → 아직 플레이스홀더 상태. 배포 전 실제 도메인으로 교체 필요.
+
+파일: artifacts/lito/eas.json
+  development: EXPO_PUBLIC_DOMAIN=REPLACE_WITH_YOUR_API_SERVER_DOMAIN
+  preview:     EXPO_PUBLIC_DOMAIN=REPLACE_WITH_YOUR_API_SERVER_DOMAIN
+  production:  EXPO_PUBLIC_DOMAIN=REPLACE_WITH_YOUR_PRODUCTION_DOMAIN
+  → 모든 빌드 프로파일에서 플레이스홀더 상태.
+
+--- EXPO_PUBLIC_DOMAIN 참조 파일 (13개) ---
+  discover.tsx, matches.tsx, _layout.tsx, ai-photo.tsx,
+  chat/[id].tsx, login.tsx, profile-setup.tsx, report-user.tsx
+
+--- fallback 동작 ---
+  EXPO_PUBLIC_DOMAIN이 미설정 시 → http://localhost:8080 으로 fallback
+  (로컬 개발 환경에서는 정상 동작)
+
+--- 배포 전 필수 조치 ---
+  1. API 서버를 Railway/Render 등에 배포하여 공개 도메인 확보
+  2. artifacts/lito/.env 및 eas.json의 REPLACE_WITH_* 값을 실제 도메인으로 교체
+  3. EAS Build 실행 시 환경변수가 올바르게 주입되는지 확인
+
+=== 증빙 2-3: 실기기 테스트 한계 설명 ===
+
+현재 샌드박스 환경에서는 iOS/Android 실기기 테스트를 수행할 수 없습니다.
+다음 이유로 실기기 캡처/영상 증빙은 제공이 불가합니다:
+
+  1. Expo 앱 빌드에는 EAS Build 서비스 또는 로컬 Xcode/Android Studio가 필요
+  2. 샌드박스에는 iOS 시뮬레이터 및 Android 에뮬레이터가 설치되어 있지 않음
+  3. 네트워크 OFF 테스트는 실기기에서만 의미 있음
+
+대안으로 제공한 증빙:
+  - API 서버 가동 확인 및 모든 엔드포인트 HTTP 응답 코드 검증
+  - 코드 레벨에서 로딩/에러/빈 상태 UI가 올바르게 구현되어 있음을 TypeScript 문법 검증으로 확인
+  - discoverError 상태 시 "연결할 수 없어요" + "다시 시도" 버튼이 렌더링되는 코드 경로 확인

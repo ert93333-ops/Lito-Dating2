@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { AppState, AppStateStatus } from "react-native";
 
 import {
   AI_INITIAL_CONVERSATIONS,
@@ -10,6 +11,10 @@ import { Conversation, Match, Message, MyProfile, TrustProfile, User } from "@/t
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
   : "http://localhost:8080";
+
+// Feature Flag: AI 페르소나 대화방 활성화 여부
+// 프로덕션에서는 EXPO_PUBLIC_ENABLE_AI_PERSONAS=false로 설정
+const ENABLE_AI_PERSONAS = (process.env.EXPO_PUBLIC_ENABLE_AI_PERSONAS ?? "true").toLowerCase() === "true";
 
 const WS_URL = process.env.EXPO_PUBLIC_DOMAIN
   ? `wss://${process.env.EXPO_PUBLIC_DOMAIN}/ws`
@@ -244,9 +249,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [newMatch, setNewMatch] = useState<User | null>(null);
   const [matches, setMatches] = useState<Match[]>(INITIAL_MATCHES);
   const [matchesLoading, setMatchesLoading] = useState(false);
-  const [conversations, setConversations] = useState<Conversation[]>(AI_INITIAL_CONVERSATIONS);
+  const [conversations, setConversations] = useState<Conversation[]>(
+    ENABLE_AI_PERSONAS ? AI_INITIAL_CONVERSATIONS : []
+  );
   const [conversationsLoading, setConversationsLoading] = useState(false);
-  const [messages, setMessages] = useState<Record<string, Message[]>>({ ...AI_INITIAL_MESSAGES });
+  const [messages, setMessages] = useState<Record<string, Message[]>>(
+    ENABLE_AI_PERSONAS ? { ...AI_INITIAL_MESSAGES } : {}
+  );
   const [activeConversationId, setActiveConversation] = useState<string | null>(null);
 
   const EMPTY_ANSWERS: DatingStyleAnswers = {
@@ -276,7 +285,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptRef = useRef(0);
   const activeConvRef = useRef<string | null>(null);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const toastSetterRef = useRef(setToast);
   useEffect(() => { toastSetterRef.current = setToast; }, [setToast]);
 
@@ -513,7 +524,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     });
     fetchDiscover();
-  }, [fetchDiscover, fetchMyProfile, fetchConversations]);
+
+    // ── AppState 리스너: 백그라운드 복귀 시 WebSocket 재연결 + 데이터 새로고침 ──
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      const prev = appStateRef.current;
+      appStateRef.current = nextState;
+
+      // background/inactive → active 전환 시
+      if (prev.match(/inactive|background/) && nextState === "active") {
+        const t = tokenRef.current;
+        if (t) {
+          // WebSocket이 끊어져 있으면 재연결
+          if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+            reconnectAttemptRef.current = 0; // 백그라운드 복귀는 즉시 재연결
+            connectWS(t);
+          }
+          // 대화방 목록 새로고침
+          fetchConversations();
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    return () => subscription.remove();
+  }, [fetchDiscover, fetchMyProfile, fetchConversations, connectWS]);
 
   const completeOnboarding = useCallback(() => {
     setHasCompletedOnboarding(true);
@@ -578,13 +612,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const ws = new WebSocket(`${WS_URL}?token=${encodeURIComponent(jwtToken)}`);
     wsRef.current = ws;
-
-    ws.onopen = () => {
-      setWsConnected(true);
-      if (activeConvRef.current) {
-        ws.send(JSON.stringify({ type: "join", conversationId: activeConvRef.current }));
-      }
-    };
 
     ws.onmessage = (event: MessageEvent<string>) => {
       try {
@@ -674,13 +701,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    ws.onopen = () => {
+      setWsConnected(true);
+      reconnectAttemptRef.current = 0; // 연결 성공 시 재시도 카운터 초기화
+      if (activeConvRef.current) {
+        ws.send(JSON.stringify({ type: "join", conversationId: activeConvRef.current }));
+      }
+    };
+
     ws.onclose = () => {
       setWsConnected(false);
       wsRef.current = null;
       if (tokenRef.current) {
+        // 지수 백오프: 1s → 2s → 4s → 8s → 16s → 최대 30s
+        const attempt = reconnectAttemptRef.current;
+        const delayMs = Math.min(1000 * Math.pow(2, attempt), 30000);
+        reconnectAttemptRef.current = attempt + 1;
         reconnectTimerRef.current = setTimeout(() => {
           if (tokenRef.current) connectWS(tokenRef.current);
-        }, 3000);
+        }, delayMs);
       }
     };
 
@@ -751,8 +790,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setDiscoverError(null);
     setNewMatch(null);
     setMatches(INITIAL_MATCHES);
-    setConversations([...AI_INITIAL_CONVERSATIONS]);
-    setMessages({ ...AI_INITIAL_MESSAGES });
+    setConversations(ENABLE_AI_PERSONAS ? [...AI_INITIAL_CONVERSATIONS] : []);
+    setMessages(ENABLE_AI_PERSONAS ? { ...AI_INITIAL_MESSAGES } : {});
     setHasSeenDiagnosisPrompt(false);
     setDiagnosisStatus("not_started");
     setDiagnosisRewardClaimed(false);

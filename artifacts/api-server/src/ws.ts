@@ -165,8 +165,9 @@ export function setupWebSocket(wss: WebSocketServer) {
       if (type === "ping") {
         ws.send(JSON.stringify({ type: "pong" }));
         return;
-      }}
+      }
     });
+
 
     ws.on("close", () => {
       ws.conversations.forEach((convId) => cleanRoom(convId, ws));
