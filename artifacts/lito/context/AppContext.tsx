@@ -3,11 +3,8 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 
 import {
   mockConversations,
-  mockMatches,
-  mockMessages,
   mockMessagesAiJia,
   mockMessagesAiMio,
-  mockMessagesConv3,
   myProfile,
 } from "@/data/mockData";
 import { Conversation, Match, Message, MyProfile, TrustProfile, User } from "@/types";
@@ -140,6 +137,7 @@ interface AppContextType {
   clearNewMatches: () => void;
   setActiveConversation: (id: string | null) => void;
   updateProfile: (updates: Partial<MyProfile>) => void;
+  fetchConversations: () => Promise<void>;
   loadConversationMessages: (conversationId: string) => Promise<void>;
   joinConversation: (conversationId: string) => void;
   leaveConversation: (conversationId: string) => void;
@@ -159,15 +157,16 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | null>(null);
 
-const INITIAL_MESSAGES = {
-  conv1: mockMessages,
-  conv2: [],
-  conv3: mockMessagesConv3,
+// AI 페르소나 대화방은 앱 시작 시 항상 유지 (AI 유저는 DB 매칭이 아닌 로컬 관리)
+const AI_INITIAL_CONVERSATIONS = mockConversations.filter(
+  (c) => c.user.isAI === true
+);
+const AI_INITIAL_MESSAGES: Record<string, Message[]> = {
   conv_ai_mio: mockMessagesAiMio,
   conv_ai_jia: mockMessagesAiJia,
 };
 
-const INITIAL_MATCHES = mockMatches;
+const INITIAL_MATCHES: Match[] = [];
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
@@ -179,8 +178,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [newMatch, setNewMatch] = useState<User | null>(null);
   const [matches, setMatches] = useState<Match[]>(INITIAL_MATCHES);
-  const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
-  const [messages, setMessages] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
+  const [conversations, setConversations] = useState<Conversation[]>(AI_INITIAL_CONVERSATIONS);
+  const [messages, setMessages] = useState<Record<string, Message[]>>(AI_INITIAL_MESSAGES);
   const [activeConversationId, setActiveConversation] = useState<string | null>(null);
 
   const EMPTY_ANSWERS: DatingStyleAnswers = {
@@ -251,6 +250,135 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     fetchDiscover(filters ?? discoverFiltersRef.current);
   }, [fetchDiscover]);
 
+  // ── Fetch conversations from DB ───────────────────────────────────────────
+  const fetchConversations = useCallback(async () => {
+    if (!tokenRef.current) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/chat/conversations`, {
+        headers: { Authorization: `Bearer ${tokenRef.current}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json() as {
+        conversations: Array<{
+          id: string;
+          matchId: string;
+          matchedAt: string;
+          user: {
+            id: string;
+            nickname: string;
+            age: number;
+            country: string;
+            language: string;
+            photos: string[];
+            bio: string;
+            isOnline: boolean;
+            isAI: boolean;
+          };
+          lastMessage?: {
+            id: string;
+            senderId: string;
+            originalText: string;
+            translatedText?: string;
+            createdAt: string;
+          };
+          unreadCount: number;
+          translationEnabled: boolean;
+          externalUnlocked: boolean;
+        }>;
+      };
+
+      const dbConversations: Conversation[] = data.conversations.map((c) => ({
+        id: c.id,
+        matchId: c.matchId,
+        user: {
+          id: c.user.id,
+          nickname: c.user.nickname,
+          age: c.user.age,
+          country: c.user.country as "KR" | "JP",
+          language: c.user.language as "ko" | "ja",
+          city: "",
+          bio: c.user.bio,
+          photos: c.user.photos,
+          compatibilityScore: 0,
+          compatibilityReasons: [],
+          lastActive: c.matchedAt,
+          isOnline: c.user.isOnline,
+          interests: [],
+          trustProfile: {
+            humanVerified: { status: "not_verified" },
+            faceMatched: { status: "not_verified" },
+            idVerified: { status: "not_verified" },
+          },
+          isAI: false,
+        },
+        lastMessage: c.lastMessage
+          ? {
+              id: c.lastMessage.id,
+              conversationId: c.id,
+              senderId: c.lastMessage.senderId,
+              originalText: c.lastMessage.originalText,
+              translatedText: c.lastMessage.translatedText,
+              originalLanguage: "ko" as "ko" | "ja",
+              createdAt: c.lastMessage.createdAt,
+              isRead: true,
+            }
+          : undefined,
+        unreadCount: c.unreadCount,
+        translationEnabled: c.translationEnabled,
+        externalUnlocked: c.externalUnlocked,
+      }));
+
+      // DB 대화방 + AI 페르소나 대화방 합치기 (AI 대화방은 항상 유지)
+      setConversations((prev) => {
+        const aiConvs = prev.filter((c) => c.user.isAI === true);
+        const merged = [...dbConversations];
+        aiConvs.forEach((ai) => {
+          if (!merged.some((c) => c.id === ai.id)) merged.push(ai);
+        });
+        return merged;
+      });
+
+      // 매칭 목록도 DB에서 업데이트
+      const dbMatches: Match[] = data.conversations.map((c) => ({
+        id: c.matchId,
+        userId: c.user.id,
+        user: {
+          id: c.user.id,
+          nickname: c.user.nickname,
+          age: c.user.age,
+          country: c.user.country as "KR" | "JP",
+          language: c.user.language as "ko" | "ja",
+          city: "",
+          bio: c.user.bio,
+          photos: c.user.photos,
+          compatibilityScore: 0,
+          compatibilityReasons: [],
+          lastActive: c.matchedAt,
+          interests: [],
+          trustProfile: {
+            humanVerified: { status: "not_verified" },
+            faceMatched: { status: "not_verified" },
+            idVerified: { status: "not_verified" },
+          },
+          isAI: false,
+        },
+        matchedAt: c.matchedAt,
+        isNew: false,
+      }));
+      setMatches((prev) => {
+        // 새로운 매칭(isNew: true)은 유지하고 DB 데이터로 병합
+        const newOnes = prev.filter((m) => m.isNew);
+        const merged = [...dbMatches];
+        newOnes.forEach((n) => {
+          if (!merged.some((m) => m.id === n.id)) merged.unshift(n);
+        });
+        return merged;
+      });
+    } catch (err) {
+      console.warn("[AppContext] fetchConversations failed:", err);
+    }
+  }, []);
+
   // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
     AsyncStorage.multiGet([
@@ -271,6 +399,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (map["lito_jwt"]) {
         setToken(map["lito_jwt"]);
         connectWS(map["lito_jwt"]);
+        // 앱 재시작 시 DB에서 대화방 목록 로드
+        setTimeout(() => {
+          tokenRef.current = map["lito_jwt"]!;
+          fetchConversations();
+        }, 500);
       }
       if (map["lito_diagnosis_status"]) {
         setDiagnosisStatus(map["lito_diagnosis_status"] as DiagnosisStatus);
@@ -478,7 +611,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem("lito_logged_in", "true");
     AsyncStorage.setItem("lito_jwt", jwtToken);
     connectWS(jwtToken);
-  }, [connectWS]);
+    // 로그인 직후 DB에서 대화방 목록 로드
+    setTimeout(() => {
+      tokenRef.current = jwtToken;
+      fetchConversations();
+    }, 500);
+  }, [connectWS, fetchConversations]);
 
   const logout = useCallback(() => {
     setIsLoggedIn(false);
@@ -489,8 +627,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setDiscoverUsers([]);
     setNewMatch(null);
     setMatches(INITIAL_MATCHES);
-    setConversations(mockConversations);
-    setMessages(INITIAL_MESSAGES);
+    setConversations(AI_INITIAL_CONVERSATIONS);
+    setMessages(AI_INITIAL_MESSAGES);
     setHasSeenDiagnosisPrompt(false);
     setDiagnosisStatus("not_started");
     setDiagnosisRewardClaimed(false);
@@ -567,7 +705,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setMatches((prev) => [newMatchEntry, ...prev]);
 
         // Create a new conversation if one doesn't exist
-        const convId = `conv_${userId}`;
+        // 서버의 fetchConversations와 동일한 convId 규칙: conv_{min}_{max}
+        const myId = profileRef.current.id;
+        const numericUserId = parseInt(userId, 10);
+        const numericMyId = parseInt(myId, 10);
+        const convId = !isNaN(numericUserId) && !isNaN(numericMyId)
+          ? `conv_${Math.min(numericMyId, numericUserId)}_${Math.max(numericMyId, numericUserId)}`
+          : `conv_${userId}`;
         setConversations((prev) => {
           if (prev.some((c) => c.user.id === userId)) return prev;
           const newConv: Conversation = {
@@ -868,6 +1012,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         clearNewMatches,
         setActiveConversation,
         updateProfile,
+        fetchConversations,
         loadConversationMessages,
         joinConversation,
         leaveConversation,
