@@ -199,7 +199,7 @@ function MatchCard({ match }: { match: Match }) {
 export default function MatchesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { matches, clearNewMatches } = useApp();
+  const { matches, matchesLoading, clearNewMatches, fetchConversations } = useApp();
   const { referral, track } = useGrowth();
   const { lang } = useLocale();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -207,10 +207,23 @@ export default function MatchesScreen() {
 
   useFocusEffect(useCallback(() => {
     clearNewMatches();
-  }, [clearNewMatches]));
+    fetchConversations(); // 화면 포커스 시 서버에서 최신 매칭 데이터 로드
+  }, [clearNewMatches, fetchConversations]));
 
   const newMatches = matches.filter((m) => m.isNew);
   const pastMatches = matches.filter((m) => !m.isNew);
+
+  // 로딩 상태
+  if (matchesLoading && matches.length === 0) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: "center", alignItems: "center", flex: 1 }]}>
+        <ActivityIndicator size="large" color={colors.rose} />
+        <Text style={[styles.emptySub, { color: colors.charcoalLight, marginTop: 12 }]}>
+          {lang === "ko" ? "매칭 불러오는 중..." : "マッチを読み込み中..."}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView

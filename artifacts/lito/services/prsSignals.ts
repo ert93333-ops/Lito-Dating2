@@ -42,8 +42,7 @@ import type {
 
 export const FEATURE_VERSION = "1.0.0";
 
-/** Current user sentinel — must match AppContext / mockData. */
-const MY_ID = "me";
+/** Current user sentinel — passed as parameter from caller. Fallback to "me" for backward compat. */
 
 // ── Calibration profiles ─────────────────────────────────────────────────────
 //
@@ -258,7 +257,7 @@ export function detectConversationStage(
 
   // Check for escalation signals in last 10 partner messages
   const recentPartner = messages
-    .filter((m) => m.senderId !== MY_ID)
+    .filter((m) => m.senderId !== "me")
     .slice(-10);
 
   const hasEscalation = recentPartner.some((m) => {
@@ -299,7 +298,7 @@ export function detectConversationStage(
 export function extractResponsivenessFeatures(
   allMessages: Message[]
 ): ResponsivenessFeatures {
-  const partnerMsgs = allMessages.filter((m) => m.senderId !== MY_ID);
+  const partnerMsgs = allMessages.filter((m) => m.senderId !== "me");
   if (partnerMsgs.length === 0) {
     return { followUpQuestionRate: 0, contingentReplyScore: 0, validationScore: 0 };
   }
@@ -310,7 +309,7 @@ export function extractResponsivenessFeatures(
 
   for (let i = 0; i < allMessages.length; i++) {
     const msg = allMessages[i];
-    if (msg.senderId === MY_ID) continue;
+    if (msg.senderId === "me") continue;
 
     const text = msg.translatedText ?? msg.originalText;
 
@@ -323,7 +322,7 @@ export function extractResponsivenessFeatures(
     const prevMyMsg = allMessages
       .slice(0, i)
       .reverse()
-      .find((m) => m.senderId === MY_ID);
+      .find((m) => m.senderId === "me");
     if (prevMyMsg) {
       const myTokens = tokenise(prevMyMsg.translatedText ?? prevMyMsg.originalText);
       const theirTokens = tokenise(text);
@@ -384,8 +383,8 @@ export function extractReciprocityFeatures(
   const disclosureTurnTaking = clamp01(safeDivide(senderSwitches, maxSwitches));
 
   // disclosureBalance — avg message length ratio
-  const partnerMsgs = allMessages.filter((m) => m.senderId !== MY_ID);
-  const myMsgs = allMessages.filter((m) => m.senderId === MY_ID);
+  const partnerMsgs = allMessages.filter((m) => m.senderId !== "me");
+  const myMsgs = allMessages.filter((m) => m.senderId === "me");
 
   const avgLen = (msgs: Message[]) =>
     msgs.length === 0
@@ -410,7 +409,7 @@ export function extractReciprocityFeatures(
       Date.parse(allMessages[i].createdAt) - Date.parse(allMessages[i - 1].createdAt);
     if (gapMs > calibration.sessionGapMs) {
       sessions++;
-      if (allMessages[i].senderId !== MY_ID) {
+      if (allMessages[i].senderId !== "me") {
         partnerOpenedSessions++;
       }
     }
@@ -445,8 +444,8 @@ export function extractLinguisticFeatures(
     return { lsmProxy: 0.5, topicAlignment: 0.5, formatAccommodation: 0.5 };
   }
 
-  const partnerMsgs = allMessages.filter((m) => m.senderId !== MY_ID);
-  const myMsgs = allMessages.filter((m) => m.senderId === MY_ID);
+  const partnerMsgs = allMessages.filter((m) => m.senderId !== "me");
+  const myMsgs = allMessages.filter((m) => m.senderId === "me");
 
   // lsmProxy — dominant bracket match
   const bracketCount = (msgs: Message[]) => {
@@ -484,11 +483,11 @@ export function extractLinguisticFeatures(
   let overlapCount = 0;
   for (let i = 1; i < allMessages.length; i++) {
     const msg = allMessages[i];
-    if (msg.senderId === MY_ID) continue;
+    if (msg.senderId === "me") continue;
     const prev = allMessages
       .slice(0, i)
       .reverse()
-      .find((m) => m.senderId === MY_ID);
+      .find((m) => m.senderId === "me");
     if (!prev) continue;
     const myTokens = tokenise(prev.translatedText ?? prev.originalText);
     const theirTokens = tokenise(msg.translatedText ?? msg.originalText);
@@ -502,11 +501,11 @@ export function extractLinguisticFeatures(
   let emojiCompareCount = 0;
   for (let i = 1; i < allMessages.length; i++) {
     const msg = allMessages[i];
-    if (msg.senderId === MY_ID) continue;
+    if (msg.senderId === "me") continue;
     const prev = allMessages
       .slice(0, i)
       .reverse()
-      .find((m) => m.senderId === MY_ID);
+      .find((m) => m.senderId === "me");
     if (!prev) continue;
     const myHasEmoji = hasEmoji(prev.originalText);
     const theirHasEmoji = hasEmoji(msg.originalText);
@@ -542,11 +541,11 @@ export function extractTemporalFeatures(
   const gaps: number[] = [];
   for (let i = 1; i < allMessages.length; i++) {
     const msg = allMessages[i];
-    if (msg.senderId === MY_ID) continue;
+    if (msg.senderId === "me") continue;
     const prevMyMsg = allMessages
       .slice(0, i)
       .reverse()
-      .find((m) => m.senderId === MY_ID);
+      .find((m) => m.senderId === "me");
     if (prevMyMsg) {
       const gapMs = Date.parse(msg.createdAt) - Date.parse(prevMyMsg.createdAt);
       if (gapMs >= 0) gaps.push(gapMs);
@@ -610,7 +609,7 @@ export function extractWarmthFeatures(
   allMessages: Message[],
   partnerName?: string
 ): WarmthFeatures {
-  const partnerMsgs = allMessages.filter((m) => m.senderId !== MY_ID);
+  const partnerMsgs = allMessages.filter((m) => m.senderId !== "me");
   if (partnerMsgs.length === 0) {
     return { otherFocusScore: 0, warmthScore: 0, authenticityScore: 0 };
   }
@@ -672,7 +671,7 @@ export function extractWarmthFeatures(
 export function extractProgressionFeatures(
   allMessages: Message[]
 ): ProgressionFeatures {
-  const partnerMsgs = allMessages.filter((m) => m.senderId !== MY_ID);
+  const partnerMsgs = allMessages.filter((m) => m.senderId !== "me");
 
   const hasWord = (words: string[]) =>
     partnerMsgs.some((m) => {
@@ -714,7 +713,7 @@ export function extractProgressionFeatures(
 export function extractPenaltyFeatures(
   allMessages: Message[]
 ): PenaltyFeatures {
-  const partnerMsgs = allMessages.filter((m) => m.senderId !== MY_ID);
+  const partnerMsgs = allMessages.filter((m) => m.senderId !== "me");
   if (partnerMsgs.length === 0) {
     return {
       earlyOversharePenalty: 0,
@@ -878,7 +877,7 @@ export function computeConfidence(
 export function extractInterestFeatureWindow(
   messages: Message[],
   conversationId: string,
-  myUserId: string = MY_ID,
+  myUserId: string = "me",
   partnerUserId: string,
   myCountry: "KR" | "JP" = "JP",
   partnerCountry: "KR" | "JP" = "KR",

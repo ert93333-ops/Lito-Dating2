@@ -592,7 +592,7 @@ function ActionButton({ onPress, hapticStyle = "light", style, children }: Actio
 export default function DiscoverScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { discoverUsers, discoverLoading, newMatch, dismissMatch, refetchDiscover, likeUser, superLikeUser, superLikeStatus, fetchSuperLikeStatus, passUser, profile, diagnosisStatus } = useApp();
+  const { discoverUsers, discoverLoading, discoverError, newMatch, dismissMatch, refetchDiscover, likeUser, superLikeUser, superLikeStatus, fetchSuperLikeStatus, passUser, profile, diagnosisStatus } = useApp();
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [filterCountry, setFilterCountry] = useState<"all" | "KR" | "JP">("all");
   const [filterLevel, setFilterLevel] = useState<"all" | "beginner" | "intermediate" | "advanced">("all");
@@ -685,6 +685,38 @@ export default function DiscoverScreen() {
         <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>
           {isKo ? "추천 찾는 중..." : "探しています..."}
         </Text>
+      </View>
+    );
+  }
+
+  // ── Error state ────────────────────────────────────────────────────────────
+  if (discoverError && discoverUsers.length === 0) {
+    return (
+      <View
+        style={[
+          styles.empty,
+          { paddingTop: topPad + 20, backgroundColor: colors.background },
+        ]}
+      >
+        <View style={[styles.emptyIcon, { backgroundColor: "#FFF0F0" }]}>
+          <FIcon name="wifi-off" size={32} color="#D85870" />
+        </View>
+        <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>
+          {isKo ? "연결할 수 없어요" : "接続できません"}
+        </Text>
+        <Text style={[styles.emptySub, { color: colors.charcoalLight }]}>
+          {discoverError}
+        </Text>
+        <TouchableOpacity
+          style={[styles.refetchBtn, { backgroundColor: colors.rose }]}
+          onPress={() => refetchDiscover()}
+          activeOpacity={0.85}
+        >
+          <FIcon name="refresh-cw" size={16} color="#fff" />
+          <Text style={styles.refetchBtnText}>
+            {isKo ? "다시 시도" : "再試行"}
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   }

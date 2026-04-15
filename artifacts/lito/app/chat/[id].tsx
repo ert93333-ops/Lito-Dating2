@@ -32,7 +32,7 @@ import { AI_COACH_PACKS } from "@/services/monetization";
 import { getConversationInterestSnapshot } from "@/services/prsScoring";
 import { Message, computeTrustScore } from "@/types";
 
-const CURRENT_USER_ID = "me";
+// currentUserId는 더 이상 하드코딩하지 않음 — 컴포넌트 내에서 profile.id 사용
 
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
@@ -76,15 +76,16 @@ interface BubbleProps {
   msg: Message;
   enrichment: Enrichment | undefined;
   viewerLang: "ko" | "ja";
+  currentUserId: string;
   /** Called when the user taps the received message bubble — toggles translation. */
   onToggleTranslation: () => void;
   /** L6 FIX: Show visible first-use translation hint on this bubble */
   showFirstUseHint?: boolean;
 }
 
-function MessageBubble({ msg, enrichment, viewerLang, onToggleTranslation, showFirstUseHint = false }: BubbleProps) {
+function MessageBubble({ msg, enrichment, viewerLang, currentUserId, onToggleTranslation, showFirstUseHint = false }: BubbleProps) {
   const colors = useColors();
-  const isMe = msg.senderId === CURRENT_USER_ID;
+  const isMe = msg.senderId === currentUserId || msg.senderId === "me";
 
   const hasTranslation = !!enrichment?.translatedText;
   const isTranslating = !!enrichment?.isLoading;
@@ -863,6 +864,8 @@ export default function ChatDetailScreen() {
   const [prsCardState, setPrsCardState] = useState<PRSCardState>({ status: "loading" });
   const [prsExpanded, setPrsExpanded] = useState(false);
 
+  const currentUserId = profile.id || "me";
+
   const [inputText, setInputText] = useState(draft ? decodeURIComponent(draft) : "");
   const sendBtnScale = useRef(new Animated.Value(1)).current;
 
@@ -927,7 +930,7 @@ export default function ChatDetailScreen() {
     getConversationInterestSnapshot({
       messages: convMessages,
       conversationId: id || "conv1",
-      myUserId: CURRENT_USER_ID,
+      myUserId: currentUserId,
       partnerUserId: conversation.user.id ?? "partner",
       myCountry,
       partnerCountry,
@@ -1055,7 +1058,7 @@ export default function ChatDetailScreen() {
   const fetchQuickReplies = useCallback(async (msgs: typeof convMessages) => {
     if (msgs.length === 0) return;
     const lastMsg = msgs[msgs.length - 1];
-    if (lastMsg.senderId === CURRENT_USER_ID) {
+    if (lastMsg.senderId === currentUserId) {
       // Last message is mine — clear chips
       setQuickReplies([]);
       return;
@@ -1068,7 +1071,7 @@ export default function ChatDetailScreen() {
     setQuickReplies([]);
     try {
       const recentMsgs = msgs.slice(-8).map((m) => ({
-        sender: m.senderId === CURRENT_USER_ID ? "me" : "them",
+        sender: m.senderId === currentUserId ? "me" : "them",
         text: m.originalText,
       }));
       const res = await fetch(`${API_BASE}/api/ai/suggest-reply`, {
@@ -1111,19 +1114,20 @@ export default function ChatDetailScreen() {
   const firstUntranslatedReceivedId = React.useMemo(() => {
     if (hasUsedTranslation) return null;
     const first = convMessages.find(
-      (m) => m.senderId !== CURRENT_USER_ID && !enrichmentMap[m.id]?.translatedText
+      (m) => m.senderId !== currentUserId && !enrichmentMap[m.id]?.translatedText
     );
     return first?.id ?? null;
   }, [convMessages, enrichmentMap, hasUsedTranslation]);
 
   const renderMessage = useCallback(
     ({ item }: { item: Message }) => {
-      if (item.senderId === CURRENT_USER_ID) {
+      if (item.senderId === currentUserId || item.senderId === "me") {
         return (
           <MessageBubble
             msg={item}
             enrichment={undefined}
             viewerLang={viewerLang}
+            currentUserId={currentUserId}
             onToggleTranslation={() => {}}
           />
         );
@@ -1133,12 +1137,13 @@ export default function ChatDetailScreen() {
           msg={item}
           enrichment={enrichmentMap[item.id]}
           viewerLang={viewerLang}
+          currentUserId={currentUserId}
           onToggleTranslation={() => handleTranslateMessage(item)}
           showFirstUseHint={item.id === firstUntranslatedReceivedId}
         />
       );
     },
-    [enrichmentMap, viewerLang, handleTranslateMessage, firstUntranslatedReceivedId]
+    [enrichmentMap, viewerLang, handleTranslateMessage, firstUntranslatedReceivedId, currentUserId]
   );
 
   // ── Handlers ─────────────────────────────────────────────────────────────
@@ -1161,7 +1166,7 @@ export default function ChatDetailScreen() {
     if (aiSuggesting) return;
 
     // Guard: need at least one received message to coach on
-    const lastThemMsg = convMessages.slice().reverse().find((m) => m.senderId !== CURRENT_USER_ID);
+    const lastThemMsg = convMessages.slice().reverse().find((m) => m.senderId !== currentUserId);
     if (!lastThemMsg) {
       Alert.alert("AI 코치", "상대방의 메시지가 없습니다.");
       return;
@@ -1178,7 +1183,7 @@ export default function ChatDetailScreen() {
     setAiSuggesting(true);
     try {
       const recentMessages = convMessages.slice(-10).map((m) => ({
-        sender: m.senderId === CURRENT_USER_ID ? "me" : "them",
+        sender: m.senderId === currentUserId ? "me" : "them",
         text: m.originalText,
       }));
       // targetLang = the language the viewer writes in (their own language).

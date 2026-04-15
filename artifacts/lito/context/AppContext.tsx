@@ -2,11 +2,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import {
-  mockConversations,
-  mockMessagesAiJia,
-  mockMessagesAiMio,
-  myProfile,
-} from "@/data/mockData";
+  AI_INITIAL_CONVERSATIONS,
+  AI_INITIAL_MESSAGES,
+} from "@/data/aiPersonas";
 import { Conversation, Match, Message, MyProfile, TrustProfile, User } from "@/types";
 
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
@@ -16,6 +14,28 @@ const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
 const WS_URL = process.env.EXPO_PUBLIC_DOMAIN
   ? `wss://${process.env.EXPO_PUBLIC_DOMAIN}/ws`
   : "ws://localhost:8080/ws";
+
+// ── 빈 프로필 초기값 (로그인 전 상태) ──────────────────────────────────────────
+const EMPTY_PROFILE: MyProfile = {
+  id: "",
+  nickname: "",
+  age: 0,
+  country: "KR",
+  language: "ko",
+  intro: "",
+  introI18n: {},
+  bio: "",
+  languageLevel: "beginner",
+  interests: [],
+  instagramHandle: "",
+  photos: [],
+  aiStyleSummary: undefined,
+  trustProfile: {
+    humanVerified: { status: "not_verified" },
+    faceMatched: { status: "not_verified" },
+    idVerified: { status: "not_verified" },
+  },
+};
 
 // ── ServerUser → app User conversion ─────────────────────────────────────────
 
@@ -86,6 +106,51 @@ function serverUserToAppUser(u: ServerUser): User {
   };
 }
 
+// ── Server profile → MyProfile conversion ──────────────────────────────────────
+interface ServerAuthUser {
+  id: number;
+  email: string;
+  country: string;
+  language: string;
+  plan: string;
+}
+interface ServerProfile {
+  id: number;
+  userId: number;
+  nickname: string | null;
+  age: number | null;
+  bio: string | null;
+  intro: string | null;
+  interests: string[] | null;
+  photos: string[] | null;
+  instagramHandle: string | null;
+  languageLevel: string | null;
+  updatedAt: string | null;
+}
+
+function serverToMyProfile(user: ServerAuthUser, profile: ServerProfile | null): MyProfile {
+  return {
+    id: String(user.id),
+    nickname: profile?.nickname ?? "",
+    age: profile?.age ?? 0,
+    country: (user.country as "KR" | "JP") ?? "KR",
+    language: (user.language as "ko" | "ja") ?? "ko",
+    intro: profile?.intro ?? "",
+    introI18n: {},
+    bio: profile?.bio ?? "",
+    languageLevel: (profile?.languageLevel as "beginner" | "intermediate" | "advanced") ?? "beginner",
+    interests: profile?.interests ?? [],
+    instagramHandle: profile?.instagramHandle ?? "",
+    photos: profile?.photos ?? [],
+    aiStyleSummary: undefined,
+    trustProfile: {
+      humanVerified: { status: "not_verified" },
+      faceMatched: { status: "not_verified" },
+      idVerified: { status: "not_verified" },
+    },
+  };
+}
+
 // ── Context type ──────────────────────────────────────────────────────────────
 
 export type DiagnosisStatus = "not_started" | "completed" | "skipped";
@@ -111,14 +176,18 @@ interface AppContextType {
   hasCompletedOnboarding: boolean;
   hasCompletedProfileSetup: boolean;
   isLoggedIn: boolean;
+  profileLoading: boolean;
   profile: MyProfile;
   discoverUsers: User[];
   discoverLoading: boolean;
+  discoverError: string | null;
   newMatch: User | null;
   dismissMatch: () => void;
   refetchDiscover: (filters?: DiscoverFilters) => void;
   matches: Match[];
+  matchesLoading: boolean;
   conversations: Conversation[];
+  conversationsLoading: boolean;
   messages: Record<string, Message[]>;
   activeConversationId: string | null;
   token: string | null;
@@ -160,15 +229,6 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | null>(null);
 
-// AI 페르소나 대화방은 앱 시작 시 항상 유지 (AI 유저는 DB 매칭이 아닌 로컬 관리)
-const AI_INITIAL_CONVERSATIONS = mockConversations.filter(
-  (c) => c.user.isAI === true
-);
-const AI_INITIAL_MESSAGES: Record<string, Message[]> = {
-  conv_ai_mio: mockMessagesAiMio,
-  conv_ai_jia: mockMessagesAiJia,
-};
-
 const INITIAL_MATCHES: Match[] = [];
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -176,13 +236,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [hasCompletedProfileSetup, setHasCompletedProfileSetupState] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [token, setToken] = useState<string | null>(null);
-  const [profile, setProfile] = useState<MyProfile>(myProfile);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profile, setProfile] = useState<MyProfile>(EMPTY_PROFILE);
   const [discoverUsers, setDiscoverUsers] = useState<User[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(false);
+  const [discoverError, setDiscoverError] = useState<string | null>(null);
   const [newMatch, setNewMatch] = useState<User | null>(null);
   const [matches, setMatches] = useState<Match[]>(INITIAL_MATCHES);
+  const [matchesLoading, setMatchesLoading] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>(AI_INITIAL_CONVERSATIONS);
-  const [messages, setMessages] = useState<Record<string, Message[]>>(AI_INITIAL_MESSAGES);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
+  const [messages, setMessages] = useState<Record<string, Message[]>>({ ...AI_INITIAL_MESSAGES });
   const [activeConversationId, setActiveConversation] = useState<string | null>(null);
 
   const EMPTY_ANSWERS: DatingStyleAnswers = {
@@ -216,6 +280,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const toastSetterRef = useRef(setToast);
   useEffect(() => { toastSetterRef.current = setToast; }, [setToast]);
 
+  // ── Fetch current user profile from API ──────────────────────────────────────
+  const fetchMyProfile = useCallback(async (jwtToken?: string) => {
+    const t = jwtToken ?? tokenRef.current;
+    if (!t) return;
+    setProfileLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { user: ServerAuthUser; profile: ServerProfile | null };
+      const hydrated = serverToMyProfile(data.user, data.profile);
+      setProfile(hydrated);
+      // 프로필이 설정되어 있으면 자동으로 프로필 설정 완료 처리
+      if (data.profile?.nickname && data.profile.nickname.length > 0) {
+        setHasCompletedProfileSetupState(true);
+        AsyncStorage.setItem("lito_profile_setup", "done");
+      }
+    } catch (err) {
+      console.warn("[AppContext] fetchMyProfile failed:", err);
+    } finally {
+      setProfileLoading(false);
+    }
+  }, []);
+
   // ── Fetch discover users from API ─────────────────────────────────────────
   const discoverFiltersRef = useRef<DiscoverFilters>({
     country: "all", langLevel: "all", ageMin: 20, ageMax: 35, interests: [],
@@ -224,11 +313,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const fetchDiscover = useCallback(async (filters?: DiscoverFilters) => {
     const f = filters ?? discoverFiltersRef.current;
     setDiscoverLoading(true);
+    setDiscoverError(null);
     try {
       const headers: Record<string, string> = {};
       if (tokenRef.current) headers["Authorization"] = `Bearer ${tokenRef.current}`;
       const params = new URLSearchParams({
-        viewerId: "me",
+        viewerId: profileRef.current.id || "me",
         limit: "20",
         country: f.country,
         langLevel: f.langLevel,
@@ -241,7 +331,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json() as { users: ServerUser[] };
       setDiscoverUsers(data.users.map(serverUserToAppUser));
     } catch (err) {
-      console.warn("[AppContext] fetchDiscover failed, using empty list:", err);
+      console.warn("[AppContext] fetchDiscover failed:", err);
+      setDiscoverError("프로필을 불러올 수 없습니다. 네트워크를 확인해주세요.");
       setDiscoverUsers([]);
     } finally {
       setDiscoverLoading(false);
@@ -256,6 +347,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── Fetch conversations from DB ───────────────────────────────────────────
   const fetchConversations = useCallback(async () => {
     if (!tokenRef.current) return;
+    setConversationsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/chat/conversations`, {
         headers: { Authorization: `Bearer ${tokenRef.current}` },
@@ -275,7 +367,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             photos: string[];
             bio: string;
             isOnline: boolean;
-            isAI: boolean;
           };
           lastMessage?: {
             id: string;
@@ -369,7 +460,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isNew: false,
       }));
       setMatches((prev) => {
-        // 새로운 매칭(isNew: true)은 유지하고 DB 데이터로 병합
         const newOnes = prev.filter((m) => m.isNew);
         const merged = [...dbMatches];
         newOnes.forEach((n) => {
@@ -377,8 +467,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
         return merged;
       });
+      setMatchesLoading(false);
     } catch (err) {
       console.warn("[AppContext] fetchConversations failed:", err);
+    } finally {
+      setConversationsLoading(false);
     }
   }, []);
 
@@ -401,12 +494,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (map["lito_logged_in"] === "true") setIsLoggedIn(true);
       if (map["lito_jwt"]) {
         setToken(map["lito_jwt"]);
-        connectWS(map["lito_jwt"]);
-        // 앱 재시작 시 DB에서 대화방 목록 로드
-        setTimeout(() => {
-          tokenRef.current = map["lito_jwt"]!;
-          fetchConversations();
-        }, 500);
+        tokenRef.current = map["lito_jwt"]!;
+        connectWS(map["lito_jwt"]!);
+        // 앱 재시작 시 서버에서 프로필 + 대화방 목록 로드
+        fetchMyProfile(map["lito_jwt"]!);
+        fetchConversations();
       }
       if (map["lito_diagnosis_status"]) {
         setDiagnosisStatus(map["lito_diagnosis_status"] as DiagnosisStatus);
@@ -416,13 +508,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       if (map["lito_diagnosis_reward"] === "true") setDiagnosisRewardClaimed(true);
       if (map["lito_ai_tickets"]) setAiCoachingTickets(Number(map["lito_ai_tickets"]) || 0);
-      // 이미 프로필 설정을 마친 기존 사용자는 진단 프롬프트를 다시 보지 않음
       if (map["lito_diagnosis_seen"] === "true" || map["lito_profile_setup"] === "done") {
         setHasSeenDiagnosisPrompt(true);
       }
     });
     fetchDiscover();
-  }, [fetchDiscover]);
+  }, [fetchDiscover, fetchMyProfile, fetchConversations]);
 
   const completeOnboarding = useCallback(() => {
     setHasCompletedOnboarding(true);
@@ -475,14 +566,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── WebSocket 연결 관리 ────────────────────────────────────────────────────
   const connectWS = useCallback((jwtToken: string) => {
-    // 기존 재연결 타이머 취소
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
-    // 기존 연결 종료
     if (wsRef.current) {
-      wsRef.current.onclose = null; // 자동 재연결 방지
+      wsRef.current.onclose = null;
       wsRef.current.close();
       wsRef.current = null;
     }
@@ -492,7 +581,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     ws.onopen = () => {
       setWsConnected(true);
-      // 현재 활성 대화방 재입장
       if (activeConvRef.current) {
         ws.send(JSON.stringify({ type: "join", conversationId: activeConvRef.current }));
       }
@@ -517,7 +605,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // ── 읽음 표시 실시간 업데이트 ─────────────────────────────────────
         if (msg.type === "read_receipt" && msg.conversationId) {
           const { conversationId, readAt } = msg as { conversationId: string; readAt: string; messageIds?: number[] };
-          // 내가 보낸 메시지들의 읽음 상태 업데이트
           setMessages((prev) => {
             const existing = prev[conversationId];
             if (!existing) return prev;
@@ -528,7 +615,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               ),
             };
           });
-          // unreadCount 초기화
           setConversations((prev) =>
             prev.map((c) =>
               c.id === conversationId ? { ...c, unreadCount: 0 } : c
@@ -539,9 +625,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         if (msg.type === "message" && msg.conversationId && msg.message) {
           const { conversationId, message: m } = msg;
+          const myId = profileRef.current.id;
 
           // 내가 보낸 메시지는 optimistic update로 이미 추가됨 → 스킵
-          if (m.senderId === "me") return;
+          if (m.senderId === myId || m.senderId === "me") return;
 
           const incomingMsg: Message = {
             id: `srv_${m.id}`,
@@ -571,7 +658,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             )
           );
 
-          // 현재 대화 화면이 아닌 경우에만 토스트 표시
           if (activeConvRef.current !== conversationId) {
             const conv = conversationsRef.current.find((c) => c.id === conversationId);
             const senderName = conv?.user.nickname ?? "새 메시지";
@@ -591,7 +677,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ws.onclose = () => {
       setWsConnected(false);
       wsRef.current = null;
-      // 3초 후 자동 재연결 (토큰 있을 때만)
       if (tokenRef.current) {
         reconnectTimerRef.current = setTimeout(() => {
           if (tokenRef.current) connectWS(tokenRef.current);
@@ -610,7 +695,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       reconnectTimerRef.current = null;
     }
     if (wsRef.current) {
-      wsRef.current.onclose = null; // 자동 재연결 방지
+      wsRef.current.onclose = null;
       wsRef.current.close();
       wsRef.current = null;
     }
@@ -621,17 +706,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     activeConvRef.current = conversationId;
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "join", conversationId }));
-      // 대화방 입장 시 읽음 표시 전송 (카카오톡 스타일)
       wsRef.current.send(JSON.stringify({ type: "read", conversationId }));
     }
-    // REST API로도 읽음 처리 (웹소켓 연결 안 될 때 대비)
     if (tokenRef.current) {
       fetch(`${API_BASE}/api/chat/${conversationId}/read`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${tokenRef.current}` },
       }).catch(() => {});
     }
-    // 로컬 unreadCount 초기화
     setConversations((prev) =>
       prev.map((c) =>
         c.id === conversationId ? { ...c, unreadCount: 0 } : c
@@ -649,27 +731,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback((jwtToken: string) => {
     setIsLoggedIn(true);
     setToken(jwtToken);
+    tokenRef.current = jwtToken;
     AsyncStorage.setItem("lito_logged_in", "true");
     AsyncStorage.setItem("lito_jwt", jwtToken);
     connectWS(jwtToken);
-    // 로그인 직후 DB에서 대화방 목록 로드
-    setTimeout(() => {
-      tokenRef.current = jwtToken;
-      fetchConversations();
-    }, 500);
-  }, [connectWS, fetchConversations]);
+    // 로그인 직후 서버에서 프로필 + 대화방 목록 로드
+    fetchMyProfile(jwtToken);
+    fetchConversations();
+  }, [connectWS, fetchConversations, fetchMyProfile]);
 
   const logout = useCallback(() => {
     setIsLoggedIn(false);
     setToken(null);
+    tokenRef.current = null;
     setHasCompletedOnboarding(false);
     setHasCompletedProfileSetupState(false);
-    setProfile(myProfile);
+    setProfile(EMPTY_PROFILE);
     setDiscoverUsers([]);
+    setDiscoverError(null);
     setNewMatch(null);
     setMatches(INITIAL_MATCHES);
-    setConversations(AI_INITIAL_CONVERSATIONS);
-    setMessages(AI_INITIAL_MESSAGES);
+    setConversations([...AI_INITIAL_CONVERSATIONS]);
+    setMessages({ ...AI_INITIAL_MESSAGES });
     setHasSeenDiagnosisPrompt(false);
     setDiagnosisStatus("not_started");
     setDiagnosisRewardClaimed(false);
@@ -685,14 +768,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       "lito_ai_tickets",
       "lito_diagnosis_seen",
     ]);
-    // WS 연결 종료
     disconnectWS();
-    // Reset server-side likes/passes so the deck resets too
-    fetch(`${API_BASE}/api/users/reset`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ viewerId: "me" }),
-    }).catch(() => {});
     setTimeout(() => fetchDiscover(), 300);
   }, [fetchDiscover, disconnectWS]);
 
@@ -703,7 +779,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Like user — calls API, handles match ─────────────────────────────────
-  // ── Super Like status ───────────────────────────────────────────────────
   const [superLikeStatus, setSuperLikeStatus] = useState<{ used: number; limit: number; remaining: number } | null>(null);
 
   const fetchSuperLikeStatus = useCallback(async () => {
@@ -722,16 +797,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const likeUser = useCallback(async (userId: string, isSuper?: boolean) => {
-    // Optimistic: remove from deck immediately
     setDiscoverUsers((prev) => prev.filter((u) => u.id !== userId));
 
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (tokenRef.current) headers["Authorization"] = `Bearer ${tokenRef.current}`;
+      const myId = profileRef.current.id || "me";
       const res = await fetch(`${API_BASE}/api/users/${userId}/like`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ viewerId: "me", isSuper: isSuper === true }),
+        body: JSON.stringify({ viewerId: myId, isSuper: isSuper === true }),
       });
       if (!res.ok) return;
       const data = await res.json() as {
@@ -743,9 +818,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (data.matched && data.matchedUser) {
         const matchedAppUser = serverUserToAppUser(data.matchedUser);
-        // Show match popup
         setNewMatch(matchedAppUser);
-        // 인앱 토스트
         setToast({
           id: `match_${matchedAppUser.id}_${Date.now()}`,
           title: "새로운 매치!",
@@ -753,7 +826,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           type: "match",
         });
 
-        // Add to matches list
         const newMatchEntry: Match = {
           id: data.matchId ?? `match_${userId}_${Date.now()}`,
           userId: matchedAppUser.id,
@@ -763,8 +835,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         };
         setMatches((prev) => [newMatchEntry, ...prev]);
 
-        // Create a new conversation if one doesn't exist
-        // 서버의 fetchConversations와 동일한 convId 규칙: conv_{min}_{max}
         const myId = profileRef.current.id;
         const numericUserId = parseInt(userId, 10);
         const numericMyId = parseInt(myId, 10);
@@ -786,7 +856,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
         setMessages((prev) => ({ ...prev, [convId]: [] }));
       }
-      // 슈퍼 라이크 사용 후 상태 갱신
       if (isSuper) {
         fetchSuperLikeStatus();
       }
@@ -806,10 +875,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (tokenRef.current) headers["Authorization"] = `Bearer ${tokenRef.current}`;
+      const myId = profileRef.current.id || "me";
       await fetch(`${API_BASE}/api/users/${userId}/pass`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ viewerId: "me" }),
+        body: JSON.stringify({ viewerId: myId }),
       });
     } catch (err) {
       console.warn("[AppContext] passUser API error:", err);
@@ -835,8 +905,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await new Promise((r) => setTimeout(r, 1200 + Math.random() * 800));
 
     const currentMsgs = messagesRef.current[conversationId] || [];
+    const myId = profileRef.current.id || "me";
     const history = currentMsgs.slice(-10).map((m) => ({
-      role: (m.senderId === "me" ? "user" : "assistant") as "user" | "assistant",
+      role: (m.senderId === myId || m.senderId === "me" ? "user" : "assistant") as "user" | "assistant",
       text: m.originalText,
     }));
 
@@ -886,10 +957,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const sendMessage = useCallback((conversationId: string, text: string) => {
     const lang = profileRef.current.language as "ko" | "ja";
+    const myId = profileRef.current.id || "me";
     const newMsg: Message = {
       id: `msg_${Date.now()}`,
       conversationId,
-      senderId: "me",
+      senderId: myId,
       originalText: text,
       originalLanguage: lang,
       createdAt: new Date().toISOString(),
@@ -911,7 +983,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         type: "message",
         conversationId,
         content: text,
-        senderId: "me",
+        senderId: myId,
         originalLanguage: lang,
       }));
     } else if (tokenRef.current) {
@@ -922,7 +994,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           Authorization: `Bearer ${tokenRef.current}`,
         },
         body: JSON.stringify({
-          senderId: "me",
+          senderId: myId,
           content: text,
           originalLanguage: lang,
         }),
@@ -1012,7 +1084,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         c.id === conversationId ? { ...c, unlockRequestState: "sent" } : c
       )
     );
-    // AI 페르소나 대화: 1.8초 후 자동 수락 (상대방 수락 시뮬레이션)
     const conv = conversationsRef.current.find((c) => c.id === conversationId);
     if (conv?.user.isAI) {
       setTimeout(() => {
@@ -1055,15 +1126,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         hasCompletedOnboarding,
         hasCompletedProfileSetup,
         isLoggedIn,
+        profileLoading,
         token,
         profile,
         discoverUsers,
         discoverLoading,
+        discoverError,
         newMatch,
         dismissMatch,
         refetchDiscover,
         matches,
+        matchesLoading,
         conversations,
+        conversationsLoading,
         messages,
         activeConversationId,
         completeOnboarding,
