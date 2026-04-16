@@ -8,7 +8,6 @@
     "scheme": "lito",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
-    "privacy": "unlisted",
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
@@ -47,7 +46,10 @@
               "pathPrefix": "/callback"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -67,7 +69,10 @@
     ],
     "extra": {
       "privacyPolicyUrl": "https://litodate.app/api/legal/privacy",
-      "termsUrl": "https://litodate.app/api/legal/terms"
+      "termsUrl": "https://litodate.app/api/legal/terms",
+      "eas": {
+        "projectId": "21e1b41e-6afe-4e5c-9fea-2184f210e289"
+      }
     },
     "updates": {
       "enabled": false,
