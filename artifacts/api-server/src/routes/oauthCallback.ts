@@ -55,7 +55,10 @@ function errorRedirect(res: any, message: string) {
 /** 실제 서버 베이스 URL (EXPO_PUBLIC_DOMAIN 우선, 없으면 req에서 추출) */
 function getServerBase(req: any): string {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (domain) return `https://${domain}`;
+  if (domain) {
+    // domain이 이미 https://를 포함하면 그대로 반환, 아니면 추가
+    return domain.startsWith('http') ? domain : `https://${domain}`;
+  }
   const proto = req.headers["x-forwarded-proto"] ?? req.protocol ?? "http";
   const host = req.headers["x-forwarded-host"] ?? req.get?.("host") ?? req.hostname;
   return `${proto}://${host}`;

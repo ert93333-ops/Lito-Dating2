@@ -210,6 +210,8 @@ export default function LoginScreen() {
               style={[styles.input, { color: colors.charcoal }]}
               placeholder={lang === "ko" ? "이메일" : "メールアドレス"}
               placeholderTextColor={colors.charcoalLight}
+              selectionColor={colors.rose}
+              cursorColor={colors.rose}
               value={email}
               onChangeText={(v) => { setEmail(v); setError(null); }}
               onFocus={() => setFocusedField("email")}
@@ -227,6 +229,8 @@ export default function LoginScreen() {
               style={[styles.input, { color: colors.charcoal }]}
               placeholder={lang === "ko" ? (mode === "register" ? "비밀번호 (6자 이상)" : "비밀번호") : (mode === "register" ? "パスワード（6文字以上）" : "パスワード")}
               placeholderTextColor={colors.charcoalLight}
+              selectionColor={colors.rose}
+              cursorColor={colors.rose}
               value={password}
               onChangeText={(v) => { setPassword(v); setError(null); }}
               onFocus={() => setFocusedField("password")}

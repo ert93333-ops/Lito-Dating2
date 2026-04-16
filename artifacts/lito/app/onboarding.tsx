@@ -340,7 +340,7 @@ export default function OnboardingScreen() {
               {"언어를 선택하세요\n言語を選択してください"}
             </Text>
             <Text style={[langStyles.sub, { color: colors.charcoalLight }]}>
-              {"Choose your language · 언어를 선택 / 言語選択"}
+              {"Choose your language"}
             </Text>
           </View>
 
