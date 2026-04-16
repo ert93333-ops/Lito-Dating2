@@ -285,6 +285,8 @@ export interface MyProfile {
   aiStyleSummary?: { ko: string; ja: string };
   trustProfile: TrustProfile;
   languageLevel?: "beginner" | "intermediate" | "advanced";
+  gender?: string;
+  preferredGender?: string;
 }
 
 // ── PRS (Partner Receptivity Score) types ─────────────────────────────────────

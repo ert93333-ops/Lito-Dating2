@@ -69,6 +69,10 @@
       "privacyPolicyUrl": "https://litodate.app/api/legal/privacy",
       "termsUrl": "https://litodate.app/api/legal/terms"
     },
+    "updates": {
+      "enabled": false,
+      "url": ""
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

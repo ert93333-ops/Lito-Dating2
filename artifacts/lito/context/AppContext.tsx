@@ -28,6 +28,8 @@ const EMPTY_PROFILE: MyProfile = {
   instagramHandle: "",
   photos: [],
   aiStyleSummary: undefined,
+  gender: "",
+  preferredGender: "",
   trustProfile: {
     humanVerified: { status: "not_verified" },
     faceMatched: { status: "not_verified" },
@@ -123,6 +125,8 @@ interface ServerProfile {
   photos: string[] | null;
   instagramHandle: string | null;
   languageLevel: string | null;
+  gender: string | null;
+  preferredGender: string | null;
   updatedAt: string | null;
 }
 
@@ -141,6 +145,8 @@ function serverToMyProfile(user: ServerAuthUser, profile: ServerProfile | null):
     instagramHandle: profile?.instagramHandle ?? "",
     photos: profile?.photos ?? [],
     aiStyleSummary: undefined,
+    gender: profile?.gender ?? "",
+    preferredGender: profile?.preferredGender ?? "",
     trustProfile: {
       humanVerified: { status: "not_verified" },
       faceMatched: { status: "not_verified" },

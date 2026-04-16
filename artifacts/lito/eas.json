@@ -1,42 +1,16 @@
 {
-  "cli": {
-    "version": ">= 16.0.0"
-  },
   "build": {
     "development": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_DOMAIN": "REPLACE_WITH_YOUR_API_SERVER_DOMAIN"
-      }
-    },
-    "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
       },
-      "env": {
-        "EXPO_PUBLIC_DOMAIN": "REPLACE_WITH_YOUR_API_SERVER_DOMAIN"
-      }
-    },
-    "production": {
-      "autoIncrement": true,
-      "env": {
-        "EXPO_PUBLIC_DOMAIN": "REPLACE_WITH_YOUR_PRODUCTION_DOMAIN"
+      "ios": {
+        "buildType": "simulator"
       }
     }
   },
-  "submit": {
-    "production": {
-      "android": {
-        "serviceAccountKeyPath": "./google-play-service-account.json",
-        "track": "internal"
-      },
-      "ios": {
-        "appleId": "REPLACE_WITH_APPLE_ID_EMAIL",
-        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID"
-      }
-    }
+  "updates": {
+    "enabled": false
   }
 }
