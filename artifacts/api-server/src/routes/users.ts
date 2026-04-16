@@ -291,11 +291,13 @@ function expandInterestTags(tags: string[]): string[] {
 
 function applyFilters(
   user: ServerUser,
-  { country, minAge, maxAge, langLevel, interests }: { country: string; minAge: number; maxAge: number; langLevel: string; interests: string[] }
+  { country, minAge, maxAge, langLevel, interests, preferredGender }: { country: string; minAge: number; maxAge: number; langLevel: string; interests: string[]; preferredGender?: string }
 ): boolean {
   if (user.age < minAge || user.age > maxAge) return false;
   if (country !== "all" && user.country !== country) return false;
   if (langLevel !== "all" && user.languageLevel !== langLevel) return false;
+  // 매칭 선호 성별 필터링 (preferredGender가 "any"가 아니면 필터링)
+  if (preferredGender && preferredGender !== "any" && user.gender !== preferredGender) return false;
   if (interests.length > 0) {
     const expandedFilter = expandInterestTags(interests);
     const userInterests = (user.interests ?? []).map((i) => i.toLowerCase());
@@ -316,10 +318,11 @@ router.get("/users/discover", optionalAuth, async (req, res) => {
   const langLevel = (req.query.langLevel as string) || "all";
   const interestsRaw = (req.query.interests as string) || "";
   const interests = interestsRaw ? interestsRaw.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  const preferredGender = (req.query.preferredGender as string) || "any";
   const limit = Math.min(Number(req.query.limit) || 20, 50);
   const offset = Number(req.query.offset) || 0;
 
-  const filterOpts = { country, minAge, maxAge, langLevel, interests };
+  const filterOpts = { country, minAge, maxAge, langLevel, interests, preferredGender };
 
   // ── 인증된 실제 사용자 ──────────────────────────────────────────────────────
   if (req.user) {

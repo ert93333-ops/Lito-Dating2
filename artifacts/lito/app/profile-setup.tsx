@@ -119,13 +119,15 @@ export default function ProfileSetupScreen() {
   const [nickname, setNickname] = useState("");
   const [age, setAge] = useState("");
   const [intro, setIntro] = useState("");
+  const [gender, setGender] = useState<"" | "male" | "female" | "non-binary" | "other">("");
+  const [preferredGender, setPreferredGender] = useState<"" | "male" | "female" | "any">("");
 
   // Step 3 — Interests
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
 
   const parsedAge = parseInt(age);
   const ageValid = age === "" || (parsedAge >= 18 && parsedAge <= 99);
-  const step2CanContinue = nickname.trim().length >= 2 && (age === "" || ageValid);
+  const step2CanContinue = nickname.trim().length >= 2 && (age === "" || ageValid) && gender !== "" && preferredGender !== "";
 
   // ── Photo picker ──────────────────────────────────────────────────────────
   const pickPhoto = async (slot: "main" | number) => {
@@ -240,6 +242,8 @@ export default function ProfileSetupScreen() {
       aiStyleSummary: undefined,
       interests: selectedInterests.length > 0 ? selectedInterests : [],
       photos: allPhotos.length > 0 ? allPhotos : profile.photos,
+      gender: gender || "",
+      preferredGender: preferredGender || "",
     };
     updateProfile(updates);
 
@@ -256,6 +260,8 @@ export default function ProfileSetupScreen() {
           interests: updates.interests,
           photos: updates.photos,
           languageLevel: profile.languageLevel ?? "beginner",
+          gender: updates.gender,
+          preferredGender: updates.preferredGender,
         }),
       }).catch(() => {});
     }
@@ -654,6 +660,42 @@ export default function ProfileSetupScreen() {
             </Text>
           </View>
 
+          {/* Gender field */}
+          <View style={s.field}>
+            <Text style={[s.fieldLabel, { color: colors.charcoalMid }]}>
+              {lang === "ko" ? "성별" : "性別"}
+            </Text>
+            <View style={s.optionRow}>
+              {[{val: "male", label: lang === "ko" ? "남성" : "男性"}, {val: "female", label: lang === "ko" ? "여성" : "女性"}, {val: "non-binary", label: lang === "ko" ? "논바이너리" : "ノンバイナリー"}, {val: "other", label: lang === "ko" ? "기타" : "その他"}].map(opt => (
+                <Pressable
+                  key={opt.val}
+                  onPress={() => setGender(opt.val as any)}
+                  style={[s.optionBtn, {backgroundColor: gender === opt.val ? colors.rose : colors.muted, borderColor: gender === opt.val ? colors.rose : colors.border}]}
+                >
+                  <Text style={[s.optionText, {color: gender === opt.val ? "#fff" : colors.charcoalMid}]}>{opt.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {/* Preferred Gender field */}
+          <View style={s.field}>
+            <Text style={[s.fieldLabel, { color: colors.charcoalMid }]}>
+              {lang === "ko" ? "관심 대상" : "興味対象"}
+            </Text>
+            <View style={s.optionRow}>
+              {[{val: "male", label: lang === "ko" ? "남성" : "男性"}, {val: "female", label: lang === "ko" ? "여성" : "女性"}, {val: "any", label: lang === "ko" ? "모두" : "すべて"}].map(opt => (
+                <Pressable
+                  key={opt.val}
+                  onPress={() => setPreferredGender(opt.val as any)}
+                  style={[s.optionBtn, {backgroundColor: preferredGender === opt.val ? colors.rose : colors.muted, borderColor: preferredGender === opt.val ? colors.rose : colors.border}]}
+                >
+                  <Text style={[s.optionText, {color: preferredGender === opt.val ? "#fff" : colors.charcoalMid}]}>{opt.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
           {/* Soft tip card */}
           <View style={[s.tipCard, { backgroundColor: colors.muted, borderColor: colors.border }]}>
             <Text style={[s.tipText, { color: colors.charcoalMid }]}>
@@ -913,6 +955,27 @@ const s = StyleSheet.create({
     fontSize: 11.5,
     textAlign: "right",
     marginTop: 5,
+  },
+
+  // Gender/Identity options
+  optionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  optionBtn: {
+    flex: 1,
+    minWidth: "45%",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  optionText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
   },
 
   // Tip card

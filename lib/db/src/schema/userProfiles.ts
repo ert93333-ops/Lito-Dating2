@@ -26,6 +26,8 @@ export const userProfiles = pgTable("user_profiles", {
   photos: jsonb("photos").$type<string[]>().notNull().default([]),
   instagramHandle: varchar("instagram_handle", { length: 100 }).notNull().default(""),
   languageLevel: varchar("language_level", { length: 20 }).notNull().default("beginner"),
+  gender: varchar("gender", { length: 20 }).notNull().default(""),
+  preferredGender: varchar("preferred_gender", { length: 20 }).notNull().default(""),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
