@@ -1,49 +1,43 @@
-# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 
-# compiled output
-dist
-tmp
-out-tsc
-*.tsbuildinfo
-.expo
-.expo-shared
-
-# dependencies
-node_modules
-
-# IDEs and editors
-/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
-
-# IDE - VSCode
-.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
 !.vscode/settings.json
 !.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-
+# IDE - VSCode
+# IDEs and editors
+# Replit
+# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+# System Files
+# compiled output
+# dependencies
 # misc
+*.launch
+*.sublime-workspace
+*.tsbuildinfo
+.DS_Store
+.c9/
+.cache/
+.classpath
+.cursor/rules/nx-rules.mdc
+.expo
+.expo-shared
+.github/instructions/nx.instructions.md
+.local/
+.project
+.settings/
+.vscode/*
+/.idea
 /.sass-cache
 /connect.lock
 /coverage
 /libpeerconnection.log
-npm-debug.log
-yarn-error.log
-testem.log
 /typings
-
-# System Files
-.DS_Store
 Thumbs.db
-
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
-
-# Replit
-.cache/
-.local/
+dist
+gcs-key.json
+node_modules
+npm-debug.log
+out-tsc
+testem.log
+tmp
+yarn-error.log
