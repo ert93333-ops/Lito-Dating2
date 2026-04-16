@@ -485,6 +485,138 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // ── WebSocket 연결 관리 ────────────────────────────────────────────────────
+  const connectWS = useCallback((jwtToken: string) => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
+    const ws = new WebSocket(`${WS_URL}?token=${encodeURIComponent(jwtToken)}`);
+    wsRef.current = ws;
+
+    ws.onmessage = (event: MessageEvent<string>) => {
+      try {
+        const msg = JSON.parse(event.data) as {
+          type: string;
+          conversationId?: string;
+          readAt?: string;
+          messageIds?: number[];
+          message?: {
+            id: number;
+            conversationId: string;
+            senderId: string;
+            content: string;
+            originalLanguage: string | null;
+            translatedContent: string | null;
+            createdAt: string;
+          };
+        };
+
+        // ── 읽음 표시 실시간 업데이트 ─────────────────────────────────────
+        if (msg.type === "read_receipt" && msg.conversationId) {
+          const conversationId = msg.conversationId!;
+          const readAt = msg.readAt ?? "";
+          setMessages((prev) => {
+            const existing = prev[conversationId];
+            if (!existing) return prev;
+            return {
+              ...prev,
+              [conversationId]: existing.map((m) =>
+                !m.isRead ? { ...m, isRead: true, readAt } : m
+              ),
+            };
+          });
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === conversationId ? { ...c, unreadCount: 0 } : c
+            )
+          );
+          return;
+        }
+
+        if (msg.type === "message" && msg.conversationId && msg.message) {
+          const { conversationId, message: m } = msg;
+          const myId = profileRef.current.id;
+
+          // 내가 보낸 메시지는 optimistic update로 이미 추가됨 → 스킵
+          if (m.senderId === myId || m.senderId === "me") return;
+
+          const incomingMsg: Message = {
+            id: `srv_${m.id}`,
+            conversationId: m.conversationId,
+            senderId: m.senderId,
+            originalText: m.content,
+            originalLanguage: (m.originalLanguage as "ko" | "ja") ?? "ko",
+            translatedText: m.translatedContent ?? undefined,
+            createdAt: m.createdAt,
+            isRead: false,
+          };
+
+          setMessages((prev) => {
+            const existing = prev[conversationId] ?? [];
+            if (existing.some((x) => x.id === incomingMsg.id)) return prev;
+            return {
+              ...prev,
+              [conversationId]: [...existing, incomingMsg].sort(
+                (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+              ),
+            };
+          });
+
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === conversationId ? { ...c, lastMessage: incomingMsg } : c
+            )
+          );
+
+          if (activeConvRef.current !== conversationId) {
+            const conv = conversationsRef.current.find((c) => c.id === conversationId);
+            const senderName = conv?.user.nickname ?? "새 메시지";
+            toastSetterRef.current({
+              id: `msg_${incomingMsg.id}`,
+              title: senderName,
+              body: incomingMsg.originalText,
+              type: "message",
+            });
+          }
+        }
+      } catch {
+        // ignore parse errors
+      }
+    };
+
+    ws.onopen = () => {
+      setWsConnected(true);
+      reconnectAttemptRef.current = 0; // 연결 성공 시 재시도 카운터 초기화
+      if (activeConvRef.current) {
+        ws.send(JSON.stringify({ type: "join", conversationId: activeConvRef.current }));
+      }
+    };
+
+    ws.onclose = () => {
+      setWsConnected(false);
+      wsRef.current = null;
+      if (tokenRef.current) {
+        // 지수 백오프: 1s → 2s → 4s → 8s → 16s → 최대 30s
+        const attempt = reconnectAttemptRef.current;
+        const delayMs = Math.min(1000 * Math.pow(2, attempt), 30000);
+        reconnectAttemptRef.current = attempt + 1;
+        reconnectTimerRef.current = setTimeout(() => {
+          if (tokenRef.current) connectWS(tokenRef.current);
+        }, delayMs);
+      }
+    };
+
+    ws.onerror = () => {
+      // onclose가 이어서 호출되므로 여기서는 별도 처리 불필요
+    };
+  }, []);
   // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
     AsyncStorage.multiGet([
@@ -597,135 +729,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem("lito_diagnosis_seen", "true");
   }, []);
 
-  // ── WebSocket 연결 관리 ────────────────────────────────────────────────────
-  const connectWS = useCallback((jwtToken: string) => {
-    if (reconnectTimerRef.current) {
-      clearTimeout(reconnectTimerRef.current);
-      reconnectTimerRef.current = null;
-    }
-    if (wsRef.current) {
-      wsRef.current.onclose = null;
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-
-    const ws = new WebSocket(`${WS_URL}?token=${encodeURIComponent(jwtToken)}`);
-    wsRef.current = ws;
-
-    ws.onmessage = (event: MessageEvent<string>) => {
-      try {
-        const msg = JSON.parse(event.data) as {
-          type: string;
-          conversationId?: string;
-          message?: {
-            id: number;
-            conversationId: string;
-            senderId: string;
-            content: string;
-            originalLanguage: string | null;
-            translatedContent: string | null;
-            createdAt: string;
-          };
-        };
-
-        // ── 읽음 표시 실시간 업데이트 ─────────────────────────────────────
-        if (msg.type === "read_receipt" && msg.conversationId) {
-          const { conversationId, readAt } = msg as { conversationId: string; readAt: string; messageIds?: number[] };
-          setMessages((prev) => {
-            const existing = prev[conversationId];
-            if (!existing) return prev;
-            return {
-              ...prev,
-              [conversationId]: existing.map((m) =>
-                !m.isRead ? { ...m, isRead: true, readAt } : m
-              ),
-            };
-          });
-          setConversations((prev) =>
-            prev.map((c) =>
-              c.id === conversationId ? { ...c, unreadCount: 0 } : c
-            )
-          );
-          return;
-        }
-
-        if (msg.type === "message" && msg.conversationId && msg.message) {
-          const { conversationId, message: m } = msg;
-          const myId = profileRef.current.id;
-
-          // 내가 보낸 메시지는 optimistic update로 이미 추가됨 → 스킵
-          if (m.senderId === myId || m.senderId === "me") return;
-
-          const incomingMsg: Message = {
-            id: `srv_${m.id}`,
-            conversationId: m.conversationId,
-            senderId: m.senderId,
-            originalText: m.content,
-            originalLanguage: (m.originalLanguage as "ko" | "ja") ?? "ko",
-            translatedText: m.translatedContent ?? undefined,
-            createdAt: m.createdAt,
-            isRead: false,
-          };
-
-          setMessages((prev) => {
-            const existing = prev[conversationId] ?? [];
-            if (existing.some((x) => x.id === incomingMsg.id)) return prev;
-            return {
-              ...prev,
-              [conversationId]: [...existing, incomingMsg].sort(
-                (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-              ),
-            };
-          });
-
-          setConversations((prev) =>
-            prev.map((c) =>
-              c.id === conversationId ? { ...c, lastMessage: incomingMsg } : c
-            )
-          );
-
-          if (activeConvRef.current !== conversationId) {
-            const conv = conversationsRef.current.find((c) => c.id === conversationId);
-            const senderName = conv?.user.nickname ?? "새 메시지";
-            toastSetterRef.current({
-              id: `msg_${incomingMsg.id}`,
-              title: senderName,
-              body: incomingMsg.originalText,
-              type: "message",
-            });
-          }
-        }
-      } catch {
-        // ignore parse errors
-      }
-    };
-
-    ws.onopen = () => {
-      setWsConnected(true);
-      reconnectAttemptRef.current = 0; // 연결 성공 시 재시도 카운터 초기화
-      if (activeConvRef.current) {
-        ws.send(JSON.stringify({ type: "join", conversationId: activeConvRef.current }));
-      }
-    };
-
-    ws.onclose = () => {
-      setWsConnected(false);
-      wsRef.current = null;
-      if (tokenRef.current) {
-        // 지수 백오프: 1s → 2s → 4s → 8s → 16s → 최대 30s
-        const attempt = reconnectAttemptRef.current;
-        const delayMs = Math.min(1000 * Math.pow(2, attempt), 30000);
-        reconnectAttemptRef.current = attempt + 1;
-        reconnectTimerRef.current = setTimeout(() => {
-          if (tokenRef.current) connectWS(tokenRef.current);
-        }, delayMs);
-      }
-    };
-
-    ws.onerror = () => {
-      // onclose가 이어서 호출되므로 여기서는 별도 처리 불필요
-    };
-  }, []);
 
   const disconnectWS = useCallback(() => {
     if (reconnectTimerRef.current) {

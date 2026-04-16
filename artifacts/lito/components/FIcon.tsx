@@ -9,7 +9,8 @@ type IconName =
   | "heart" | "info" | "instagram" | "lock" | "log-out" | "map-pin"
   | "message-circle" | "more-vertical" | "phone" | "refresh-cw" | "send" | "settings" | "shield"
   | "slash" | "sliders" | "star" | "unlock" | "upload" | "user" | "user-check"
-  | "plus" | "x" | "x-circle" | "zap";
+  | "plus" | "x" | "x-circle" | "zap"
+  | "mail" | "wifi-off" | "arrow-up" | "copy";
 
 interface FIconProps {
   name: IconName;
@@ -276,6 +277,35 @@ function Icon({ name, size = 24, color = "#000", style }: FIconProps) {
       </>
     ),
     "zap": <Polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" {...s} />,
+    "mail": (
+      <>
+        <Path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" {...s} />
+        <Polyline points="22,6 12,13 2,6" {...s} />
+      </>
+    ),
+    "wifi-off": (
+      <>
+        <Line x1="1" y1="1" x2="23" y2="23" {...s} />
+        <Path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" {...s} />
+        <Path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" {...s} />
+        <Path d="M10.71 5.05A16 16 0 0 1 22.56 9" {...s} />
+        <Path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" {...s} />
+        <Path d="M8.53 16.11a6 6 0 0 1 6.95 0" {...s} />
+        <Line x1="12" y1="20" x2="12.01" y2="20" {...s} />
+      </>
+    ),
+    "arrow-up": (
+      <>
+        <Line x1="12" y1="19" x2="12" y2="5" {...s} />
+        <Polyline points="5 12 12 5 19 12" {...s} />
+      </>
+    ),
+    "copy": (
+      <>
+        <Rect x="9" y="9" width="13" height="13" rx="2" ry="2" {...s} />
+        <Path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" {...s} />
+      </>
+    ),
   };
 
   return (

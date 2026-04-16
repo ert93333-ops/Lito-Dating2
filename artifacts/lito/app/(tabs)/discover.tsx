@@ -741,7 +741,7 @@ export default function DiscoverScreen() {
         </Text>
         <TouchableOpacity
           style={[styles.refetchBtn, { backgroundColor: colors.rose }]}
-          onPress={refetchDiscover}
+          onPress={() => refetchDiscover()}
           activeOpacity={0.85}
         >
           <FIcon name="refresh-cw" size={16} color="#fff" />
@@ -803,24 +803,24 @@ export default function DiscoverScreen() {
       {/* ── Diagnosis reminder banner ───────────────────────────────── */}
       {diagnosisStatus === "skipped" && (
         <TouchableOpacity
-          style={styles.diagnosisBanner}
+          style={filterStyles.diagnosisBanner}
           activeOpacity={0.85}
           onPress={() => router.push("/diagnosis" as any)}
         >
-          <View style={styles.diagnosisBannerLeft}>
+          <View style={filterStyles.diagnosisBannerLeft}>
             <FIcon name="heart" size={15} color="#C84B72" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.diagnosisBannerTitle}>
+              <Text style={filterStyles.diagnosisBannerTitle}>
                 {isKo
                   ? "연애 스타일 진단을 완료해 매칭을 개선하세요"
                   : "恋愛スタイル診断を完了してマッチングを改善"}
               </Text>
-              <Text style={styles.diagnosisBannerSub}>
+              <Text style={filterStyles.diagnosisBannerSub}>
                 {isKo ? "AI 코칭 티켓 1장 증정" : "AIコーチングチケット1枚プレゼント"}
               </Text>
             </View>
           </View>
-          <Text style={styles.diagnosisBannerCta}>
+          <Text style={filterStyles.diagnosisBannerCta}>
             {isKo ? "시작" : "開始"}
           </Text>
         </TouchableOpacity>

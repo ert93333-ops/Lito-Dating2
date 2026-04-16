@@ -1297,7 +1297,7 @@ export default function ChatDetailScreen() {
 
         {/* More options */}
         <TouchableOpacity
-          style={styles.moreBtn}
+          style={popup.moreBtn}
           onPress={() => setShowMoreMenu(true)}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >

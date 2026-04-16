@@ -38,6 +38,8 @@ export interface ServerUser {
   instagramHandle?: string;
   isAI?: boolean;
   personaId?: string;
+  gender?: string;
+  preferredGender?: string;
 }
 
 // ── 목업 AI 페르소나 + 데모 유저 (항상 풀에 포함) ─────────────────────────────

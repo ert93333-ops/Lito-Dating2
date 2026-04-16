@@ -59,7 +59,7 @@ router.post("/storage/uploads/request-url", requireAuth, async (req: Request, re
  */
 router.put("/storage/local-upload/:objectId", async (req: Request, res: Response) => {
   try {
-    const { objectId } = req.params;
+    const objectId = req.params["objectId"] as string;
     if (!objectId || !/^[a-f0-9-]+$/.test(objectId)) {
       res.status(400).json({ error: "잘못된 objectId" });
       return;
@@ -81,7 +81,10 @@ router.put("/storage/local-upload/:objectId", async (req: Request, res: Response
       return;
     }
 
-    await storageService.saveLocalFile(objectId, data, req.headers["content-type"]);
+    const contentType = Array.isArray(req.headers["content-type"])
+      ? req.headers["content-type"][0]
+      : req.headers["content-type"];
+    await storageService.saveLocalFile(objectId, data, contentType);
     res.status(200).json({ ok: true });
   } catch (err) {
     console.error("[storage] local-upload error:", err);
