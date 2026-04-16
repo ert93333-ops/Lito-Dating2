@@ -1,3 +1,4 @@
+import { API_BASE } from "@/config";
 /**
  * Expo용 사진 Object Storage 업로드 유틸리티
  * file:// URI, data: URI, content:// URI 모두 지원
@@ -8,9 +9,6 @@
  * - 네트워크 에러 래핑
  */
 
-const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
-  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : "http://localhost:3000";
 
 // ── 에러 클래스 ────────────────────────────────────────────────────────────────
 

@@ -1,3 +1,4 @@
+import { API_BASE, WS_URL, ENABLE_AI_PERSONAS } from "@/config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { AppState, AppStateStatus } from "react-native";
@@ -8,17 +9,9 @@ import {
 } from "@/data/aiPersonas";
 import { Conversation, Match, Message, MyProfile, TrustProfile, User } from "@/types";
 
-const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
-  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : "http://localhost:3000";
 
 // Feature Flag: AI 페르소나 대화방 활성화 여부
-// 프로덕션에서는 EXPO_PUBLIC_ENABLE_AI_PERSONAS=false로 설정
-const ENABLE_AI_PERSONAS = (process.env.EXPO_PUBLIC_ENABLE_AI_PERSONAS ?? "true").toLowerCase() === "true";
 
-const WS_URL = process.env.EXPO_PUBLIC_DOMAIN
-  ? `wss://${process.env.EXPO_PUBLIC_DOMAIN}/ws`
-  : "ws://localhost:3000/ws";
 
 // ── 빈 프로필 초기값 (로그인 전 상태) ──────────────────────────────────────────
 const EMPTY_PROFILE: MyProfile = {

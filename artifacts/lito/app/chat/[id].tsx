@@ -1,3 +1,4 @@
+import { API_BASE } from "@/config";
 import FIcon from "@/components/FIcon";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -34,9 +35,6 @@ import { Message, computeTrustScore } from "@/types";
 
 // currentUserId는 더 이상 하드코딩하지 않음 — 컴포넌트 내에서 profile.id 사용
 
-const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
-  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : "http://localhost:3000";
 
 // ── Module-level translation cache ───────────────────────────────────────────
 // Persists across remounts. Key = "<msgId>:<targetLang>"

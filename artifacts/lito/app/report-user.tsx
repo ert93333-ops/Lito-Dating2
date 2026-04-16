@@ -1,3 +1,4 @@
+import { API_BASE } from "@/config";
 /**
  * report-user.tsx — User report / scam defense screen
  *
@@ -48,9 +49,6 @@ import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 import type { UserReportCategory } from "@/types";
 
-const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
-  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : "http://localhost:3000";
 
 // ── Category config ────────────────────────────────────────────────────────────
 // Ordered by prevalence in the KR-JP dating context.

@@ -1,3 +1,4 @@
+import { API_BASE } from "@/config";
 /**
  * API 클라이언트 유틸리티
  * - HTTP 상태코드별 분기 처리 (401/403/429)
@@ -5,9 +6,6 @@
  * - 네트워크 에러 래핑
  */
 
-const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
-  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : "http://localhost:3000";
 
 // ── 커스텀 에러 클래스 ─────────────────────────────────────────────────────────
 

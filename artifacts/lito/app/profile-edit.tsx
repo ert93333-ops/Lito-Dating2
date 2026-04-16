@@ -1,3 +1,4 @@
+import { API_BASE } from "@/config";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -471,9 +472,7 @@ export default function ProfileEditScreen() {
 
     // 서버에도 저장
     if (token) {
-      const apiBase = process.env.EXPO_PUBLIC_DOMAIN
-        ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-        : "http://localhost:3000";
+      const apiBase = API_BASE;
       try {
         await fetch(`${apiBase}/api/auth/profile`, {
           method: "PUT",

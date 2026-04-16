@@ -1,3 +1,4 @@
+import { API_BASE } from "@/config";
 import FIcon from "@/components/FIcon";
 import { router } from "expo-router";
 import React from "react";
@@ -151,9 +152,7 @@ export default function SettingsScreen() {
               icon="file-text"
               label={lang === "ko" ? "개인정보 보호정책" : "プライバシーポリシー"}
               onPress={() => {
-                const base = process.env.EXPO_PUBLIC_DOMAIN
-                  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-                  : "http://localhost:3000";
+                  const base = API_BASE;
                 Linking.openURL(`${base}/api/legal/privacy`);
               }}
             />
@@ -161,9 +160,7 @@ export default function SettingsScreen() {
               icon="book-open"
               label={lang === "ko" ? "이용약관" : "利用規約"}
               onPress={() => {
-                const base = process.env.EXPO_PUBLIC_DOMAIN
-                  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-                  : "http://localhost:3000";
+                  const base = API_BASE;
                 Linking.openURL(`${base}/api/legal/terms`);
               }}
             />

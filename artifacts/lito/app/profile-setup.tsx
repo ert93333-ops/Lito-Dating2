@@ -1,3 +1,4 @@
+import { API_BASE } from "@/config";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -243,9 +244,7 @@ export default function ProfileSetupScreen() {
     updateProfile(updates);
 
     if (token) {
-      const apiBase = process.env.EXPO_PUBLIC_DOMAIN
-        ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-        : "http://localhost:3000";
+      const apiBase = API_BASE;
       fetch(`${apiBase}/api/auth/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -255,6 +254,7 @@ export default function ProfileSetupScreen() {
           bio: updates.bio,
           intro: updates.intro,
           interests: updates.interests,
+          photos: updates.photos,
           languageLevel: profile.languageLevel ?? "beginner",
         }),
       }).catch(() => {});

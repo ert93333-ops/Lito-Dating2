@@ -15,6 +15,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { API_BASE } from "@/config";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NotificationToast } from "@/components/NotificationToast";
 import { AppProvider, useApp } from "@/context/AppContext";
@@ -22,11 +23,8 @@ import { GrowthProvider } from "@/context/GrowthContext";
 
 SplashScreen.preventAutoHideAsync();
 
-// Point the API client at the Replit proxy so Expo can reach the API server.
-// EXPO_PUBLIC_DOMAIN is injected at bundle time by Replit's build system.
-if (process.env.EXPO_PUBLIC_DOMAIN) {
-  setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
-}
+// API 클라이언트 기본 URL 설정 (config.ts에서 중앙 관리)
+setBaseUrl(API_BASE);
 
 const queryClient = new QueryClient();
 

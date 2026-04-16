@@ -1,3 +1,4 @@
+import { API_BASE } from "@/config";
 import FIcon from "@/components/FIcon";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
@@ -19,9 +20,6 @@ import {
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
-  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : "http://localhost:3000";
 
 type Mode = "login" | "register";
 
@@ -325,9 +323,7 @@ export default function LoginScreen() {
           <Text
             style={[styles.termsLink, { color: colors.rose }]}
             onPress={() => {
-              const base = process.env.EXPO_PUBLIC_DOMAIN
-                ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-                : "http://localhost:3000";
+              const base = API_BASE;
               Linking.openURL(`${base}/api/legal/terms`);
             }}
           >{lang === "ko" ? "이용약관" : "利用規約"}</Text>
@@ -335,9 +331,7 @@ export default function LoginScreen() {
           <Text
             style={[styles.termsLink, { color: colors.rose }]}
             onPress={() => {
-              const base = process.env.EXPO_PUBLIC_DOMAIN
-                ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-                : "http://localhost:3000";
+              const base = API_BASE;
               Linking.openURL(`${base}/api/legal/privacy`);
             }}
           >{lang === "ko" ? "개인정보 보호정책" : "プライバシーポリシー"}</Text>

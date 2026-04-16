@@ -7,8 +7,8 @@ const router = Router();
 
 // ── Feature Flag: AI 페르소나 및 데모 유저 활성화 여부 ──────────────────────────
 // 프로덕션에서는 ENABLE_AI_PERSONAS=false로 설정하여 AI/데모 유저를 완전히 숨깁니다.
-const ENABLE_AI_PERSONAS = (process.env.ENABLE_AI_PERSONAS ?? "true").toLowerCase() === "true";
-const ENABLE_DEMO_USERS = (process.env.ENABLE_DEMO_USERS ?? "true").toLowerCase() === "true";
+const ENABLE_AI_PERSONAS = (process.env.ENABLE_AI_PERSONAS ?? "false").toLowerCase() === "true";
+const ENABLE_DEMO_USERS = (process.env.ENABLE_DEMO_USERS ?? "false").toLowerCase() === "true";
 
 // ── ServerUser 타입 ────────────────────────────────────────────────────────────
 

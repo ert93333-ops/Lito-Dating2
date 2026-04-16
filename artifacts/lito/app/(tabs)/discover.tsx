@@ -1,3 +1,4 @@
+import { API_BASE } from "@/config";
 import FIcon from "@/components/FIcon";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -58,9 +59,6 @@ const INTEREST_OPTIONS = [
 // ─── Bio translation ─────────────────────────────────────────────────────────
 // CRITICAL: Do NOT modify this section. Translation logic must stay intact.
 
-const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
-  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : "http://localhost:3000";
 
 interface BioResult { translation: string; }
 const bioCache = new Map<string, BioResult>();
