@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-🤖 오토매틱최찌 V2.6 (Ultimate Self-Repair Edition)
+🤖 오토매틱최찌 V2.7 (Ultimate Self-Repair Edition)
 ==================================================
 LITO 자율 개발 시스템
 - GPT-4o (PM) → Codex CLI (개발자) → Manus API (테스터/해결사)
@@ -155,11 +155,16 @@ def run_codex_cli(instruction: str):
     except Exception as e: return "Error", str(e)
 
 def manus_api_call(prompt: str) -> str:
-    """Manus API v2 호출 (goal 필드 사용)"""
+    """Manus API v2 호출 (최종 확인된 규격 반영)"""
     headers = {"x-manus-api-key": MANUS_API_KEY, "Content-Type": "application/json"}
+    payload = {
+        "goal": prompt,
+        "message": {
+            "content": prompt
+        }
+    }
     try:
-        # 테스트 결과 v2/task.create 에서는 'goal' 필드가 필수적임
-        resp = requests.post("https://api.manus.im/v2/task.create", json={"goal": prompt}, headers=headers, timeout=20)
+        resp = requests.post("https://api.manus.im/v2/task.create", json=payload, headers=headers, timeout=20)
         if resp.status_code == 200: return resp.json().get("task_id")
         log.error(f"Manus API Error: {resp.status_code} {resp.text}")
     except: pass
@@ -185,7 +190,7 @@ def wait_for_manus(task_id: str):
 def main():
     global loop_count, current_task, is_paused, is_running
     threading.Thread(target=handle_telegram_commands, daemon=True).start()
-    send_telegram("🤖 *오토매틱최찌 V2.6 가동! (5분 간격)*")
+    send_telegram("🤖 *오토매틱최찌 V2.7 가동! (5분 간격)*")
     
     prev_report, last_error = "", ""
     
@@ -212,7 +217,6 @@ def main():
                 else: last_error = "Manus 생성 실패"
             elif status == "Error":
                 send_telegram(f"⚠️ *오류 발생! Manus 자가 복구 시작*")
-                # 자가 복구: Manus에게 오류 해결 지시
                 repair_id = manus_api_call(f"Lito-Dating2 오류 해결 요청:\n저장소: {GITHUB_REPO}\n오류내용: {result}\n코드를 수정하고 GitHub에 푸시하세요.")
                 if repair_id:
                     send_telegram(f"🛠️ *Manus 복구 중* (`{repair_id}`)")
