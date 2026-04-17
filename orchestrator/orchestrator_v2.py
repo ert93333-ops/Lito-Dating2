@@ -124,7 +124,8 @@ def manus_run_task(instructions: dict) -> str:
 
     headers = {"x-manus-api-key": MANUS_API_KEY, "Content-Type": "application/json"}
     try:
-        resp = requests.post("https://api.manus.im/v2/task.create", json={"prompt": prompt}, headers=headers)
+        # Manus API v2에서는 'prompt' 대신 'content' 필드를 사용합니다.
+        resp = requests.post("https://api.manus.im/v2/task.create", json={"content": prompt}, headers=headers)
         resp.raise_for_status()
         task_id = resp.json().get("task_id")
         log.info(f"  Manus 태스크 생성 완료: {task_id}")
