@@ -12,12 +12,16 @@
 
 /** HTTP API 기본 URL (trailing slash 없음) */
 export const API_BASE: string = process.env.EXPO_PUBLIC_DOMAIN
-  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+  ? process.env.EXPO_PUBLIC_DOMAIN.includes("localhost")
+    ? `http://${process.env.EXPO_PUBLIC_DOMAIN}`
+    : `https://${process.env.EXPO_PUBLIC_DOMAIN}`
   : "http://localhost:3000";
 
 /** WebSocket URL */
 export const WS_URL: string = process.env.EXPO_PUBLIC_DOMAIN
-  ? `wss://${process.env.EXPO_PUBLIC_DOMAIN}/ws`
+  ? process.env.EXPO_PUBLIC_DOMAIN.includes("localhost")
+    ? `ws://${process.env.EXPO_PUBLIC_DOMAIN}/ws`
+    : `wss://${process.env.EXPO_PUBLIC_DOMAIN}/ws`
   : "ws://localhost:3000/ws";
 
 // ── Feature Flags ─────────────────────────────────────────────────────────────

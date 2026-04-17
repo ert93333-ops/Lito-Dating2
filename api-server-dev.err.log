@@ -1,0 +1,17 @@
+
+  dist\index.mjs      2.7mb
+  dist\index.mjs.map  5.9mb
+
+Done in 365ms
+C:\work\Lito-Dating2\lib\integrations-openai-ai-server\src\client.ts:13
+  throw new Error(
+        ^
+
+
+Error: OPENAI_API_KEY must be set. Please add your OpenAI API key as a secret.
+    at <anonymous> (C:\work\Lito-Dating2\lib\integrations-openai-ai-server\src\client.ts:13:9)
+    at ModuleJob.run (node:internal/modules/esm/module_job:271:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:547:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:116:5)
+
+Node.js v22.13.1

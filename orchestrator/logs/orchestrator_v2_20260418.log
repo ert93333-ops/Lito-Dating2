@@ -1,0 +1,39 @@
+2026-04-18 02:17:04,434 [INFO] LITO 오케스트레이터 V2 시작 (API 기반)
+2026-04-18 02:17:04,434 [INFO] 
+========================================
+루프 #1 시작
+========================================
+2026-04-18 02:17:04,434 [INFO] [STEP 1] GPT-4o에게 개발 지시사항 요청 중...
+2026-04-18 02:17:07,719 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-04-18 02:17:07,731 [INFO]   작업 결정: 사용자 로그인 기능 구현
+2026-04-18 02:17:07,731 [INFO] [STEP 3] Manus 태스크 생성 중...
+2026-04-18 02:17:08,608 [ERROR]   Manus 태스크 생성 실패: 400 Client Error: Bad Request for url: https://api.manus.im/v2/task.create
+2026-04-18 02:17:08,615 [INFO] 루프 #1 완료. 3600초 대기...
+2026-04-18 02:20:08,243 [INFO] LITO 오케스트레이터 V2.1 시작 (텔레그램 알림 포함)
+2026-04-18 02:20:09,512 [INFO] 
+========================================
+루프 #1 시작
+========================================
+2026-04-18 02:20:09,512 [INFO] [STEP 1] GPT-4o에게 개발 지시사항 요청 중...
+2026-04-18 02:20:13,975 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-04-18 02:20:13,982 [INFO]   작업 결정: 회원 가입 기능 버그 수정
+2026-04-18 02:20:15,245 [INFO] [STEP 2] Manus 태스크 생성 중...
+2026-04-18 02:20:16,111 [ERROR]   Manus 태스크 생성 실패: 400 Client Error: Bad Request for url: https://api.manus.im/v2/task.create
+2026-04-18 02:20:17,338 [INFO] 루프 #1 완료. 180초 대기...
+2026-04-18 02:23:23,695 [INFO] LITO 오케스트레이터 V2.2 시작 (Codex CLI 연동)
+2026-04-18 02:23:25,024 [INFO] 
+========================================
+루프 #1 시작
+========================================
+2026-04-18 02:23:25,024 [INFO] [STEP 1] GPT-4o PM에게 작업 지시 요청 중...
+2026-04-18 02:23:28,899 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-04-18 02:23:30,266 [INFO] [STEP 2] Codex CLI 실행 중: Create an organized project directory structure for the 'Lito-Dating2' project. This structure should include the following main directories: 'src' for source code, 'tests' for test scripts, 'docs' for documentation, and 'config' for configuration files. Inside the 'src' directory, create subdirectories for 'models', 'controllers', and 'views'. Include an empty README.md file in the root directory to describe the project. Ensure that each directory is initially empty except the README.md file. No other files need to be created at this time.
+2026-04-18 02:23:30,281 [ERROR]   Codex CLI 또는 Git 작업 실패: [WinError 2] 지정된 파일을 찾을 수 없습니다
+2026-04-18 02:26:32,834 [INFO] 
+========================================
+루프 #2 시작
+========================================
+2026-04-18 02:26:32,835 [INFO] [STEP 1] GPT-4o PM에게 작업 지시 요청 중...
+2026-04-18 02:26:35,968 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-04-18 02:26:37,268 [INFO] [STEP 2] Codex CLI 실행 중: Implement a secure user authentication system using JWT (JSON Web Tokens). Ensure the use of best practices for password hashing and storage. Include endpoints for user registration, login, and token verification.
+2026-04-18 02:26:37,273 [ERROR]   Codex CLI 또는 Git 작업 실패: [WinError 2] 지정된 파일을 찾을 수 없습니다

@@ -1,0 +1,11 @@
+
+> @workspace/api-server@0.0.0 dev C:\work\Lito-Dating2\artifacts\api-server
+> node ./scripts/dev.mjs
+
+
+> @workspace/api-server@0.0.0 build C:\work\Lito-Dating2\artifacts\api-server
+> node ./build.mjs
+
+C:\work\Lito-Dating2\artifacts\api-server:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/api-server@0.0.0 dev: `node ./scripts/dev.mjs`
+Exit status 1

@@ -1,20 +1,58 @@
 import { createRequire } from "node:module";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
-import esbuildPluginPino from "esbuild-plugin-pino";
 import { rm } from "node:fs/promises";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
+const banner = `import { createRequire as __bannerCrReq } from 'node:module';
+import __bannerPath from 'node:path';
+import __bannerUrl from 'node:url';
+
+globalThis.require = __bannerCrReq(import.meta.url);
+globalThis.__filename = __bannerUrl.fileURLToPath(import.meta.url);
+globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
+    `;
+
+async function runEsbuild(options) {
+  try {
+    await esbuild(options);
+    return;
+  } catch (err) {
+    if (process.platform !== "win32" || err?.code !== "EPERM") {
+      throw err;
+    }
+  }
+
+  const esbuildExe = globalThis.require.resolve("@esbuild/win32-x64/esbuild.exe");
+  const args = [
+    options.entryPoints[0],
+    "--bundle",
+    "--platform=node",
+    "--format=esm",
+    `--outdir=${options.outdir}`,
+    "--out-extension:.js=.mjs",
+    "--log-level=info",
+    "--sourcemap=linked",
+    `--banner:js=${banner}`,
+    ...options.external.map((external) => `--external:${external}`),
+  ];
+
+  const result = spawnSync(esbuildExe, args, { stdio: "inherit" });
+  if (result.status !== 0) {
+    throw new Error(`esbuild CLI failed with status ${result.status ?? "unknown"}`);
+  }
+}
 
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
 
-  await esbuild({
+  await runEsbuild({
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],
     platform: "node",
     bundle: true,
@@ -100,22 +138,15 @@ async function buildAll() {
       "puppeteer",
       "puppeteer-core",
       "electron",
+      "pino",
+      "pino-http",
+      "pino-pretty",
+      "thread-stream",
     ],
     sourcemap: "linked",
-    plugins: [
-      // pino relies on workers to handle logging, instead of externalizing it we use a plugin to handle it
-      esbuildPluginPino({ transports: ["pino-pretty"] })
-    ],
     // Make sure packages that are cjs only (e.g. express) but are bundled continue to work in our esm output file
     banner: {
-      js: `import { createRequire as __bannerCrReq } from 'node:module';
-import __bannerPath from 'node:path';
-import __bannerUrl from 'node:url';
-
-globalThis.require = __bannerCrReq(import.meta.url);
-globalThis.__filename = __bannerUrl.fileURLToPath(import.meta.url);
-globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
-    `,
+      js: banner,
     },
   });
 }

@@ -1,0 +1,189 @@
+2026-04-18 02:09:50,039 [INFO] LITO 자동화 오케스트레이터 시작
+2026-04-18 02:09:50,040 [INFO]   GitHub 저장소: ert93333-ops/Lito-Dating2
+2026-04-18 02:09:50,040 [INFO]   루프 모드: ON
+2026-04-18 02:09:50,040 [INFO]   루프 간격: 60초
+2026-04-18 02:09:50,041 [INFO]   Manus API: 설정됨
+2026-04-18 02:09:51,731 [INFO] 
+============================================================
+2026-04-18 02:09:51,740 [INFO]   자동화 루프 #1 시작
+2026-04-18 02:09:51,746 [INFO] ============================================================
+2026-04-18 02:09:51,749 [INFO] [STEP 1] GPT에게 개발 지시사항 요청 중...
+2026-04-18 02:10:07,320 [ERROR]   GPT 요청 실패: Page.wait_for_selector: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator("#prompt-textarea") to be visible
+
+2026-04-18 02:10:07,320 [ERROR] 
+오류 발생: Page.wait_for_selector: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator("#prompt-textarea") to be visible
+Traceback (most recent call last):
+  File "C:\work\Lito-Dating2\orchestrator\orchestrator.py", line 390, in main
+    prev_report = run_one_cycle(page, loop_count, prev_report)
+  File "C:\work\Lito-Dating2\orchestrator\orchestrator.py", line 341, in run_one_cycle
+    instructions = gpt_get_instructions(page, prev_report)
+  File "C:\work\Lito-Dating2\orchestrator\orchestrator.py", line 99, in gpt_get_instructions
+    page.wait_for_selector("#prompt-textarea", timeout=15000)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\sync_api\_generated.py", line 8217, in wait_for_selector
+    self._sync(
+    ~~~~~~~~~~^
+        self._impl_obj.wait_for_selector(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            selector=selector, timeout=timeout, state=state, strict=strict
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        )
+        ^
+    )
+    ^
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\_impl\_sync_base.py", line 115, in _sync
+    return task.result()
+           ~~~~~~~~~~~^^
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\_impl\_page.py", line 419, in wait_for_selector
+    return await self._main_frame.wait_for_selector(**locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\_impl\_frame.py", line 369, in wait_for_selector
+    await self._channel.send(
+        "waitForSelector", self._timeout, locals_to_params(locals())
+    )
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\_impl\_connection.py", line 69, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\_impl\_connection.py", line 559, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator("#prompt-textarea") to be visible
+
+2026-04-18 02:10:07,608 [INFO] 오케스트레이터 종료
+2026-04-18 02:10:30,911 [INFO] LITO 자동화 오케스트레이터 시작
+2026-04-18 02:10:30,912 [INFO]   GitHub 저장소: ert93333-ops/Lito-Dating2
+2026-04-18 02:10:30,912 [INFO]   루프 모드: ON
+2026-04-18 02:10:30,912 [INFO]   루프 간격: 60초
+2026-04-18 02:10:30,912 [INFO]   Manus API: 설정됨
+2026-04-18 02:10:32,064 [INFO] 
+============================================================
+2026-04-18 02:10:32,073 [INFO]   자동화 루프 #1 시작
+2026-04-18 02:10:32,073 [INFO] ============================================================
+2026-04-18 02:10:32,078 [INFO] [STEP 1] GPT에게 개발 지시사항 요청 중...
+2026-04-18 02:10:47,536 [ERROR]   GPT 요청 실패: Page.wait_for_selector: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator("#prompt-textarea") to be visible
+    - waiting for navigation to finish...
+    - navigated to "https://www.google.com/sorry/index?continue=https://www.google.com/search%3Fq%3Dgoogle%26oq%3Dgoogle%26gs_lcrp%3DEgZjaHJvbWUyBggAEEUYOdIBCDI0MDdqMGo0qAIAsAIB%26sourceid%3Dchrome%26ie%3DUTF-8%26sei%3D…"
+    - waiting for" https://www.google.com/sorry/index" navigation to finish...
+
+2026-04-18 02:10:47,541 [ERROR] 
+오류 발생: Page.wait_for_selector: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator("#prompt-textarea") to be visible
+    - waiting for navigation to finish...
+    - navigated to "https://www.google.com/sorry/index?continue=https://www.google.com/search%3Fq%3Dgoogle%26oq%3Dgoogle%26gs_lcrp%3DEgZjaHJvbWUyBggAEEUYOdIBCDI0MDdqMGo0qAIAsAIB%26sourceid%3Dchrome%26ie%3DUTF-8%26sei%3D…"
+    - waiting for" https://www.google.com/sorry/index" navigation to finish...
+Traceback (most recent call last):
+  File "C:\work\Lito-Dating2\orchestrator\orchestrator.py", line 390, in main
+    prev_report = run_one_cycle(page, loop_count, prev_report)
+  File "C:\work\Lito-Dating2\orchestrator\orchestrator.py", line 341, in run_one_cycle
+    instructions = gpt_get_instructions(page, prev_report)
+  File "C:\work\Lito-Dating2\orchestrator\orchestrator.py", line 99, in gpt_get_instructions
+    page.wait_for_selector("#prompt-textarea", timeout=15000)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\sync_api\_generated.py", line 8217, in wait_for_selector
+    self._sync(
+    ~~~~~~~~~~^
+        self._impl_obj.wait_for_selector(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            selector=selector, timeout=timeout, state=state, strict=strict
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        )
+        ^
+    )
+    ^
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\_impl\_sync_base.py", line 115, in _sync
+    return task.result()
+           ~~~~~~~~~~~^^
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\_impl\_page.py", line 419, in wait_for_selector
+    return await self._main_frame.wait_for_selector(**locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\_impl\_frame.py", line 369, in wait_for_selector
+    await self._channel.send(
+        "waitForSelector", self._timeout, locals_to_params(locals())
+    )
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\_impl\_connection.py", line 69, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\_impl\_connection.py", line 559, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator("#prompt-textarea") to be visible
+    - waiting for navigation to finish...
+    - navigated to "https://www.google.com/sorry/index?continue=https://www.google.com/search%3Fq%3Dgoogle%26oq%3Dgoogle%26gs_lcrp%3DEgZjaHJvbWUyBggAEEUYOdIBCDI0MDdqMGo0qAIAsAIB%26sourceid%3Dchrome%26ie%3DUTF-8%26sei%3D…"
+    - waiting for" https://www.google.com/sorry/index" navigation to finish...
+
+2026-04-18 02:10:47,847 [INFO] 오케스트레이터 종료
+2026-04-18 02:11:10,959 [INFO] LITO 자동화 오케스트레이터 시작
+2026-04-18 02:11:10,959 [INFO]   GitHub 저장소: ert93333-ops/Lito-Dating2
+2026-04-18 02:11:10,959 [INFO]   루프 모드: OFF (1회 실행)
+2026-04-18 02:11:10,959 [INFO]   루프 간격: 3600초
+2026-04-18 02:11:10,959 [INFO]   Manus API: 설정됨
+2026-04-18 02:11:12,045 [INFO] 
+============================================================
+2026-04-18 02:11:12,048 [INFO]   자동화 루프 #1 시작
+2026-04-18 02:11:12,048 [INFO] ============================================================
+2026-04-18 02:11:12,048 [INFO] [STEP 1] GPT에게 개발 지시사항 요청 중...
+2026-04-18 02:11:27,409 [ERROR]   GPT 요청 실패: Page.wait_for_selector: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator("#prompt-textarea") to be visible
+
+2026-04-18 02:11:27,410 [ERROR] 
+오류 발생: Page.wait_for_selector: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator("#prompt-textarea") to be visible
+Traceback (most recent call last):
+  File "C:\work\Lito-Dating2\orchestrator\orchestrator.py", line 390, in main
+    prev_report = run_one_cycle(page, loop_count, prev_report)
+  File "C:\work\Lito-Dating2\orchestrator\orchestrator.py", line 341, in run_one_cycle
+    instructions = gpt_get_instructions(page, prev_report)
+  File "C:\work\Lito-Dating2\orchestrator\orchestrator.py", line 99, in gpt_get_instructions
+    page.wait_for_selector("#prompt-textarea", timeout=15000)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\sync_api\_generated.py", line 8217, in wait_for_selector
+    self._sync(
+    ~~~~~~~~~~^
+        self._impl_obj.wait_for_selector(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            selector=selector, timeout=timeout, state=state, strict=strict
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        )
+        ^
+    )
+    ^
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\_impl\_sync_base.py", line 115, in _sync
+    return task.result()
+           ~~~~~~~~~~~^^
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\_impl\_page.py", line 419, in wait_for_selector
+    return await self._main_frame.wait_for_selector(**locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\_impl\_frame.py", line 369, in wait_for_selector
+    await self._channel.send(
+        "waitForSelector", self._timeout, locals_to_params(locals())
+    )
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\_impl\_connection.py", line 69, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\ert93\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\playwright\_impl\_connection.py", line 559, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator("#prompt-textarea") to be visible
+
+2026-04-18 02:11:27,665 [INFO] 오케스트레이터 종료
