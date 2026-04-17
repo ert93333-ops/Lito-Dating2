@@ -97,14 +97,18 @@ def run_codex_cli(instruction: str):
         # 로컬 PC에 codex가 설치되어 있어야 함 (npm install -g @openai/codex)
         # 프로젝트 루트로 이동하여 실행
         project_root = Path(__file__).parent.parent
-        cmd = ["codex", "-i", instruction, "-y"]
-        result = subprocess.run(cmd, cwd=project_root, capture_output=True, text=True, check=True)
+        
+        # 윈도우 환경에서 .cmd 파일을 실행하기 위해 shell=True 사용
+        cmd = f'codex -i "{instruction}" -y'
+        log.info(f"  명령어 실행: {cmd}")
+        
+        result = subprocess.run(cmd, cwd=project_root, capture_output=True, text=True, check=True, shell=True)
         log.info("  Codex CLI 작업 완료")
         
-        # 변경사항 GitHub 푸시
-        subprocess.run(["git", "add", "."], cwd=project_root)
-        subprocess.run(["git", "commit", "-m", f"Codex: {instruction[:50]}"], cwd=project_root)
-        subprocess.run(["git", "push", "origin", "main"], cwd=project_root)
+        # 변경사항 GitHub 푸시 (윈도우 호환성을 위해 문자열 명령어로 실행)
+        subprocess.run("git add .", cwd=project_root, shell=True)
+        subprocess.run(f'git commit -m "Codex: {instruction[:50]}"', cwd=project_root, shell=True)
+        subprocess.run("git push origin main", cwd=project_root, shell=True)
         log.info("  GitHub 푸시 완료")
         return True
     except Exception as e:
