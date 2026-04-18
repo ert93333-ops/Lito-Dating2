@@ -39,14 +39,17 @@ class ManusRunner:
             "task_type": "qa",
             "input": prompt,
         }
+        create_url = f"{self.base_url}/task.create"
+        LOGGER.info("Manus create request URL: %s", create_url)
         create_resp = requests.post(
-            f"{self.base_url}/tasks",
+            create_url,
             headers=self.headers,
             json=create_payload,
             timeout=60,
         )
         if create_resp.status_code >= 400:
-            raise ManusError(f"Manus task creation failed ({create_resp.status_code}): {create_resp.text[:500]}")
+            LOGGER.error("Manus create failed response: %s", create_resp.text)
+            raise ManusError(f"Manus task creation failed ({create_resp.status_code}): {create_resp.text}")
 
         create_json = self._parse_response(create_resp.json())
         task_id = create_json.get("task_id") or create_json.get("id")
@@ -56,13 +59,17 @@ class ManusRunner:
         deadline = time.time() + timeout_seconds
         last_payload: Dict[str, Any] = {}
         while time.time() < deadline:
+            detail_url = f"{self.base_url}/task.detail"
+            LOGGER.info("Manus poll request URL: %s", detail_url)
             status_resp = requests.get(
-                f"{self.base_url}/tasks/{task_id}",
+                detail_url,
                 headers=self.headers,
+                params={"task_id": task_id},
                 timeout=60,
             )
             if status_resp.status_code >= 400:
-                raise ManusError(f"Manus polling failed ({status_resp.status_code}): {status_resp.text[:500]}")
+                LOGGER.error("Manus poll failed response: %s", status_resp.text)
+                raise ManusError(f"Manus polling failed ({status_resp.status_code}): {status_resp.text}")
 
             status_payload = self._parse_response(status_resp.json())
             last_payload = status_payload

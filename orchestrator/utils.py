@@ -78,6 +78,8 @@ def run_command(
         check=False,
         timeout=timeout,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         capture_output=True,
         env=env,
     )
