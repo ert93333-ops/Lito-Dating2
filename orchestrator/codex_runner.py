@@ -34,10 +34,28 @@ class CodexRunner:
         after_sha = get_git_head_sha(self.repo_path)
         diff_summary = get_git_diff_summary(self.repo_path)
 
-        log_path = self.logs_dir / f"codex_{after_sha or 'unknown'}.log"
+        stamp = after_sha or "unknown"
+        log_path = self.logs_dir / f"codex_{stamp}.log"
+        stdout_path = self.logs_dir / f"codex_{stamp}.stdout.log"
+        stderr_path = self.logs_dir / f"codex_{stamp}.stderr.log"
+        stdout_path.write_text(result.stdout or "", encoding="utf-8")
+        stderr_path.write_text(result.stderr or "", encoding="utf-8")
+
+        failure_reason = ""
+        if result.returncode != 0:
+            if not base_cmd.strip():
+                failure_reason = "CODEX_CMD is empty."
+            elif "not found" in (result.stderr or "").lower():
+                failure_reason = "CODEX_CMD executable not found. Check command/path."
+            else:
+                failure_reason = "Codex command returned non-zero exit code."
+
         log_text = (
             f"CMD: {cmd}\n\n"
             f"RETURN_CODE: {result.returncode}\n\n"
+            f"FAILURE_REASON: {failure_reason}\n\n"
+            f"STDOUT_LOG: {stdout_path}\n"
+            f"STDERR_LOG: {stderr_path}\n\n"
             f"STDOUT:\n{result.stdout}\n\n"
             f"STDERR:\n{result.stderr}\n"
         )
@@ -52,6 +70,10 @@ class CodexRunner:
             "stderr": truncate(result.stderr, 3000),
             "diff_summary": truncate(diff_summary, 3000),
             "log_path": str(log_path),
+            "stdout_log_path": str(stdout_path),
+            "stderr_log_path": str(stderr_path),
+            "failure_reason": failure_reason,
+            "command": cmd,
         }
         LOGGER.info("Codex run finished: rc=%s", result.returncode)
         return summary

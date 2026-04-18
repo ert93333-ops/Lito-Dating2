@@ -173,7 +173,12 @@ class OrchestratorBot:
             self.telegram.send_message(f"Codex completed for task: {plan['task_title']}")
         else:
             self.telegram.send_message(
-                f"Codex failed for task: {plan['task_title']}\nrc={result['return_code']}\n{result['stderr'][:600]}"
+                f"Codex failed for task: {plan['task_title']}\n"
+                f"rc={result['return_code']}\n"
+                f"reason={result.get('failure_reason')}\n"
+                f"stderr={result['stderr'][:400]}\n"
+                f"stdout={result['stdout'][:250]}\n"
+                f"log={result.get('log_path')}"
             )
         return result
 

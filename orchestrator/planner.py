@@ -82,6 +82,7 @@ def _validate_plan(plan: Dict[str, Any]) -> None:
 
 def make_plan(config: Dict[str, str], prompt_dir: Path, state: Dict[str, Any]) -> Dict[str, Any]:
     system_prompt = (prompt_dir / "planner_system.txt").read_text(encoding="utf-8")
+    system_prompt = f"{system_prompt}\n\nReturn valid JSON only. No explanation."
     user_template = (prompt_dir / "planner_user_template.txt").read_text(encoding="utf-8")
 
     user_prompt = render_template(
@@ -102,6 +103,8 @@ def make_plan(config: Dict[str, str], prompt_dir: Path, state: Dict[str, Any]) -
     }
     payload = {
         "model": config["OPENAI_MODEL"],
+        "temperature": 0,
+        "max_output_tokens": 2000,
         "input": [
             {"role": "system", "content": [{"type": "input_text", "text": system_prompt}]},
             {"role": "user", "content": [{"type": "input_text", "text": user_prompt}]},
@@ -123,7 +126,10 @@ def make_plan(config: Dict[str, str], prompt_dir: Path, state: Dict[str, Any]) -
         plan = _extract_json(output_text)
     except Exception as exc:
         LOGGER.error("Planner output parse failure. raw_preview=%s", truncate(output_text, 500))
-        raise PlannerError(f"Planner JSON parse error: {exc} (raw_log={raw_path})") from exc
+        preview = truncate(output_text.replace("\n", " "), 300)
+        raise PlannerError(
+            f"Planner JSON parse error: {exc} (raw_log={raw_path}, raw_preview={preview})"
+        ) from exc
 
     if "research_request" not in plan:
         plan["research_request"] = None
