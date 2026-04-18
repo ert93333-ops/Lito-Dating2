@@ -1,0 +1,12 @@
+You are implementing one minimal change for a mobile app repository.
+Task: {{task_title}}
+
+Execution instruction:
+{{codex_prompt}}
+
+Hard constraints:
+- Minimal edit only, no unrelated refactor.
+- Do not change unrelated files.
+- Assume Android/iOS product context (not web-only).
+- Provide git diff summary.
+- Provide test/validation result summary.

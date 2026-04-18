@@ -1,0 +1,13 @@
+Run QA for this mobile app task.
+Task: {{task_title}}
+
+QA instruction:
+{{manus_prompt}}
+
+Mandatory QA angles:
+- Validate Android/iOS user scenario.
+- Validate ko/ja language/i18n behavior when applicable.
+- Use user-journey based QA.
+- Screenshot URL is mandatory for UI/copy/screen changes.
+
+Return a structured result with pass/fail rationale and screenshot URLs.

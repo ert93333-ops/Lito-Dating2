@@ -1,0 +1,12 @@
+# Copy this file to config.txt and fill values.
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5.4
+MANUS_API_KEY=
+MANUS_BASE_URL=https://api.manus.ai/v2
+TELEGRAM_TOKEN=
+TELEGRAM_CHAT_ID=
+GITHUB_REPO=ert93333-ops/Lito-Dating2
+REPO_PATH=C:\work\Lito-Dating2
+LOOP_INTERVAL_SECONDS=60
+CODEX_CMD=
+PYTHON_CMD=python

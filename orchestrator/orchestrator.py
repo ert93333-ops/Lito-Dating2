@@ -49,10 +49,11 @@ except ImportError:
 load_dotenv(Path(__file__).parent / ".env")
 
 MANUS_API_KEY    = os.getenv("MANUS_API_KEY", "")
+OPENAI_API_KEY   = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL     = os.getenv("OPENAI_MODEL", "gpt-5.4")
 MANUS_API_BASE   = "https://api.manus.im/v1"
 GITHUB_REPO      = os.getenv("GITHUB_REPO", "ert93333-ops/Lito-Dating2")
 LOOP_INTERVAL    = int(os.getenv("LOOP_INTERVAL_SECONDS", "3600"))
-CHATGPT_URL      = "https://chatgpt.com/g/g-p-69e26065fc04819191b84e097eab332e-litoproject/project"
 CODEX_URL        = "https://chatgpt.com/codex"
 LOG_DIR          = Path(__file__).parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
@@ -73,68 +74,78 @@ log = logging.getLogger("orchestrator")
 # STEP 1: GPT에게 개발 지시사항 요청
 # ══════════════════════════════════════════════════════════════════════════════
 
-def gpt_get_instructions(page, context_report: str = "") -> str:
+def gpt_get_instructions(context_report: str = "") -> str:
     """
     ChatGPT LITOproject에 현재 상황을 전달하고 다음 개발 지시사항을 받아온다.
     """
     log.info("[STEP 1] GPT에게 개발 지시사항 요청 중...")
 
-    prompt = f"""당신은 Lito 소개팅 앱(Lito-Dating2)의 수석 개발 PM입니다.
-GitHub 저장소: {GITHUB_REPO}
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY가 설정되지 않았습니다.")
 
-{"=== 이전 Manus 테스트 보고서 ===" + chr(10) + context_report if context_report else "첫 번째 실행입니다."}
-
-위 내용을 바탕으로 지금 당장 Codex가 수행해야 할 코딩 작업을 **1가지만** 구체적으로 지시해주세요.
-
-응답 형식 (반드시 이 JSON 형식으로만 답하세요):
-{{
-  "task_title": "작업 제목 (한 줄)",
-  "codex_prompt": "Codex에게 전달할 정확한 코딩 지시사항 (영어로, 구체적인 파일명과 수정 내용 포함)",
-  "test_scenario": "Manus가 테스트해야 할 시나리오 설명 (한국어)",
-  "priority": "high|medium|low"
-}}"""
+    prompt_dir = Path(__file__).parent / "prompts"
+    system_prompt = (prompt_dir / "planner_system.txt").read_text(encoding="utf-8")
+    user_template = (prompt_dir / "planner_user_template.txt").read_text(encoding="utf-8")
+    prompt = (
+        user_template
+        .replace("{{current_state}}", "PLANNING")
+        .replace("{{current_task}}", "null")
+        .replace("{{retry_count}}", "0")
+        .replace("{{last_error}}", "None")
+        .replace("{{last_codex_summary}}", "None")
+        .replace("{{last_manus_report}}", context_report or "None")
+    )
+    prompt += "\n\nReturn valid JSON only."
 
     try:
-        page.goto(CHATGPT_URL, wait_until="domcontentloaded", timeout=30000)
-        page.wait_for_selector("#prompt-textarea", timeout=15000)
+        log.info("  planner 요청 시작 (OpenAI API)")
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": OPENAI_MODEL,
+            "temperature": 0.2,
+            "input": [
+                {"role": "system", "content": [{"type": "input_text", "text": system_prompt}]},
+                {"role": "user", "content": [{"type": "input_text", "text": prompt}]},
+            ],
+        }
+        resp = requests.post("https://api.openai.com/v1/responses", headers=headers, json=payload, timeout=90)
+        resp.raise_for_status()
+        body = resp.json()
 
-        textarea = page.locator("#prompt-textarea")
-        textarea.click()
-        textarea.fill(prompt)
+        output_text = body.get("output_text", "")
+        if not output_text:
+            chunks = []
+            for item in body.get("output", []) or []:
+                for content in item.get("content", []) or []:
+                    text = content.get("text")
+                    if text:
+                        chunks.append(text)
+            output_text = "\n".join(chunks) if chunks else json.dumps(body, ensure_ascii=False)
 
-        # 전송
-        page.keyboard.press("Enter")
-        log.info("  GPT 메시지 전송 완료. 응답 대기 중...")
+        log.info("  planner 응답 raw preview: %s", output_text[:300].replace("\n", " "))
 
-        # 응답 완료 대기 (스트리밍 종료 감지)
-        page.wait_for_selector("[data-message-author-role='assistant']", timeout=60000)
-        page.wait_for_function(
-            "() => !document.querySelector('[data-testid=\"stop-button\"]')",
-            timeout=120000
-        )
-
-        # 마지막 assistant 메시지 추출
-        messages = page.query_selector_all("[data-message-author-role='assistant']")
-        if not messages:
-            raise RuntimeError("GPT 응답을 찾을 수 없습니다.")
-
-        response_text = messages[-1].inner_text()
-        log.info(f"  GPT 응답 수신 ({len(response_text)}자)")
-
-        # JSON 파싱
+        # JSON 파싱 (순수 JSON -> 코드블럭 제거 -> 첫{~마지막} fallback)
         import re
-        json_match = re.search(r'\{[\s\S]*\}', response_text)
-        if json_match:
-            instructions = json.loads(json_match.group())
-            log.info(f"  작업: {instructions.get('task_title', 'N/A')}")
-            return instructions
-        else:
-            # JSON이 아닌 경우 텍스트 그대로 반환
-            return {"task_title": "GPT 지시사항", "codex_prompt": response_text,
-                    "test_scenario": "전반적인 기능 테스트", "priority": "medium"}
+        text = output_text.strip()
+        try:
+            instructions = json.loads(text)
+        except json.JSONDecodeError:
+            codeblock = re.sub(r"^```json\\s*|^```|```$", "", text, flags=re.IGNORECASE | re.MULTILINE).strip()
+            try:
+                instructions = json.loads(codeblock)
+            except json.JSONDecodeError:
+                json_match = re.search(r'\{[\s\S]*\}', codeblock)
+                if not json_match:
+                    raise
+                instructions = json.loads(json_match.group())
+        log.info("  planner 파싱 성공: %s", instructions.get("task_title", "N/A"))
+        return instructions
 
     except Exception as e:
-        log.error(f"  GPT 요청 실패: {e}")
+        log.error(f"  planner 파싱/호출 실패: {e}")
         raise
 
 
@@ -338,7 +349,7 @@ def run_one_cycle(page, loop_count: int, prev_report: str = "") -> str:
     log.info(f"{'='*60}")
 
     # STEP 1: GPT 지시사항
-    instructions = gpt_get_instructions(page, prev_report)
+    instructions = gpt_get_instructions(prev_report)
 
     # STEP 2: Codex 코딩
     codex_status = codex_execute_task(page, instructions)
