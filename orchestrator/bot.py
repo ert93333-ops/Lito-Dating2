@@ -77,35 +77,44 @@ class OrchestratorBot:
         self.telegram.send_message(message)
 
     def handle_command(self, command: str) -> None:
-        if command == "/run":
-            self.running = True
-            self.state["paused"] = False
-            self.state["current_state"] = "IDLE"
-            self.telegram.send_message("/run received. Automation loop started.")
-        elif command == "/pause":
-            self.state["paused"] = True
-            self.state["current_state"] = "PAUSED"
-            self.telegram.send_message("Paused.")
-        elif command == "/resume":
-            self.state["paused"] = False
-            self.state["current_state"] = "IDLE"
-            self.telegram.send_message("Resumed.")
-        elif command == "/rollback":
-            self.rollback(force=True)
-        elif command == "/status":
-            self.send_status()
-        elif command == "/lastreport":
-            report_path = self.state.get("last_report_path")
-            if report_path and Path(report_path).exists():
-                text = Path(report_path).read_text(encoding="utf-8")[:3500]
-                self.telegram.send_message(text)
-            else:
-                self.telegram.send_message("No report found.")
-        elif command == "/help":
-            self.telegram.send_message(
-                "Commands: /run /status /pause /resume /rollback /lastreport /help"
-            )
-        self.save_state()
+        normalized = (command or "").strip().lower()
+        try:
+            if normalized.startswith("/run"):
+                self.logger.info("RUN command received: %s", command)
+                if self.running and not self.state.get("paused"):
+                    self.telegram.send_message("Automation loop is already running.")
+                    return
+                self.running = True
+                self.state["paused"] = False
+                self.state["current_state"] = "IDLE"
+                self.telegram.send_message("/run received. Automation loop started.")
+            elif normalized == "/pause":
+                self.state["paused"] = True
+                self.state["current_state"] = "PAUSED"
+                self.telegram.send_message("Paused.")
+            elif normalized == "/resume":
+                self.state["paused"] = False
+                self.state["current_state"] = "IDLE"
+                self.telegram.send_message("Resumed.")
+            elif normalized == "/rollback":
+                self.rollback(force=True)
+            elif normalized == "/status":
+                self.send_status()
+            elif normalized == "/lastreport":
+                report_path = self.state.get("last_report_path")
+                if report_path and Path(report_path).exists():
+                    text = Path(report_path).read_text(encoding="utf-8")[:3500]
+                    self.telegram.send_message(text)
+                else:
+                    self.telegram.send_message("No report found.")
+            elif normalized == "/help":
+                self.telegram.send_message(
+                    "Commands: /run /status /pause /resume /rollback /lastreport /help"
+                )
+            self.save_state()
+        except Exception as exc:
+            self.logger.exception("Failed to handle telegram command '%s': %s", command, exc)
+            self.telegram.send_message(f"Command error ({command}): {exc}")
 
     def rollback(self, force: bool = False) -> None:
         self.state["current_state"] = "ROLLBACK"
