@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
@@ -16,19 +17,49 @@ class PlannerError(RuntimeError):
     pass
 
 
+def _extract_output_text(body: Dict[str, Any]) -> str:
+    if body.get("output_text"):
+        return str(body["output_text"])
+
+    parts = []
+    for item in body.get("output", []) or []:
+        for content in item.get("content", []) or []:
+            text = content.get("text")
+            if text:
+                parts.append(str(text))
+    if parts:
+        return "\n".join(parts)
+
+    return json.dumps(body, ensure_ascii=False)
+
+
 def _extract_json(raw: str) -> Dict[str, Any]:
     raw = raw.strip()
-    if raw.startswith("```"):
-        raw = raw.strip("`")
-        raw = raw.replace("json\n", "", 1).strip()
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
-        start = raw.find("{")
-        end = raw.rfind("}")
-        if start >= 0 and end > start:
-            return json.loads(raw[start : end + 1])
-        raise
+        pass
+
+    cleaned = raw
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[len("```json") :]
+        elif cleaned.startswith("```"):
+            cleaned = cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start >= 0 and end > start:
+        return json.loads(cleaned[start : end + 1])
+    raise json.JSONDecodeError("Could not find JSON object in planner response", cleaned, 0)
 
 
 def _validate_plan(plan: Dict[str, Any]) -> None:
@@ -82,17 +113,30 @@ def make_plan(config: Dict[str, str], prompt_dir: Path, state: Dict[str, Any]) -
         raise PlannerError(f"OpenAI planner API error ({resp.status_code}): {resp.text[:500]}")
 
     body = resp.json()
-    output_text = body.get("output_text")
-    if not output_text:
-        output_text = json.dumps(body, ensure_ascii=False)
+    output_text = _extract_output_text(body)
+    logs_dir = prompt_dir.parent / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    raw_path = logs_dir / f"planner_raw_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.log"
+    raw_path.write_text(output_text, encoding="utf-8")
 
     try:
         plan = _extract_json(output_text)
     except Exception as exc:
-        LOGGER.error("Planner output parse failure: %s", output_text)
-        raise PlannerError(f"Planner JSON parse error: {exc}") from exc
+        LOGGER.error("Planner output parse failure. raw_preview=%s", truncate(output_text, 500))
+        raise PlannerError(f"Planner JSON parse error: {exc} (raw_log={raw_path})") from exc
 
-    _validate_plan(plan)
+    if "research_request" not in plan:
+        plan["research_request"] = None
+
+    try:
+        _validate_plan(plan)
+    except PlannerError as exc:
+        LOGGER.error("%s", exc)
+        LOGGER.error("Planner raw response preview: %s", truncate(output_text, 500))
+        raise PlannerError(f"{exc} (raw_log={raw_path})") from exc
+
+    plan["_raw_response_path"] = str(raw_path)
+    plan["_raw_response_preview"] = truncate(output_text, 2000)
 
     # Research request gate: only when rollback blockers are empty.
     if plan.get("research_request") and plan.get("rollback_if"):
