@@ -27,12 +27,18 @@ class CodexRunner:
         base_cmd = self.config["CODEX_CMD"]
         if "{prompt_file}" in base_cmd:
             cmd = base_cmd.replace("{prompt_file}", str(prompt_file))
+        elif "{prompt}" in base_cmd:
+            cmd = base_cmd.replace("{prompt}", prompt_text.replace('"', '\\"'))
         else:
-            cmd = f"{base_cmd} < {prompt_file}"
+            # stdin redirection is avoided because some environments (e.g., Windows) reject non-TTY stdin.
+            cmd = f'{base_cmd} "{prompt_file}"'
 
         result = run_command(cmd, cwd=self.repo_path, timeout=timeout_seconds)
         after_sha = get_git_head_sha(self.repo_path)
         diff_summary = get_git_diff_summary(self.repo_path)
+        diff_summary = "\n".join(
+            line for line in diff_summary.splitlines() if "orchestrator/logs/" not in line
+        )
 
         stamp = after_sha or "unknown"
         log_path = self.logs_dir / f"codex_{stamp}.log"
