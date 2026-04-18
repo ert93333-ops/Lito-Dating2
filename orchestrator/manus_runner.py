@@ -24,6 +24,12 @@ class ManusRunner:
             "Content-Type": "application/json",
         }
 
+    def _masked_headers(self) -> Dict[str, str]:
+        return {
+            "Authorization": "Bearer ***" if self.headers.get("Authorization") else "(missing)",
+            "Content-Type": self.headers.get("Content-Type", "(missing)"),
+        }
+
     def _parse_response(self, payload: Any) -> Dict[str, Any]:
         if isinstance(payload, dict):
             return payload
@@ -41,6 +47,7 @@ class ManusRunner:
         }
         create_url = f"{self.base_url}/task.create"
         LOGGER.info("Manus create request URL: %s", create_url)
+        LOGGER.info("Manus create request headers: %s", self._masked_headers())
         create_resp = requests.post(
             create_url,
             headers=self.headers,
@@ -61,6 +68,7 @@ class ManusRunner:
         while time.time() < deadline:
             detail_url = f"{self.base_url}/task.detail"
             LOGGER.info("Manus poll request URL: %s", detail_url)
+            LOGGER.info("Manus poll request headers: %s", self._masked_headers())
             status_resp = requests.get(
                 detail_url,
                 headers=self.headers,
