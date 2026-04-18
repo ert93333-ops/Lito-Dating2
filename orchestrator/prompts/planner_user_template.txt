@@ -1,0 +1,31 @@
+Generate the next single-task execution plan as strict JSON.
+Use this runtime context:
+- current_state: {{current_state}}
+- current_task: {{current_task}}
+- retry_count: {{retry_count}}
+- last_error: {{last_error}}
+- last_codex_summary: {{last_codex_summary}}
+- last_manus_report: {{last_manus_report}}
+
+Output schema:
+{
+  "task_title": "...",
+  "priority": "P0|P1|P2",
+  "goal": "...",
+  "scope_limit": ["..."],
+  "acceptance_criteria": ["..."],
+  "rollback_if": ["..."],
+  "thought_summary": "...",
+  "codex_prompt": "...",
+  "manus_prompt": "...",
+  "research_request": null or {
+    "reason": "...",
+    "request_message": "..."
+  }
+}
+
+Constraints:
+- One small task only.
+- Mobile app context only.
+- Include ko/ja validation when UI or text is touched.
+- Include screenshot requirement in acceptance criteria for UI related work.
