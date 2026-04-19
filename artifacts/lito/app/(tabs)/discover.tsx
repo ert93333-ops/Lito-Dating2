@@ -18,6 +18,7 @@ import {
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Extrapolation,
+  SharedValue,
   interpolate,
   runOnJS,
   useAnimatedStyle,
@@ -138,6 +139,7 @@ function DiscoverCard({
   onPass,
   onReport,
   isTop,
+  swipeProgress,
 }: {
   user: User;
   onLike: () => void;
@@ -145,6 +147,7 @@ function DiscoverCard({
   onReport?: () => void;
   isTop: boolean;
   stackIndex: number;
+  swipeProgress: SharedValue<number>;
 }) {
   const colors = useColors();
   const { profile } = useApp();
@@ -168,35 +171,55 @@ function DiscoverCard({
     .enabled(isTop)
     .onUpdate((e) => {
       translateX.value = e.translationX;
-      translateY.value = e.translationY * 0.35; // damp vertical — feels anchored
-      likeOpacity.value = Math.min(1, Math.max(0, e.translationX / 88));
-      passOpacity.value = Math.min(1, Math.max(0, -e.translationX / 88));
+      translateY.value = e.translationY * 0.3;
+      likeOpacity.value = Math.min(1, Math.max(0, e.translationX / 80));
+      passOpacity.value = Math.min(1, Math.max(0, -e.translationX / 80));
+      // Drive background card animation 0→1 as top card moves away
+      swipeProgress.value = Math.min(1, Math.abs(e.translationX) / SWIPE_THRESHOLD);
     })
     .onEnd((e) => {
-      const fastRight = e.velocityX > 600;
-      const fastLeft = e.velocityX < -600;
+      const fastRight = e.velocityX > 500;
+      const fastLeft = e.velocityX < -500;
       const dx = e.translationX;
 
-      if (dx > SWIPE_THRESHOLD || (dx > 40 && fastRight)) {
+      if (dx > SWIPE_THRESHOLD || (dx > 32 && fastRight)) {
         runOnJS(triggerLikeHaptic)();
-        translateX.value = withTiming(width + 180, { duration: 230 }, () =>
-          runOnJS(onLike)()
+        // Velocity-preserving spring exit — card continues with its momentum
+        translateX.value = withSpring(
+          width + 240,
+          { velocity: Math.max(e.velocityX, 800), damping: 44, stiffness: 180, mass: 0.55 },
+          () => {
+            swipeProgress.value = 0;
+            runOnJS(onLike)();
+          }
         );
-        translateY.value = withTiming(e.velocityY * 0.06, { duration: 230 });
-        likeOpacity.value = withTiming(0, { duration: 160 });
-      } else if (dx < -SWIPE_THRESHOLD || (dx < -40 && fastLeft)) {
+        translateY.value = withSpring(
+          translateY.value + e.velocityY * 0.08,
+          { velocity: e.velocityY, damping: 44, stiffness: 180, mass: 0.55 }
+        );
+        likeOpacity.value = withTiming(0, { duration: 150 });
+      } else if (dx < -SWIPE_THRESHOLD || (dx < -32 && fastLeft)) {
         runOnJS(triggerPassHaptic)();
-        translateX.value = withTiming(-(width + 180), { duration: 230 }, () =>
-          runOnJS(onPass)()
+        translateX.value = withSpring(
+          -(width + 240),
+          { velocity: Math.min(e.velocityX, -800), damping: 44, stiffness: 180, mass: 0.55 },
+          () => {
+            swipeProgress.value = 0;
+            runOnJS(onPass)();
+          }
         );
-        translateY.value = withTiming(e.velocityY * 0.06, { duration: 230 });
-        passOpacity.value = withTiming(0, { duration: 160 });
+        translateY.value = withSpring(
+          translateY.value + e.velocityY * 0.08,
+          { velocity: e.velocityY, damping: 44, stiffness: 180, mass: 0.55 }
+        );
+        passOpacity.value = withTiming(0, { duration: 150 });
       } else {
-        // Premium spring-back — tight, crisp, no wobble
-        translateX.value = withSpring(0, { damping: 28, stiffness: 380, mass: 0.7 });
-        translateY.value = withSpring(0, { damping: 28, stiffness: 380, mass: 0.7 });
-        likeOpacity.value = withTiming(0, { duration: 130 });
-        passOpacity.value = withTiming(0, { duration: 130 });
+        // Elastic spring-back with subtle overshoot
+        translateX.value = withSpring(0, { damping: 20, stiffness: 300, mass: 0.6 });
+        translateY.value = withSpring(0, { damping: 20, stiffness: 300, mass: 0.6 });
+        swipeProgress.value = withSpring(0, { damping: 20, stiffness: 300 });
+        likeOpacity.value = withTiming(0, { duration: 120 });
+        passOpacity.value = withTiming(0, { duration: 120 });
       }
     });
 
@@ -538,6 +561,53 @@ const cardStyles = StyleSheet.create({
   },
 });
 
+// ─── BackgroundCardWrapper ────────────────────────────────────────────────────
+// Animates background (non-top) cards in sync with the top card's drag progress.
+// As the top card swipes away, background cards scale up and rise to fill the gap.
+
+function BackgroundCardWrapper({
+  idx,
+  swipeProgress,
+  children,
+}: {
+  idx: number;
+  swipeProgress: SharedValue<number>;
+  children: React.ReactNode;
+}) {
+  const baseScale = 1 - idx * 0.04;
+  const targetScale = 1 - Math.max(0, idx - 1) * 0.04;
+  const baseY = idx * 16;
+  const targetY = Math.max(0, idx - 1) * 16;
+  const baseOpacity = Math.max(0, 1 - idx * 0.2);
+  const targetOpacity = Math.max(0, 1 - Math.max(0, idx - 1) * 0.2);
+
+  const animStyle = useAnimatedStyle(() => {
+    const p = swipeProgress.value;
+    const scale = interpolate(p, [0, 1], [baseScale, targetScale], Extrapolation.CLAMP);
+    const translateY = interpolate(p, [0, 1], [baseY, targetY], Extrapolation.CLAMP);
+    const opacity = interpolate(p, [0, 1], [baseOpacity, targetOpacity], Extrapolation.CLAMP);
+    return { transform: [{ scale }, { translateY }], opacity };
+  });
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          alignItems: "center",
+          zIndex: 10 - idx,
+        },
+        animStyle,
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
 // ─── ActionButton ─────────────────────────────────────────────────────────────
 // Reusable action button with spring scale feedback and optional haptic.
 // All three action buttons (pass / like / star) use this for consistent feel.
@@ -654,6 +724,10 @@ export default function DiscoverScreen() {
       prev.includes(label) ? prev.filter((i) => i !== label) : [...prev, label]
     );
   };
+
+  // ── Shared swipe progress — drives background card animation ─────────────
+  // 0 = top card at rest, 1 = top card fully swiped (background cards come forward)
+  const swipeProgress = useSharedValue(0);
 
   // ── Match popup animation ──────────────────────────────────────────────────
   const matchScale = useSharedValue(0.72);
@@ -797,33 +871,43 @@ export default function DiscoverScreen() {
       <View style={[styles.stack, { bottom: TAB_BAR_H + 20 }]}>
         {filteredUsers.slice(0, 3).map((user, idx) => {
           const isTop = idx === 0;
-          const scale = 1 - idx * 0.03;
-          const translateY = idx * 13;
-          const opacity = 1 - idx * 0.16;
-          return (
-            <View
+          const card = (
+            <DiscoverCard
               key={user.id}
-              style={[
-                styles.stackItem,
-                {
-                  zIndex: 10 - idx,
-                  opacity: isTop ? 1 : opacity,
-                  transform: isTop ? [] : [{ scale }, { translateY }],
-                },
-              ]}
+              user={user}
+              onLike={() => handleLike(user.id)}
+              onPass={() => handlePass(user.id)}
+              onReport={isTop ? () => router.push({
+                pathname: "/report-user" as any,
+                params: { userId: user.id, nickname: user.nickname },
+              }) : undefined}
+              isTop={isTop}
+              stackIndex={idx}
+              swipeProgress={swipeProgress}
+            />
+          );
+
+          // Top card: plain wrapper (DiscoverCard controls its own animation)
+          if (isTop) {
+            return (
+              <View
+                key={user.id}
+                style={[styles.stackItem, { zIndex: 10 }]}
+              >
+                {card}
+              </View>
+            );
+          }
+
+          // Background cards: wrapped in BackgroundCardWrapper for animated scaling
+          return (
+            <BackgroundCardWrapper
+              key={user.id}
+              idx={idx}
+              swipeProgress={swipeProgress}
             >
-              <DiscoverCard
-                user={user}
-                onLike={() => handleLike(user.id)}
-                onPass={() => handlePass(user.id)}
-                onReport={isTop ? () => router.push({
-                  pathname: "/report-user" as any,
-                  params: { userId: user.id, nickname: user.nickname },
-                }) : undefined}
-                isTop={isTop}
-                stackIndex={idx}
-              />
-            </View>
+              {card}
+            </BackgroundCardWrapper>
           );
         })}
       </View>
