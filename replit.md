@@ -51,6 +51,18 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Type**: Express API server
 - **Stack**: Express 5, TypeScript, Drizzle ORM, Pino logging
 - **Legal pages**: `GET /api/legal/privacy` (개인정보처리방침), `GET /api/legal/terms` (이용약관) — 한국어 HTML 페이지, 앱스토어 심사용
+- **아키텍처**: 모듈화 3계층 (Router → Service → Repository)
+  - `src/modules/chat/` — 채팅 메시지 CRUD (chatRepository → chatService → chatRouter)
+  - `src/modules/interest/` — PRS 스코어링 (interestService + interestRouter: `/ai/prs`, admin analytics)
+  - `src/modules/coaching/` — AI 코칭/언어 기능 (coachingService + coachingRouter: `/ai/coach`, `/ai/suggest-reply`, `/ai/translate`, `/ai/persona`, `/ai/conversation-starter`, `/ai/generate-profile-photo`)
+  - `src/modules/match/` — discover 피드, 스와이프, 매칭 (matchRepository → matchService → matchRouter)
+  - `src/modules/user/` — 사용자 프로필 변환 (userRepository, userService)
+  - `src/modules/reports/` — 신고/차단
+  - `src/infra/` — 공유 인프라 싱글톤 (openai, analytics re-exports)
+  - `src/fixtures/` — AI·데모 목업 유저, 인메모리 스와이프 상태
+  - `src/lib/` — 순수 함수 엔진 (prsScoring.ts v1.1.0, prsCoaching.ts, prsAnalytics.ts — 변경 없음)
+  - `src/ws.ts` — WebSocket 씬 레이어 (chatService에 DB 위임, 직접 DB 쓰기 제거)
+- **라우팅 원칙**: Router는 I/O 검증만. Service는 비즈니스 로직 + LLM 호출. Repository는 DB 쿼리만.
 
 ## Launch Readiness
 

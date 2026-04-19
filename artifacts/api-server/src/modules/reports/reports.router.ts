@@ -1,8 +1,15 @@
+/**
+ * modules/reports/reports.router.ts
+ *
+ * User reports (신고) and blocks (차단) endpoints.
+ * Migrated from routes/reports.ts — no logic changes, only path updates.
+ */
+
 import { Router } from "express";
-import { and, eq, desc, sql, ne } from "drizzle-orm";
-import { db, userReports, userBlocks, users, userProfiles } from "@workspace/db";
-import { requireAuth } from "../middleware/auth.js";
-import { logger } from "../lib/logger.js";
+import { and, eq, desc, sql } from "drizzle-orm";
+import { db, userReports, userBlocks, userProfiles } from "@workspace/db";
+import { requireAuth } from "../../middleware/auth.js";
+import { logger } from "../../lib/logger.js";
 
 const router = Router();
 
@@ -21,7 +28,6 @@ const VALID_CATEGORIES = [
 
 /**
  * POST /api/reports
- * 유저 신고 제출 — 인증 필요
  */
 router.post("/reports", requireAuth, async (req, res) => {
   try {
@@ -38,7 +44,7 @@ router.post("/reports", requireAuth, async (req, res) => {
       return;
     }
 
-    if (!VALID_CATEGORIES.includes(category as any)) {
+    if (!VALID_CATEGORIES.includes(category as (typeof VALID_CATEGORIES)[number])) {
       res.status(400).json({ error: "유효하지 않은 신고 카테고리입니다." });
       return;
     }
@@ -55,7 +61,7 @@ router.post("/reports", requireAuth, async (req, res) => {
         and(
           eq(userReports.reporterId, reporterId),
           eq(userReports.reportedUserId, reportedUserId),
-          eq(userReports.category, category),
+          eq(userReports.category, category)
         )
       )
       .limit(1);
@@ -79,7 +85,6 @@ router.post("/reports", requireAuth, async (req, res) => {
       .where(eq(userReports.reportedUserId, reportedUserId));
 
     const uniqueCount = Number(uniqueReporterResult[0]?.count ?? 0);
-
     if (uniqueCount >= 5) {
       logger.warn(
         { reportedUserId, uniqueReporterCount: uniqueCount },
@@ -99,7 +104,6 @@ router.post("/reports", requireAuth, async (req, res) => {
 
 /**
  * POST /api/blocks
- * 유저 차단 — 인증 필요
  */
 router.post("/blocks", requireAuth, async (req, res) => {
   try {
@@ -131,7 +135,6 @@ router.post("/blocks", requireAuth, async (req, res) => {
 
 /**
  * GET /api/admin/reports
- * 관리자용 신고 목록 조회
  */
 router.get("/admin/reports", async (req, res) => {
   try {
@@ -154,10 +157,7 @@ router.get("/admin/reports", async (req, res) => {
         reportedNickname: userProfiles.nickname,
       })
       .from(userReports)
-      .leftJoin(
-        userProfiles,
-        eq(sql`${userReports.reportedUserId}::integer`, userProfiles.userId)
-      )
+      .leftJoin(userProfiles, eq(sql`${userReports.reportedUserId}::integer`, userProfiles.userId))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(userReports.createdAt))
       .limit(limit)
@@ -176,19 +176,12 @@ router.get("/admin/reports", async (req, res) => {
         nickname: userProfiles.nickname,
       })
       .from(userReports)
-      .leftJoin(
-        userProfiles,
-        eq(sql`${userReports.reportedUserId}::integer`, userProfiles.userId)
-      )
+      .leftJoin(userProfiles, eq(sql`${userReports.reportedUserId}::integer`, userProfiles.userId))
       .groupBy(userReports.reportedUserId, userProfiles.nickname)
       .orderBy(desc(sql`count(distinct ${userReports.reporterId})`))
       .limit(10);
 
-    res.json({
-      reports,
-      total: Number(totalResult[0]?.count ?? 0),
-      topReported,
-    });
+    res.json({ reports, total: Number(totalResult[0]?.count ?? 0), topReported });
   } catch (err) {
     logger.error({ err }, "Failed to fetch reports");
     res.status(500).json({ error: "신고 목록 조회 실패" });
@@ -197,7 +190,6 @@ router.get("/admin/reports", async (req, res) => {
 
 /**
  * PATCH /api/admin/reports/:id/resolve
- * 관리자용 신고 해결 처리
  */
 router.patch("/admin/reports/:id/resolve", async (req, res) => {
   try {

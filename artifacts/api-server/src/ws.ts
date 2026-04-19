@@ -1,18 +1,37 @@
+/**
+ * ws.ts
+ *
+ * WebSocket gateway — thin protocol layer.
+ *
+ * Responsibilities:
+ *  - JWT auth from query param
+ *  - Room join/leave management
+ *  - Routing incoming WS messages to the appropriate service
+ *  - Broadcasting saved messages back to room members
+ *
+ * What this file does NOT do:
+ *  - DB queries (delegated to chatService)
+ *  - Business logic (delegated to chatService)
+ */
+
 import { WebSocketServer, WebSocket } from "ws";
 import type { IncomingMessage } from "http";
 import jwt from "jsonwebtoken";
-import { db, chatMessages } from "@workspace/db";
+import { chatService } from "./modules/chat/chat.service.js";
 
-// 인증된 WebSocket 타입
+// ── Types ──────────────────────────────────────────────────────────────────────
+
 interface AuthenticatedWS extends WebSocket {
   userId?: number;
   conversations: Set<string>;
 }
 
-// 대화방 → 접속 중인 클라이언트 세트
+// ── Room registry ──────────────────────────────────────────────────────────────
+
 const rooms = new Map<string, Set<AuthenticatedWS>>();
 
-// 토큰에서 userId 추출 (실패시 undefined)
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
 function extractUserId(token: string | null): number | undefined {
   if (!token) return undefined;
   try {
@@ -24,7 +43,6 @@ function extractUserId(token: string | null): number | undefined {
   }
 }
 
-// 방 정리 - 닫힌 소켓 제거
 function cleanRoom(conversationId: string, ws: AuthenticatedWS) {
   const room = rooms.get(conversationId);
   if (!room) return;
@@ -32,7 +50,6 @@ function cleanRoom(conversationId: string, ws: AuthenticatedWS) {
   if (room.size === 0) rooms.delete(conversationId);
 }
 
-// 방 브로드캐스트 - 연결된 모든 클라이언트에게 전송
 function broadcast(conversationId: string, payload: string, exclude?: AuthenticatedWS) {
   const room = rooms.get(conversationId);
   if (!room) return;
@@ -44,15 +61,15 @@ function broadcast(conversationId: string, payload: string, exclude?: Authentica
   }
 }
 
+// ── Setup ──────────────────────────────────────────────────────────────────────
+
 export function setupWebSocket(wss: WebSocketServer) {
   wss.on("connection", (rawWs: WebSocket, req: IncomingMessage) => {
     const ws = rawWs as AuthenticatedWS;
     ws.conversations = new Set();
 
-    // JWT 인증 (쿼리 파라미터 token=...)
     const url = new URL(req.url ?? "/", "ws://localhost");
-    const token = url.searchParams.get("token");
-    ws.userId = extractUserId(token);
+    ws.userId = extractUserId(url.searchParams.get("token"));
 
     ws.on("message", async (data) => {
       let msg: Record<string, unknown>;
@@ -65,20 +82,18 @@ export function setupWebSocket(wss: WebSocketServer) {
 
       const type = msg["type"] as string;
 
-      // ── 대화방 입장 ──────────────────────────────────────────────────────
+      // ── join ────────────────────────────────────────────────────────────────
       if (type === "join") {
         const conversationId = msg["conversationId"] as string;
         if (!conversationId) return;
-
         ws.conversations.add(conversationId);
         if (!rooms.has(conversationId)) rooms.set(conversationId, new Set());
         rooms.get(conversationId)!.add(ws);
-
         ws.send(JSON.stringify({ type: "joined", conversationId }));
         return;
       }
 
-      // ── 대화방 퇴장 ──────────────────────────────────────────────────────
+      // ── leave ───────────────────────────────────────────────────────────────
       if (type === "leave") {
         const conversationId = msg["conversationId"] as string;
         if (!conversationId) return;
@@ -87,7 +102,7 @@ export function setupWebSocket(wss: WebSocketServer) {
         return;
       }
 
-      // ── 메시지 전송 ──────────────────────────────────────────────────────
+      // ── message ─────────────────────────────────────────────────────────────
       if (type === "message") {
         const conversationId = msg["conversationId"] as string;
         const content = msg["content"] as string;
@@ -97,34 +112,24 @@ export function setupWebSocket(wss: WebSocketServer) {
         if (!conversationId || !content || !senderId) return;
 
         try {
-          // DB에 저장
-          const [saved] = await db
-            .insert(chatMessages)
-            .values({
-              conversationId,
-              senderUserId: ws.userId ?? null,
-              senderId,
-              content,
-              originalLanguage,
-            })
-            .returning();
-
-          const outbound = JSON.stringify({
-            type: "message",
+          // Delegate to chatService — no direct DB call here
+          const saved = await chatService.sendMessage({
             conversationId,
-            message: saved,
+            senderUserId: ws.userId ?? null,
+            senderId,
+            content,
+            originalLanguage,
           });
 
-          // 같은 방의 모든 클라이언트에게 브로드캐스트 (발신자 포함)
-          broadcast(conversationId, outbound);
+          broadcast(conversationId, JSON.stringify({ type: "message", conversationId, message: saved }));
         } catch (err) {
-          console.error("[WS] DB save error:", err);
+          console.error("[WS] message save error:", err);
           ws.send(JSON.stringify({ type: "error", error: "메시지 저장 실패" }));
         }
         return;
       }
 
-      // ── 핑/퐁 ────────────────────────────────────────────────────────────
+      // ── ping ────────────────────────────────────────────────────────────────
       if (type === "ping") {
         ws.send(JSON.stringify({ type: "pong" }));
         return;
@@ -140,12 +145,6 @@ export function setupWebSocket(wss: WebSocketServer) {
       console.error("[WS] socket error:", err);
     });
 
-    // 연결 확인 메시지
-    ws.send(
-      JSON.stringify({
-        type: "connected",
-        userId: ws.userId ?? null,
-      })
-    );
+    ws.send(JSON.stringify({ type: "connected", userId: ws.userId ?? null }));
   });
 }
