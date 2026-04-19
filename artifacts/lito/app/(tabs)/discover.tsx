@@ -126,7 +126,7 @@ function TranslatedBio({ user, viewerLang }: { user: User; viewerLang: "ko" | "j
 // ─── Card geometry ────────────────────────────────────────────────────────────
 const { width, height } = Dimensions.get("window");
 const CARD_WIDTH = width - 32;
-const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.52, height * 0.62);
+const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.62, height * 0.72);
 const SWIPE_THRESHOLD = 72;
 const MAX_ROTATION = 4; // degrees — restrained, premium
 
@@ -136,15 +136,19 @@ function DiscoverCard({
   user,
   onLike,
   onPass,
+  onSuperLike,
   onReport,
   isTop,
+  superLikesLeft,
 }: {
   user: User;
   onLike: () => void;
   onPass: () => void;
+  onSuperLike: () => void;
   onReport?: () => void;
   isTop: boolean;
   stackIndex: number;
+  superLikesLeft: number;
 }) {
   const colors = useColors();
   const { profile } = useApp();
@@ -286,6 +290,30 @@ function DiscoverCard({
         style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
+
+      {/* ── Floating action buttons (right side, only on top card) ─────── */}
+      {isTop && (
+        <View style={cardStyles.floatingActions}>
+          <ActionButton onPress={onPass} hapticStyle="light">
+            <View style={cardStyles.floatBtn}>
+              <FIcon name="x" size={22} color="rgba(80,80,80,0.85)" />
+            </View>
+          </ActionButton>
+          <ActionButton onPress={onSuperLike} hapticStyle="medium">
+            <View style={[
+              cardStyles.floatBtn,
+              { backgroundColor: superLikesLeft > 0 ? "rgba(255,210,80,0.18)" : "rgba(255,255,255,0.14)" },
+            ]}>
+              <FIcon name="star" size={20} color={superLikesLeft > 0 ? "#E8B400" : "rgba(255,255,255,0.45)"} />
+            </View>
+          </ActionButton>
+          <ActionButton onPress={onLike} hapticStyle="medium">
+            <View style={cardStyles.floatBtnMain}>
+              <FIcon name="heart" size={26} color="#fff" />
+            </View>
+          </ActionButton>
+        </View>
+      )}
 
       {/* ── Info overlay — floats over gradient ─────────────────────────── */}
       <View style={cardStyles.info}>
@@ -520,6 +548,44 @@ const cardStyles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.28)",
+  },
+
+  // Floating vertical action buttons (right side of card)
+  floatingActions: {
+    position: "absolute",
+    right: 16,
+    bottom: 110,
+    gap: 14,
+    alignItems: "center",
+    zIndex: 30,
+  },
+  floatBtn: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.28)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  floatBtnMain: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#D85870",
+    shadowColor: "#D85870",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.42,
+    shadowRadius: 14,
+    elevation: 10,
   },
 
   // Bio text — white on dark, small and quiet
@@ -794,7 +860,7 @@ export default function DiscoverScreen() {
       )}
 
       {/* ── Card stack ─────────────────────────────────────────────────── */}
-      <View style={[styles.stack, { bottom: TAB_BAR_H + 106 }]}>
+      <View style={[styles.stack, { bottom: TAB_BAR_H + 20 }]}>
         {filteredUsers.slice(0, 3).map((user, idx) => {
           const isTop = idx === 0;
           // Background cards: scale down, push back
@@ -817,67 +883,18 @@ export default function DiscoverScreen() {
                 user={user}
                 onLike={() => handleLike(user.id)}
                 onPass={() => handlePass(user.id)}
+                onSuperLike={() => handleSuperLike(user.id)}
                 onReport={isTop ? () => router.push({
                   pathname: "/report-user" as any,
                   params: { userId: user.id, nickname: user.nickname },
                 }) : undefined}
                 isTop={isTop}
                 stackIndex={idx}
+                superLikesLeft={superLikesLeft}
               />
             </View>
           );
         })}
-      </View>
-
-      {/* ── Action buttons ──────────────────────────────────────────────── */}
-      <View style={[styles.actionRow, { bottom: TAB_BAR_H + 16 }]}>
-
-        {/* Pass — Light haptic, small scale */}
-        <ActionButton
-          onPress={() => filteredUsers[0] && handlePass(filteredUsers[0].id)}
-          hapticStyle="light"
-        >
-          <View
-            style={[
-              styles.actionBtn,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <FIcon name="x" size={24} color={colors.charcoalMid} />
-          </View>
-        </ActionButton>
-
-        {/* Like — Medium haptic, deeper scale pop */}
-        <ActionButton
-          onPress={() => filteredUsers[0] && handleLike(filteredUsers[0].id)}
-          hapticStyle="medium"
-        >
-          <View
-            style={[styles.actionBtnMain, { backgroundColor: colors.rose, shadowColor: colors.rose }]}
-          >
-            <FIcon name="heart" size={28} color={colors.white} />
-          </View>
-        </ActionButton>
-
-        {/* Super like — star button with remaining count */}
-        <ActionButton
-          onPress={() => filteredUsers[0] && handleSuperLike(filteredUsers[0].id)}
-          hapticStyle="medium"
-        >
-          <View
-            style={[
-              styles.actionBtn,
-              { backgroundColor: superLikesLeft > 0 ? colors.goldLight : colors.muted, borderColor: "transparent" },
-            ]}
-          >
-            <FIcon name="star" size={20} color={superLikesLeft > 0 ? colors.gold : colors.charcoalFaint} />
-            {superLikesLeft < 3 && (
-              <View style={{ position: "absolute", top: -4, right: -4, backgroundColor: colors.gold, borderRadius: 8, minWidth: 16, height: 16, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 }}>
-                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 9, color: "#fff" }}>{superLikesLeft}</Text>
-              </View>
-            )}
-          </View>
-        </ActionButton>
       </View>
 
       {/* ── Filter Sheet ───────────────────────────────────────────────── */}
@@ -1032,39 +1049,34 @@ export default function DiscoverScreen() {
       {/* ── Match popup ────────────────────────────────────────────────── */}
       {newMatch && (
         <View style={styles.matchOverlay}>
-          <Animated.View style={[styles.matchCard, { backgroundColor: colors.background }, matchAnimStyle]}>
-            {/* ── Dual avatar row ── */}
-            <View style={styles.matchAvatarRow}>
-              <View style={styles.matchAvatarLeft}>
-                <ProfileImage photoKey={profile.photos?.[0] ?? "profile1"} size={72} />
-                <View style={[styles.matchAvatarFlag]}>
-                  <CountryFlag country={profile.country} size={16} />
-                </View>
+          <Animated.View style={[styles.matchCard, matchAnimStyle]}>
+            {/* Decorative dots */}
+            <View style={styles.matchDotTL} />
+            <View style={styles.matchDotBR} />
+
+            {/* ── Two overlapping photos ── */}
+            <View style={styles.matchPhotoRow}>
+              <View style={styles.matchPhotoLeft}>
+                <ProfileImage photoKey={newMatch.photos?.[0] ?? "profile2"} size={110} borderRadius={22} />
               </View>
-              <View style={[styles.matchHeartBubble, { backgroundColor: colors.rose }]}>
-                <FIcon name="heart" size={18} color="#fff" />
-              </View>
-              <View style={styles.matchAvatarRight}>
-                <ProfileImage photoKey={newMatch.photos?.[0] ?? "profile2"} size={72} />
-                <View style={[styles.matchAvatarFlag]}>
-                  <CountryFlag country={newMatch.country} size={16} />
+              <View style={styles.matchPhotoRight}>
+                <ProfileImage photoKey={profile.photos?.[0] ?? "profile1"} size={110} borderRadius={22} />
+                <View style={styles.matchHeartBadge}>
+                  <FIcon name="heart" size={14} color="#fff" />
                 </View>
               </View>
             </View>
 
-            <Text style={[styles.matchTitle, { color: colors.charcoal }]}>
-              {isKo ? "매칭됐어요!" : "マッチしました！"}
+            <Text style={styles.matchCongrats}>CONGRATULATIONS</Text>
+            <Text style={styles.matchTitle}>
+              {isKo ? `${newMatch.nickname}님과 매칭!` : `${newMatch.nickname}とマッチ！`}
             </Text>
-            <Text style={[styles.matchName, { color: colors.rose }]}>
-              {newMatch.nickname}
+            <Text style={styles.matchSub}>
+              {isKo ? "지금 서로 대화를 시작해보세요" : "今すぐ話しかけましょう"}
             </Text>
-            <Text style={[styles.matchSub, { color: colors.charcoalLight }]}>
-              {isKo
-                ? "서로 좋아요를 눌렀어요. 지금 대화를 시작해보세요!"
-                : "お互いにいいねしました。今すぐ話しかけましょう！"}
-            </Text>
+
             <TouchableOpacity
-              style={[styles.matchBtn, { backgroundColor: colors.rose }]}
+              style={styles.matchBtn}
               activeOpacity={0.85}
               onPress={() => {
                 dismissMatch();
@@ -1074,10 +1086,12 @@ export default function DiscoverScreen() {
               <Text style={styles.matchBtnText}>
                 {isKo ? "대화 시작하기" : "メッセージを送る"}
               </Text>
+              <FIcon name="heart" size={16} color="#fff" />
             </TouchableOpacity>
+
             <TouchableOpacity onPress={dismissMatch} activeOpacity={0.7} style={styles.matchSkip}>
-              <Text style={[styles.matchSkipText, { color: colors.charcoalLight }]}>
-                {isKo ? "나중에" : "あとで"}
+              <Text style={styles.matchSkipText}>
+                {isKo ? "계속 둘러보기" : "スワイプを続ける"}
               </Text>
             </TouchableOpacity>
           </Animated.View>
@@ -1159,29 +1173,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // ── Action buttons ────────────────────────────────────────────────────────
-  actionRow: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 20,
-  },
-  actionBtn: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  actionBtnMain: {
+  // ── Action buttons (kept for any potential future use) ───────────────────
+  _unused_actionBtnMain: {
     width: 72,
     height: 72,
     borderRadius: 36,
@@ -1238,83 +1231,121 @@ const styles = StyleSheet.create({
   // ── Match popup ───────────────────────────────────────────────────────────
   matchOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: "rgba(255,240,244,0.97)",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 999,
-    paddingHorizontal: 28,
+    paddingHorizontal: 32,
   },
   matchCard: {
     width: "100%",
-    borderRadius: 28,
-    padding: 32,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
-    shadowRadius: 30,
-    elevation: 20,
+    paddingVertical: 8,
   },
-  matchAvatarRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 0,
-    marginBottom: 24,
-  },
-  matchAvatarLeft: {
-    position: "relative",
-    marginRight: -10,
-    zIndex: 1,
-  },
-  matchAvatarRight: {
-    position: "relative",
-    marginLeft: -10,
-    zIndex: 1,
-  },
-  matchAvatarFlag: {
+  matchDotTL: {
     position: "absolute",
-    bottom: 0,
-    right: 0,
+    top: -60,
+    left: -20,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#D85870",
+    opacity: 0.7,
   },
-  matchHeartBubble: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  matchDotBR: {
+    position: "absolute",
+    bottom: -40,
+    right: -10,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#D85870",
+    opacity: 0.4,
+  },
+  matchPhotoRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "center",
+    marginBottom: 36,
+    height: 140,
+  },
+  matchPhotoLeft: {
+    transform: [{ rotate: "-8deg" }],
+    marginRight: -18,
+    zIndex: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  matchPhotoRight: {
+    transform: [{ rotate: "8deg" }, { translateY: -16 }],
+    zIndex: 2,
+    shadowColor: "#D85870",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  matchHeartBadge: {
+    position: "absolute",
+    top: -12,
+    right: -10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#D85870",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    elevation: 6,
+    borderWidth: 2,
+    borderColor: "#fff",
+    zIndex: 5,
+    shadowColor: "#D85870",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  matchCongrats: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 12,
+    color: "#D85870",
+    letterSpacing: 2.5,
+    marginBottom: 12,
+    textAlign: "center",
   },
   matchTitle: {
     fontFamily: "Inter_700Bold",
-    fontSize: 24,
-    marginBottom: 6,
+    fontSize: 28,
+    color: "#1C1C1E",
+    marginBottom: 10,
     textAlign: "center",
-  },
-  matchName: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 18,
-    marginBottom: 12,
-    textAlign: "center",
+    lineHeight: 36,
   },
   matchSub: {
     fontFamily: "Inter_400Regular",
     fontSize: 14,
+    color: "#8E8E93",
     textAlign: "center",
     lineHeight: 22,
-    marginBottom: 28,
+    marginBottom: 36,
   },
   matchBtn: {
     width: "100%",
-    paddingVertical: 16,
-    borderRadius: 16,
+    paddingVertical: 17,
+    borderRadius: 32,
+    backgroundColor: "#D85870",
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    justifyContent: "center",
+    gap: 10,
+    marginBottom: 14,
+    shadowColor: "#D85870",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
   },
   matchBtnText: {
     fontFamily: "Inter_600SemiBold",
@@ -1322,11 +1353,13 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   matchSkip: {
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
   matchSkipText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    fontSize: 15,
+    color: "#D85870",
+    textAlign: "center",
   },
 });
 
