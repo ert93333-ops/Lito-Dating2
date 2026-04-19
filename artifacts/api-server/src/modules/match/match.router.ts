@@ -23,10 +23,11 @@ router.get("/users/discover", optionalAuth, async (req, res) => {
   const langLevel = (req.query.langLevel as string) || "all";
   const interestsRaw = (req.query.interests as string) || "";
   const interests = interestsRaw ? interestsRaw.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  const gender = (req.query.gender as string) || "all";
   const limit = Math.min(Number(req.query.limit) || 20, 50);
   const offset = Number(req.query.offset) || 0;
 
-  const filterOpts = { country, minAge, maxAge, langLevel, interests };
+  const filterOpts = { country, minAge, maxAge, langLevel, interests, gender };
 
   if (req.user) {
     try {

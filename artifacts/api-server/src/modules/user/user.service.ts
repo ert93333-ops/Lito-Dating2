@@ -49,6 +49,7 @@ export function buildServerUser(user: UserRow, profile: ProfileRow): ServerUser 
       institutionVerified: false,
     },
     instagramHandle: profile.instagramHandle || undefined,
+    gender: (profile.gender as "male" | "female" | "other" | undefined) ?? undefined,
     isAI: false,
   };
 }

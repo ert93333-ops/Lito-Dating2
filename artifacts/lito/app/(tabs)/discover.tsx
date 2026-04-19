@@ -732,6 +732,7 @@ export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
   const { discoverUsers, discoverLoading, newMatch, dismissMatch, refetchDiscover, likeUser, passUser, superLikeUser, superLikesLeft, profile, diagnosisStatus } = useApp();
   const [showFilterSheet, setShowFilterSheet] = useState(false);
+  const [filterGender, setFilterGender] = useState<"all" | "male" | "female">("all");
   const [filterCountry, setFilterCountry] = useState<"all" | "KR" | "JP">("all");
   const [filterLevel, setFilterLevel] = useState<"all" | "beginner" | "intermediate" | "advanced">("all");
   const [filterAgeMin, setFilterAgeMin] = useState(20);
@@ -759,12 +760,13 @@ export default function DiscoverScreen() {
   // ── API 응답이 이미 필터링되어 있으므로 클라이언트 필터 불필요 ─────────────
   const filteredUsers = discoverUsers;
   const filtersActive =
-    filterCountry !== "all" || filterLevel !== "all" ||
+    filterGender !== "all" || filterCountry !== "all" || filterLevel !== "all" ||
     filterAgeMin !== 20 || filterAgeMax !== 35 || filterInterests.length > 0;
 
   // ── 필터 적용 — API 재요청 ─────────────────────────────────────────────────
   const applyFilters = () => {
     const filters: DiscoverFilters = {
+      gender: filterGender,
       country: filterCountry,
       langLevel: filterLevel,
       ageMin: filterAgeMin,
@@ -777,12 +779,13 @@ export default function DiscoverScreen() {
 
   // ── 필터 초기화 ────────────────────────────────────────────────────────────
   const resetFilters = () => {
+    setFilterGender("all");
     setFilterCountry("all");
     setFilterLevel("all");
     setFilterAgeMin(20);
     setFilterAgeMax(35);
     setFilterInterests([]);
-    refetchDiscover({ country: "all", langLevel: "all", ageMin: 20, ageMax: 35, interests: [] });
+    refetchDiscover({ gender: "all", country: "all", langLevel: "all", ageMin: 20, ageMax: 35, interests: [] });
   };
 
   // ── 관심사 토글 ────────────────────────────────────────────────────────────
@@ -849,7 +852,7 @@ export default function DiscoverScreen() {
         </Text>
         <TouchableOpacity
           style={[styles.refetchBtn, { backgroundColor: colors.rose }]}
-          onPress={refetchDiscover}
+          onPress={() => refetchDiscover()}
           activeOpacity={0.85}
         >
           <FIcon name="refresh-cw" size={16} color="#fff" />
@@ -996,6 +999,31 @@ export default function DiscoverScreen() {
             {isKo ? "필터" : "フィルター"}
           </Text>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 0 }}>
+
+          {/* Gender */}
+          <Text style={[filterStyles.label, { color: colors.charcoalLight }]}>
+            {isKo ? "성별" : "性別"}
+          </Text>
+          <View style={filterStyles.chipRow}>
+            {(["all", "female", "male"] as const).map((g) => (
+              <TouchableOpacity
+                key={g}
+                style={[filterStyles.chip, {
+                  backgroundColor: filterGender === g ? colors.rose : colors.muted,
+                  borderColor: filterGender === g ? colors.rose : colors.border,
+                }]}
+                onPress={() => setFilterGender(g)}
+              >
+                <Text style={[filterStyles.chipText, { color: filterGender === g ? "#fff" : colors.charcoalMid }]}>
+                  {g === "all"
+                    ? (isKo ? "전체" : "すべて")
+                    : g === "female"
+                    ? (isKo ? "여성" : "女性")
+                    : (isKo ? "남성" : "男性")}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
           {/* Country */}
           <Text style={[filterStyles.label, { color: colors.charcoalLight }]}>

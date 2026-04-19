@@ -37,6 +37,7 @@ export interface ServerUser {
     institutionVerified: boolean;
   };
   instagramHandle?: string;
+  gender?: "male" | "female" | "other";
   isAI?: boolean;
   personaId?: string;
 }
@@ -59,6 +60,7 @@ export const AI_MOCK_USERS: ServerUser[] = [
     interests: ["語学交換", "K-POP", "旅行", "料理"],
     trustScore: 100,
     trustLayers: { humanVerified: true, faceMatched: true, idVerified: true, institutionVerified: true },
+    gender: "female",
     isAI: true,
     personaId: "ai_mio_jp",
   },
@@ -79,6 +81,7 @@ export const AI_MOCK_USERS: ServerUser[] = [
     interests: ["일본어", "애니메이션", "카페", "독서"],
     trustScore: 100,
     trustLayers: { humanVerified: true, faceMatched: true, idVerified: true, institutionVerified: true },
+    gender: "female",
     isAI: true,
     personaId: "ai_jia_kr",
   },
@@ -104,6 +107,7 @@ export const DEMO_USERS: ServerUser[] = [
     trustScore: 55,
     trustLayers: { humanVerified: true, faceMatched: true, idVerified: false, institutionVerified: false },
     instagramHandle: "@yuna.designs",
+    gender: "female",
   },
   {
     id: "user2",
@@ -123,6 +127,7 @@ export const DEMO_USERS: ServerUser[] = [
     trustScore: 90,
     trustLayers: { humanVerified: true, faceMatched: true, idVerified: true, institutionVerified: false },
     instagramHandle: "@takuya.dev",
+    gender: "male",
   },
   {
     id: "user3",
@@ -142,6 +147,7 @@ export const DEMO_USERS: ServerUser[] = [
     trustScore: 25,
     trustLayers: { humanVerified: true, faceMatched: false, idVerified: false, institutionVerified: false },
     instagramHandle: "@hana.photo",
+    gender: "female",
   },
   {
     id: "user4",
@@ -161,6 +167,7 @@ export const DEMO_USERS: ServerUser[] = [
     trustScore: 100,
     trustLayers: { humanVerified: true, faceMatched: true, idVerified: true, institutionVerified: true },
     instagramHandle: "@jimin.chef",
+    gender: "male",
   },
   {
     id: "user5",
@@ -181,6 +188,7 @@ export const DEMO_USERS: ServerUser[] = [
     trustScore: 100,
     trustLayers: { humanVerified: true, faceMatched: true, idVerified: true, institutionVerified: true },
     instagramHandle: "@aoi.cafe",
+    gender: "female",
   },
   {
     id: "user6",
@@ -200,6 +208,7 @@ export const DEMO_USERS: ServerUser[] = [
     trustScore: 90,
     trustLayers: { humanVerified: true, faceMatched: true, idVerified: true, institutionVerified: false },
     instagramHandle: "@hyunwoo.md",
+    gender: "male",
   },
 ];
 

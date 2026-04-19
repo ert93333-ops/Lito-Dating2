@@ -53,12 +53,14 @@ type FilterOpts = {
   maxAge: number;
   langLevel: string;
   interests: string[];
+  gender: string;
 };
 
 function applyFilters(user: ServerUser, opts: FilterOpts): boolean {
   if (user.age < opts.minAge || user.age > opts.maxAge) return false;
   if (opts.country !== "all" && user.country !== opts.country) return false;
   if (opts.langLevel !== "all" && user.languageLevel !== opts.langLevel) return false;
+  if (opts.gender !== "all" && user.gender !== opts.gender) return false;
   if (opts.interests.length > 0) {
     const expandedFilter = expandInterestTags(opts.interests);
     const userInterests = (user.interests ?? []).map((i) => i.toLowerCase());

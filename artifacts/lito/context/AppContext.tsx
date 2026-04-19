@@ -108,6 +108,7 @@ export interface DiscoverFilters {
   ageMin: number;
   ageMax: number;
   interests: string[];
+  gender: "all" | "male" | "female";
 }
 
 interface AppContextType {
@@ -218,7 +219,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── Fetch discover users from API ─────────────────────────────────────────
   const discoverFiltersRef = useRef<DiscoverFilters>({
-    country: "all", langLevel: "all", ageMin: 20, ageMax: 35, interests: [],
+    country: "all", langLevel: "all", ageMin: 20, ageMax: 35, interests: [], gender: "all",
   });
 
   const fetchDiscover = useCallback(async (filters?: DiscoverFilters) => {
@@ -236,6 +237,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         maxAge: String(f.ageMax),
       });
       if (f.interests.length > 0) params.set("interests", f.interests.join(","));
+      if (f.gender !== "all") params.set("gender", f.gender);
       const res = await fetch(`${API_BASE}/api/users/discover?${params.toString()}`, { headers });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json() as { users: ServerUser[] };
