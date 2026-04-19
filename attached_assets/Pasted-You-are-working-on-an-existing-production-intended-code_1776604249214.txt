@@ -1,0 +1,432 @@
+You are working on an existing production-intended codebase for Lito, a Korean-Japanese cross-border dating app.
+
+ABSOLUTE INSTRUCTIONS
+- Do NOT start coding yet.
+- Do NOT generate large code blindly.
+- Do NOT rewrite the whole project.
+- Do NOT modify unrelated systems.
+- First inspect the real current codebase and report what actually exists.
+- Then produce a design review.
+- Then produce a failure-focused self-critique of your own design.
+- Then STOP and wait for approval.
+
+PRIMARY GOAL
+Design a production-conscious backend integration for an AI Mutual Interest Signal System.
+
+This feature must remain modular and low-risk.
+It must NOT break existing chat functionality.
+It must NOT block message sending.
+It must NOT mix scoring logic into chat service.
+
+==================================================
+PRODUCT / FEATURE CONTEXT
+==================================================
+
+Feature name:
+AI Mutual Interest Signal System
+
+Required outputs:
+1. PRS (Partner Receptivity Score)
+2. CS (Confidence Score)
+3. Conversation Stage
+4. Reason Codes
+5. Coaching Suggestions
+
+Important:
+- This is NOT a love score
+- This is NOT a certainty engine
+- This is a probabilistic interaction signal system
+- The system must be explainable
+- The system must degrade gracefully if confidence is low
+- LLM must never be the sole dependency for final scoring
+
+==================================================
+NON-NEGOTIABLE ARCHITECTURE RULES
+==================================================
+
+1. Separate interest module
+The system must live in a separate backend module, for example:
+backend/interest/ or the equivalent existing server module pattern.
+
+2. Directional scoring is mandatory
+Scoring must be viewer-relative.
+The same conversation must produce different directional outputs depending on the viewer.
+
+Example:
+- viewer = A → estimate partner B’s receptivity toward A → PRS_AB
+- viewer = B → estimate partner A’s receptivity toward B → PRS_BA
+
+This is mandatory.
+Conversation-level undirected scoring is NOT acceptable.
+
+3. Async execution only
+Chat message send/store flow must complete normally first.
+Only after the message is stored should an async job be triggered.
+
+4. Layered scoring
+Layer 1:
+- deterministic
+- rule-based
+- no LLM dependency
+- must always run
+
+Layer 2:
+- optional LLM semantic enrichment
+- enriches feature extraction only
+- if it fails, Layer 1 result must still be valid and stored
+
+5. Snapshot storage model
+Do NOT store latest snapshot only.
+You must support:
+- append-only historical snapshots
+- fast-read latest snapshot table or equivalent materialized latest state
+
+6. Snapshot deduplication
+Do NOT write a new historical snapshot if there is no meaningful change.
+
+7. Incremental feature extraction
+Do NOT recompute the full feature window from scratch every time if avoidable.
+Use incremental processing where possible.
+
+8. No chat path contamination
+Do NOT put PRS/CS computation inside chat service or request handler.
+Do NOT call LLM directly from chat endpoints.
+Do NOT mutate chat messages for scoring.
+
+==================================================
+CRITICAL HIDDEN FAILURE MODES YOU MUST AUDIT EXPLICITLY
+==================================================
+
+You MUST explicitly check and report on each of the following.
+Do not skip any item.
+
+A. Directional privacy leak
+If PRS is directional, it must NOT be broadcast room-wide as the same payload to all participants.
+You must explicitly design viewer-scoped delivery.
+
+B. Auth bypass risk
+Do NOT trust viewerUserId from client query/body if the backend already has authenticated user identity.
+Viewer identity must be derived from server auth/session except for clearly isolated internal test/admin tooling.
+
+C. Participant source correctness
+Do NOT rely only on distinct message senders if a conversation membership source exists.
+Use the authoritative participant source if available.
+If only distinct senders exist today, state the limitation clearly.
+
+D. Score unit mismatch
+PRS and CS must have consistent units across:
+- internal scoring
+- database
+- API
+- UI
+If internal normalized values use 0..1, boundary conversions must be explicit.
+Final stored and served values should be consistently defined.
+
+E. LLM hard dependency risk
+If LLM fails, rate-limits, times out, or returns malformed output, scoring must still work.
+
+F. Duplicate async execution / race conditions
+Multiple messages or repeated schedule calls must not corrupt or duplicate results.
+Design idempotency and per-conversation processing safety.
+
+G. Multi-instance deployment risk
+If debounce/locks are in-memory only, this is not safe for multi-instance deployments.
+You must explicitly state:
+- MVP single-instance assumption, OR
+- distributed lock / queue plan (Redis / DB / equivalent)
+
+H. Snapshot explosion risk
+Historical snapshots must not grow uncontrollably.
+Add deduplication policy with explicit thresholds.
+
+I. Full recomputation cost risk
+Repeatedly recomputing from scratch for every update is not acceptable without justification.
+
+J. Wrong viewer delivery
+WS updates and read APIs must only return the snapshot belonging to the authenticated viewer direction.
+
+K. PII/privacy over-storage
+Do NOT store raw private message text in snapshot tables unless absolutely necessary.
+Prefer structured features, reason codes, hashes, and metadata.
+
+L. Double-update noise
+If Layer 1 stores a base snapshot and Layer 2 stores an enriched snapshot seconds later, the client experience must not become noisy.
+Define when the second update is suppressed or emitted.
+
+M. Message edit/delete/order issues
+Explicitly state how the system behaves if messages are edited, deleted, or arrive out of order.
+
+N. Migration safety
+Schema changes must be additive and rollback-conscious.
+Do NOT propose destructive migrations unless absolutely necessary.
+
+==================================================
+EXPECTED EXECUTION MODEL
+==================================================
+
+Required model:
+
+1. Message is sent/stored normally
+2. Chat response returns normally
+3. Async interest job is triggered
+4. Feature extraction runs
+5. Directional PRS/CS/stage/reasons/coaching are computed
+6. Results are stored separately
+7. Viewer-scoped update is delivered
+8. Read API supports fallback fetch
+
+Heavy logic must never delay live chat UX.
+
+==================================================
+MANDATORY DESIGN REQUIREMENTS
+==================================================
+
+You must design for the following:
+
+1. Directional feature extraction
+Feature extraction must accept viewerUserId (or equivalent authenticated viewer context).
+
+2. Historical + latest snapshot model
+Support both:
+- historical append-only snapshots
+- latest snapshot per (conversation, viewer)
+
+3. Snapshot deduplication
+Do NOT insert a historical snapshot if all are true:
+- PRS delta < 3 points
+- stage unchanged
+- low confidence state unchanged
+- reason code hash unchanged
+- coaching hash unchanged
+- no material LLM enrichment difference
+
+If you choose a different threshold, justify it.
+
+4. Incremental feature extraction caching
+Store enough state to avoid recomputing the same message history repeatedly, such as:
+- last_processed_message_id
+- last_processed_at
+- cached feature window summary
+- source message range / last source message id
+- model version used
+
+5. Idempotent worker design
+Repeated scheduling for the same conversation must be safe.
+Define a stable job identity, for example:
+(conversationId, viewerUserId, latestMessageId, modelVersion)
+
+6. Bounded computation
+Set hard limits such as:
+- max messages examined per run
+- max LLM calls per conversation per time window
+- minimum snapshot age before recomputation
+- debounce window
+Explain all hard limits.
+
+7. LLM circuit breaker + retry
+Retry only the optional LLM layer.
+Use backoff and jitter.
+Do not retry deterministic pure functions.
+
+8. Authorization model
+Every read/update path must validate that the authenticated user belongs to the conversation.
+No cross-user snapshot access.
+
+9. Observability
+Design structured logs, metrics, and failure counters.
+
+10. Rollback/fallback behavior
+If the interest system fails, chat must remain fully functional.
+
+==================================================
+SCHEMA REQUIREMENTS
+==================================================
+
+Design the schema in detail.
+At minimum, include proposals for:
+
+A. historical snapshots table
+B. latest snapshots table
+C. optional feature cache / processing state table
+
+For each table, specify:
+- columns
+- types
+- units
+- constraints
+- indexes
+- unique keys
+- foreign keys
+- what is append-only vs mutable
+- retention plan if needed
+
+Also specify whether you store:
+- reason_codes
+- coaching_codes
+- localized copy or only canonical codes
+- feature summaries
+- llm_enriched flag
+- model_version
+- source_message_id range
+- created_at / computed_at / updated_at
+
+Strong recommendation:
+Persist canonical reason codes + structured evidence, not only localized text blobs.
+Localized display copy can be derived from templates later.
+
+==================================================
+API / WS REQUIREMENTS
+==================================================
+
+Design these read paths safely:
+
+1. GET latest interest snapshot for authenticated viewer
+2. GET snapshot history for authenticated viewer
+3. optional refresh endpoint if needed
+4. WS or push delivery for authenticated viewer only
+
+Explicitly answer:
+- how the server derives viewer identity
+- how WS delivery avoids leaking PRS_AB to viewer B
+- what the fallback path is if WS delivery fails
+
+==================================================
+PERFORMANCE / COST REQUIREMENTS
+==================================================
+
+You must estimate and explain:
+
+1. DB reads per message event
+2. DB writes per successful analysis
+3. CPU cost of feature extraction
+4. LLM call frequency cap
+5. expected chat-path latency impact
+6. storage growth risk
+7. how deduplication reduces writes
+8. how incremental caching reduces recomputation
+9. what changes for 1 instance vs multi-instance deployment
+
+==================================================
+TEST REQUIREMENTS
+==================================================
+
+You must propose a test plan that covers at minimum:
+
+1. low-data conversation
+2. strong engagement conversation
+3. mixed-signal conversation
+4. strong progression conversation
+5. long silence + partner reinitiation
+6. fast replies but generic content
+7. high warmth but low progression
+8. oversharing penalty
+9. scam-risk safety override
+10. translation-heavy KR-JP conversation
+11. viewer A vs viewer B directional divergence
+12. auth bypass attempt using forged viewerUserId
+13. WS privacy leak attempt
+14. duplicate worker schedule calls
+15. LLM timeout / malformed response
+16. DB write failure during snapshot store
+17. no participant message yet from one side
+18. message edit/delete/out-of-order behavior
+19. snapshot deduplication threshold behavior
+20. incremental cache correctness
+
+==================================================
+OUTPUT FORMAT (MANDATORY)
+==================================================
+
+Produce your answer in exactly these sections:
+
+1. Current Codebase Inventory
+- actual relevant files/modules found
+- actual routing / service / db patterns used
+- assumptions clearly marked
+
+2. Affected Files
+- files to create
+- files to modify
+- files that must remain untouched
+
+3. Architecture Proposal
+- module boundaries
+- responsibilities
+- exact data flow
+
+4. Schema Proposal
+- table-by-table design
+- indexes and constraints
+- units and type consistency
+
+5. Async Worker Design
+- scheduling
+- debounce
+- idempotency
+- retry/backoff
+- circuit breaker
+- single-instance vs distributed note
+
+6. Directional Scoring Design
+- how viewer-based extraction works
+- how participant identity is sourced
+- how delivery is viewer-scoped
+
+7. Caching and Deduplication Design
+- incremental feature extraction plan
+- snapshot deduplication plan
+- what state is cached
+- invalidation rules
+
+8. Failure Mode Analysis
+For each critical hidden failure mode A through N above:
+- risk
+- impact
+- mitigation
+- residual limitation
+
+9. Security and Privacy Review
+- auth rules
+- access boundaries
+- PII minimization
+- no-leak guarantees
+
+10. Performance and Cost Review
+- expected read/write/cpu/llm patterns
+- bottlenecks
+- growth risks
+
+11. Test Plan
+- unit tests
+- integration tests
+- failure-injection tests
+
+12. Self-Critique / Red-Team Review
+You must actively try to break your own design.
+List the top 10 ways the design could still fail in production.
+For each:
+- why it could happen
+- how severe it is
+- how to reduce the risk further
+
+13. Go / No-Go Decision
+End with one of:
+- GO FOR IMPLEMENTATION
+- BLOCKED — NEEDS DESIGN FIXES
+
+If BLOCKED:
+- list exact blocking items
+
+Then STOP.
+Do NOT implement any code yet.
+
+==================================================
+IMPORTANT FINAL BEHAVIOR RULES
+==================================================
+
+- Do not invent files that do not plausibly fit the existing codebase pattern
+- Do not assume auth details; inspect and state what actually exists
+- Do not assume queue/redis exists; inspect first
+- Do not hide uncertainty; state assumptions explicitly
+- Do not proceed to coding after the design response
+- Do not skip the self-critique section
