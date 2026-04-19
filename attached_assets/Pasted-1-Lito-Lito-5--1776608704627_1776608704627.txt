@@ -1,0 +1,634 @@
+1. Lito 알림의 목표
+Lito 알림은 5가지만 잘하면 된다.
+
+첫째, 대화 응답률을 높이는 실시간 알림.
+둘째, 매칭/좋아요/검증 같은 핵심 상태 변화 전달.
+셋째, 안전·신뢰 관련 경고를 빠르고 조용하게 전달.
+넷째, AI 코칭과 PRS 변화는 과장 없이 보조적으로 전달.
+다섯째, 유저가 피로해지지 않도록 빈도와 노출을 통제.
+
+내 추천은 푸시 알림 하나로 다 하려 하지 말고 아래 3층 구조로 가는 것이다.
+
+Push: 즉시 확인이 필요한 것만
+
+In-app inbox / 알림 센터: AI 인사이트, 코칭, 누적 이벤트
+
+Email/SMS: 계정/법적/복구/결제 같은 예외만
+
+2. 알림 설계 원칙
+2-1. privacy-first
+데이팅앱은 잠금화면 노출이 민감하다.
+기본값은 메시지 내용 미리보기 OFF가 맞다.
+
+권장 기본값:
+
+잠금화면: “새 메시지가 도착했어요”
+
+앱 내부 설정에서만:
+
+미리보기 끔
+
+보낸 사람 이름만
+
+전체 미리보기
+
+이건 Apple이 민감하거나 개인적인 정보를 알림에 넣지 말라고 권고하는 방향과도 맞다. 
+
+2-2. 채팅은 빠르게, AI는 조용하게
+메시지/매칭 = 즉시
+
+AI 코칭/PRS 변화 = 푸시보다 인앱 우선
+
+리텐션/프로모션 = 가장 약하게
+
+2-3. score-first가 아니라 explanation-first
+AI 알림은 절대:
+
+“상대가 당신을 87% 좋아해요”
+
+“지금 고백해도 돼요”
+같은 식이면 안 된다.
+
+대신:
+
+“대화 인사이트가 업데이트됐어요”
+
+“상대가 당신의 화제를 잘 이어가고 있어요”
+
+“지금은 가벼운 후속 질문이 더 잘 맞아요”
+
+2-4. user control
+Android는 채널별 사용자 제어가 핵심이고, iOS도 사용자가 스타일과 전달 방식을 조정한다. 따라서 Lito도 알림 유형을 세분화해서 유저가 끌 수 있게 해야 한다. 
+
+3. Lito 알림 카테고리 구조
+P0. 실시간 커뮤니케이션
+가장 중요한 카테고리다.
+
+새 메시지
+
+새 매칭
+
+좋아요 / 슈퍼라이크 수신
+
+통화/약속 제안 수신
+
+통화/약속 수락
+
+운영 원칙:
+
+즉시 전달
+
+conversation/thread 기준으로 묶기
+
+같은 대화방에서 연속 메시지는 번들링
+
+P1. 안전 / 계정 / 신뢰
+두 번째로 중요하다.
+
+신고 접수/처리 결과
+
+이상 징후 감지
+
+오프플랫폼 유도/금전 유도 경고
+
+본인 인증 성공/실패
+
+로그인/보안 경고
+
+운영 원칙:
+
+높은 우선순위
+
+그러나 과한 공포 조성 금지
+
+메시지 내용보다 “조치 유도” 중심
+
+P2. 상태 변경
+프로필 승인/반려
+
+사진 검수 완료
+
+구독/결제 성공·실패
+
+기능 사용 가능 상태 변경
+
+P3. AI 인사이트 / 코칭
+대화 인사이트 업데이트
+
+오늘의 AI 코칭
+
+답장 추천 준비 완료
+
+PRS/CS 의미 있는 변화
+
+운영 원칙:
+
+기본은 인앱
+
+푸시는 opt-in 권장
+
+낮은 빈도
+
+숫자보다 이유·행동 가이드 중심
+
+P4. 재활성화 / 리텐션
+새 매치가 기다리고 있어요
+
+답장이 오래 멈춰 있어요
+
+프로필을 업데이트하면 노출이 좋아질 수 있어요
+
+운영 원칙:
+
+가장 약한 우선순위
+
+엄격한 빈도 제한
+
+조급함/불안 자극 금지
+
+4. 권장 채널 설계
+Android 채널
+Android 8+에서는 채널이 필수라서 아래처럼 분리하는 게 좋다. 채널 생성 뒤 핵심 동작은 사용자가 바꿀 수 있으므로, 처음부터 채널 구조를 신중하게 나눠야 한다. 
+
+권장 채널:
+
+messages
+
+matches_likes
+
+safety_security
+
+account_updates
+
+ai_insights
+
+promotions
+
+importance 추천:
+
+messages: default 또는 high
+
+matches_likes: default
+
+safety_security: high
+
+account_updates: default
+
+ai_insights: low
+
+promotions: low
+
+iOS interruption level 매핑
+messages: active
+
+matches_likes: active
+
+safety_security: 기본 active, 정말 긴급한 보안/안전 알림만 제한적 timeSensitive
+
+ai_insights: passive
+
+promotions: passive
+
+critical은 entitlement가 필요하므로 Lito에서는 쓰지 않는 게 맞다. 
+
+5. 이벤트별 상세 기획
+5-1. 새 메시지
+가장 중요한 알림이다.
+
+트리거:
+
+상대가 메시지 전송
+
+내가 앱 백그라운드 상태
+
+최근 30~60초 안에 같은 conversation의 unopened push 없음
+
+푸시 예시:
+
+KR: “새 메시지가 도착했어요”
+
+KR(이름 허용): “유키님이 메시지를 보냈어요”
+
+JP: “新しいメッセージが届きました”
+
+JP(이름 허용): “ユキさんからメッセージが届きました”
+
+권장:
+
+기본은 내용 미리보기 숨김
+
+유저 설정으로만 내용 표시
+
+연속 3개 메시지면 “새 메시지 3개” 식으로 번들
+
+보내지 말아야 할 것:
+
+읽음 표시
+
+타이핑 중
+
+메시지 편집
+
+번역 완료
+
+5-2. 새 매칭
+트리거:
+
+match.created
+
+푸시 예시:
+
+“새로운 매칭이 생겼어요”
+
+“새로운 인연이 연결됐어요”
+
+JP: “新しいマッチが成立しました”
+
+원칙:
+
+즉시 발송 가능
+
+하루 여러 건이면 배치보다 실시간이 보통 유리
+
+단, 같은 시간대 다수 발생 시 10분 이내 묶기 가능
+
+5-3. 좋아요 / 슈퍼라이크
+트리거:
+
+like.received
+
+super_like.received
+
+권장:
+
+일반 좋아요는 앱 정책과 익명성에 따라 제한
+
+슈퍼라이크는 알림 가치 높음
+
+너무 gamified copy는 금지
+
+예시:
+
+“누군가 당신에게 더 큰 관심을 보였어요”
+
+“특별한 관심을 받았어요”
+
+5-4. 안전 알림
+가장 조심해야 한다.
+
+트리거 예:
+
+앱 밖 이동 반복 유도
+
+투자/송금/암호화폐 언급
+
+신고 접수 후 유저에게 필요한 후속 조치
+
+계정 이상 로그인
+
+예시:
+
+“이 대화에서 주의가 필요한 신호가 감지됐어요”
+
+“앱 밖 연락이나 금전 요청에는 주의하세요”
+
+JP: “この会話では注意が必要なサインが見られます”
+
+원칙:
+
+일반 PRS/AI 코칭보다 우선
+
+과도한 공포 조성 금지
+
+가능한 경우 인앱 배너 + 푸시 병행
+
+5-5. AI 인사이트 / 코칭
+여기가 Lito 차별점이다.
+
+하지만 푸시 남발하면 가장 먼저 꺼진다.
+그래서 아래가 맞다.
+
+기본 정책:
+
+인앱 알림 기본 ON
+
+푸시 기본 OFF
+
+설정에서 “AI 인사이트 푸시 받기” opt-in
+
+푸시를 보내는 경우:
+
+CS ≥ 60
+
+stage 또는 coaching recommendation이 materially changed
+
+하루 1회 이하
+
+safety override는 예외
+
+좋은 예:
+
+“대화 인사이트가 업데이트됐어요”
+
+“지금은 가벼운 후속 질문이 더 자연스러워요”
+
+“대화 분위기는 좋지만, 다음 단계 제안은 조금 이른 편이에요”
+
+나쁜 예:
+
+“상대가 당신을 좋아할 확률 82%”
+
+“지금 고백하세요”
+
+“오늘 안 보내면 놓쳐요”
+
+6. 권한 획득 플로우
+Android 13+는 새 설치 앱에서 알림이 기본 꺼져 있고 권한을 요청해야 한다. Apple도 사전 동의가 필요하다. 따라서 첫 실행에 바로 OS 팝업을 띄우지 말고, 가치 인지 후 요청하는 것이 맞다. 
+
+권장 플로우:
+
+Step 1. 첫 실행
+OS 권한 요청 안 함
+
+Step 2. soft prompt
+아래 중 하나가 발생했을 때:
+
+첫 매칭 직후
+
+첫 메시지 발신 직후
+
+첫 답장 수신 대기 상태
+
+카피 예시:
+
+KR: “새 메시지와 매칭 소식을 바로 받아볼까요?”
+
+JP: “新しいメッセージやマッチ通知をすぐ受け取りますか？”
+
+Step 3. OS permission request
+soft prompt에서 허용 의사가 보일 때만
+
+Step 4. 거절 시
+즉시 재요청 금지
+
+7~14일 뒤, 맥락 있는 행동 후 재안내
+
+설정 이동 CTA 제공
+
+7. 빈도 정책과 quiet hours
+기본 원칙
+transactional은 즉시
+
+AI/리텐션/프로모션은 억제
+
+로컬 타임존 기준 운영
+
+추천 캡
+새 메시지: conversation당 60초 1회
+
+새 매칭: 즉시
+
+좋아요/슈퍼라이크: 30분 1회 번들 가능
+
+AI 인사이트 푸시: 하루 1회
+
+리텐션: 24h / 72h / 7d 시퀀스 이상 금지
+
+마케팅: 주 2회 이하
+
+quiet hours
+기본:
+
+22:00~08:00는 non-transactional 푸시 보류
+
+메시지는 유저 설정으로 예외 허용 가능
+
+AI/프로모션은 quiet hours 무조건 보류
+
+한국/일본 타깃이라도 디바이스 로컬 시간대 기준으로 보내는 게 맞다.
+
+8. Lito 전용 AI 알림 기획
+Lito의 AI 기능이 들어가면 알림도 3단으로 나누는 게 좋다.
+
+8-1. PRS/CS 알림
+권장: 푸시 X, 인앱 O
+
+표시 조건:
+
+CS가 충분히 높음
+
+의미 있는 변화 존재
+
+이전 대비 stage 또는 이유 코드 변화
+
+표시 형태:
+
+“관심 신호가 조금 더 또렷해졌어요”
+
+“아직 신호가 형성되는 중이에요”
+
+“대화는 따뜻하지만 다음 단계 신호는 아직 약해요”
+
+8-2. AI coaching 알림
+권장: 인앱 기본, 푸시는 opt-in
+
+트리거 예:
+
+답장 초안 추천 준비
+
+지금은 장문보다 짧은 질문이 적절
+
+통화 제안은 조금 더 기다리는 편이 자연스러움
+
+8-3. safety override 알림
+권장: 인앱 + 필요 시 푸시
+
+트리거:
+
+scam risk high
+
+off-platform/money cues
+
+harassment signals
+
+9. 백엔드 구조 기획
+FCM은 단일 디바이스, 그룹, 토픽 등으로 크로스플랫폼 메시지를 보낼 수 있는 전형적인 전송 레이어다. Lito는 구현체를 APNs/FCM에 두되, 서버에서는 provider adapter로 감싸는 구조가 좋다. 
+
+권장 파이프라인:
+
+도메인 이벤트 발생
+→ notification event 생성
+→ 권한/멤버십 검증
+→ 사용자 선호도 확인
+→ 빈도 제한 / dedupe / quiet hours
+→ 로컬라이즈된 copy 렌더링
+→ APNs/FCM 전송
+→ delivery log 저장
+→ badge / in-app inbox 업데이트
+
+이벤트 예시
+message.created
+
+match.created
+
+like.received
+
+superlike.received
+
+verification.completed
+
+safety.risk_detected
+
+ai.insight.updated
+
+conversation.reengagement_due
+
+반드시 필요한 백엔드 규칙
+idempotency key 사용
+
+같은 이벤트 중복 발송 방지
+
+conversation 단위 collapse/grouping
+
+user preference 체크 후만 전송
+
+blocked/muted conversation은 메시지 푸시 제외
+
+10. 추천 데이터 모델
+device_tokens
+user_id
+
+platform
+
+push_token
+
+app_version
+
+locale
+
+timezone
+
+last_seen_at
+
+status
+
+notification_preferences
+user_id
+
+messages_enabled
+
+matches_enabled
+
+safety_enabled
+
+ai_enabled
+
+promotions_enabled
+
+preview_mode (off / name_only / full)
+
+quiet_hours_start
+
+quiet_hours_end
+
+notification_events
+id
+
+user_id
+
+type
+
+actor_user_id
+
+conversation_id
+
+payload_json
+
+dedupe_key
+
+scheduled_at
+
+created_at
+
+notification_deliveries
+event_id
+
+provider
+
+status
+
+sent_at
+
+opened_at
+
+error_code
+
+in_app_notifications
+user_id
+
+category
+
+title_code
+
+body_code
+
+payload
+
+is_read
+
+created_at
+
+11. 카피 가이드
+Apple은 간결하고 정보 가치가 높은 알림, 중복 없는 알림, 민감정보를 피한 알림을 권장한다. Lito도 카피를 짧고 덜 자극적으로 가져가는 게 맞다. 
+
+카피 톤
+짧게
+
+설명형
+
+압박하지 않기
+
+불안 유도 금지
+
+AI는 확신형 문장 금지
+
+좋은 톤
+“새 메시지가 도착했어요”
+
+“대화 인사이트가 업데이트됐어요”
+
+“지금은 가벼운 질문이 더 자연스러워요”
+
+피해야 할 톤
+“지금 안 보면 늦어요”
+
+“상대가 당신에게 빠졌어요”
+
+“오늘 답장 안 하면 끝이에요”
+
+12. 한국어 / 일본어 로컬라이제이션 원칙
+Lito는 한국·일본 사용자 기반이므로 아래 원칙이 좋다.
+
+알림 언어는 수신자 앱 언어 설정 기준
+
+상대방 이름 표기는 닉네임 기준
+
+일본어는 더 부드럽고 완곡한 문체
+
+한국어는 짧고 명확하게
+
+AI 코칭은 두 언어 모두 “조언” 톤으로, “확정” 톤 금지
+
+예시:
+
+KR:
+
+“대화 인사이트가 업데이트됐어요”
+
+“지금은 짧은 후속 질문이 더 잘 맞아요”
+
+JP:
+
+“会話のインサイトが更新されました”
+
+“今は軽いフォローアップの質問が自然です”

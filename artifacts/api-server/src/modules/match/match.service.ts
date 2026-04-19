@@ -15,6 +15,7 @@
 import { matchRepository } from "./match.repository.js";
 import { buildServerUser } from "../user/user.service.js";
 import { participantRepository } from "../interest/participant.repository.js";
+import { notificationService } from "../notification/notification.service.js";
 import {
   AI_MOCK_USERS,
   DEMO_USERS,
@@ -159,6 +160,13 @@ export const matchService = {
       void participantRepository
         .seedParticipants(String(newMatch.id), [fromDbId, toDbId], "match_accept")
         .catch((err) => console.error("[match.service] seedParticipants failed:", err));
+
+      void notificationService
+        .emit({ userId: toDbId, type: "match.created", actorUserId: fromDbId })
+        .catch((err) => console.error("[match.service] notification emit failed:", err));
+      void notificationService
+        .emit({ userId: fromDbId, type: "match.created", actorUserId: toDbId })
+        .catch((err) => console.error("[match.service] notification emit failed:", err));
 
       const row = await matchRepository.getUserWithProfile(toDbId);
       const matchedUser = row ? buildServerUser(row.users, row.user_profiles) : null;

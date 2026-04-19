@@ -19,6 +19,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NotificationToast } from "@/components/NotificationToast";
 import { AppProvider, useApp } from "@/context/AppContext";
 import { GrowthProvider } from "@/context/GrowthContext";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -32,6 +33,8 @@ const queryClient = new QueryClient();
 
 function RootNavigator() {
   const { hasCompletedOnboarding, isLoggedIn, hasCompletedProfileSetup, hasSeenDiagnosisPrompt, toast, dismissToast } = useApp();
+
+  usePushNotifications();
 
   useEffect(() => {
     if (!hasCompletedOnboarding) {
@@ -65,6 +68,8 @@ function RootNavigator() {
         <Stack.Screen name="profile-edit" options={{ headerShown: false }} />
         <Stack.Screen name="diagnosis" options={{ headerShown: false }} />
         <Stack.Screen name="ai-photo" options={{ headerShown: false }} />
+        <Stack.Screen name="notifications" options={{ headerShown: false }} />
+        <Stack.Screen name="notification-settings" options={{ headerShown: false }} />
       </Stack>
       <NotificationToast notification={toast} onDismiss={dismissToast} />
     </View>

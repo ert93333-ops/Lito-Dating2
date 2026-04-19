@@ -12,3 +12,7 @@ export * from "./oauthAccounts";
 export * from "./conversationParticipants";
 export * from "./interestSnapshots";
 export * from "./latestInterestSnapshots";
+export * from "./deviceTokens";
+export * from "./notificationPreferences";
+export * from "./notificationEvents";
+export * from "./inAppNotifications";

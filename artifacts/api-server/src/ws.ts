@@ -23,6 +23,7 @@ import jwt from "jsonwebtoken";
 import { chatService } from "./modules/chat/chat.service.js";
 import { participantRepository } from "./modules/interest/participant.repository.js";
 import { schedule as scheduleInterest, registerBroadcast } from "./modules/interest/interest.worker.js";
+import { notificationService } from "./modules/notification/notification.service.js";
 import { db, matchesTable } from "@workspace/db";
 import { and, eq, or } from "drizzle-orm";
 
@@ -259,6 +260,20 @@ export function setupWebSocket(wss: WebSocketServer) {
           setImmediate(() => {
             scheduleInterest(conversationId, saved.id);
           });
+
+          const participants = await participantRepository.getParticipants(conversationId);
+          for (const recipientId of participants) {
+            if (recipientId === ws.userId) continue;
+            void notificationService
+              .emit({
+                userId: recipientId,
+                type: "message.created",
+                actorUserId: ws.userId,
+                conversationId,
+                dedupeWindowMs: 60_000,
+              })
+              .catch((err) => console.error("[ws] notification emit failed:", err));
+          }
         } catch (err) {
           console.error("[WS] message save error:", err);
           ws.send(JSON.stringify({ type: "error", error: "메시지 저장 실패" }));

@@ -6,7 +6,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -24,7 +23,6 @@ export default function SettingsScreen() {
   const { logout, profile, updateProfile } = useApp();
   const { lang } = useLocale();
   const appLanguage = profile.language;
-  const [notificationsOn, setNotificationsOn] = React.useState(true);
 
   const idStatus = profile.trustProfile.idVerified.status;
   const idNeedsAttention = idNeedsAction(profile.trustProfile);
@@ -200,17 +198,8 @@ export default function SettingsScreen() {
             <SettingRow
               icon="bell"
               label={lang === "ko" ? "알림" : "通知"}
-              sublabel={notificationsOn
-                ? lang === "ko" ? "매칭 · 메시지 알림 켜짐" : "マッチ・メッセージ通知オン"
-                : lang === "ko" ? "모든 알림 꺼짐" : "すべての通知オフ"}
-              right={
-                <Switch
-                  value={notificationsOn}
-                  onValueChange={setNotificationsOn}
-                  trackColor={{ true: colors.rose }}
-                  thumbColor={colors.white}
-                />
-              }
+              sublabel={lang === "ko" ? "메시지 · 매칭 · AI 알림 설정" : "メッセージ・マッチ・AI通知設定"}
+              onPress={() => router.push("/notification-settings")}
             />
           </View>
         </View>
