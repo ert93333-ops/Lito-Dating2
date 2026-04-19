@@ -2,7 +2,13 @@
  * modules/notification/notification.repository.ts
  *
  * DB CRUD for all notification tables.
- * No business logic — only DB I/O.
+ * No business logic — pure DB I/O.
+ *
+ * Tables:
+ *   device_tokens              — push tokens per user device
+ *   notification_preferences   — per-user category + quiet hours + preview settings
+ *   notification_events        — immutable audit log with deduplication key
+ *   in_app_notifications       — inbox items (read/unread)
  */
 
 import { and, desc, eq, gte } from "drizzle-orm";
@@ -16,7 +22,8 @@ import {
 import type { NotificationPreference } from "@workspace/db";
 
 export const notificationRepository = {
-  // ── Device Tokens ─────────────────────────────────────────────────────────
+
+  // ── Device Tokens ──────────────────────────────────────────────────────────
 
   async upsertToken(
     userId: number,
@@ -30,24 +37,24 @@ export const notificationRepository = {
         userId,
         platform,
         pushToken,
-        appVersion: meta.appVersion,
-        locale: meta.locale,
-        timezone: meta.timezone,
-        lastSeenAt: new Date(),
-        status: "active",
-        updatedAt: new Date(),
+        appVersion:  meta.appVersion,
+        locale:      meta.locale,
+        timezone:    meta.timezone,
+        lastSeenAt:  new Date(),
+        status:      "active",
+        updatedAt:   new Date(),
       })
       .onConflictDoUpdate({
         target: [deviceTokens.pushToken],
         set: {
           userId,
           platform,
-          appVersion: meta.appVersion,
-          locale: meta.locale,
-          timezone: meta.timezone,
-          lastSeenAt: new Date(),
-          status: "active",
-          updatedAt: new Date(),
+          appVersion:  meta.appVersion,
+          locale:      meta.locale,
+          timezone:    meta.timezone,
+          lastSeenAt:  new Date(),
+          status:      "active",
+          updatedAt:   new Date(),
         },
       });
   },
@@ -63,15 +70,10 @@ export const notificationRepository = {
     return db
       .select()
       .from(deviceTokens)
-      .where(
-        and(
-          eq(deviceTokens.userId, userId),
-          eq(deviceTokens.status, "active")
-        )
-      );
+      .where(and(eq(deviceTokens.userId, userId), eq(deviceTokens.status, "active")));
   },
 
-  // ── Notification Preferences ─────────────────────────────────────────────
+  // ── Notification Preferences ───────────────────────────────────────────────
 
   async getPreferences(userId: number): Promise<NotificationPreference | null> {
     const rows = await db
@@ -97,8 +99,11 @@ export const notificationRepository = {
     return row;
   },
 
-  // ── Notification Events ───────────────────────────────────────────────────
+  // ── Notification Events (audit + dedup) ────────────────────────────────────
 
+  /**
+   * Returns true if an event with the same dedupeKey was inserted within windowMs.
+   */
   async isDuplicate(dedupeKey: string, windowMs = 60_000): Promise<boolean> {
     const cutoff = new Date(Date.now() - windowMs);
     const rows = await db
@@ -115,48 +120,48 @@ export const notificationRepository = {
   },
 
   async insertEvent(params: {
-    userId: number;
-    type: string;
-    actorUserId?: number;
+    userId:          number;
+    type:            string;
+    actorUserId?:    number;
     conversationId?: string;
-    payload?: Record<string, unknown>;
-    dedupeKey?: string;
+    payload?:        Record<string, unknown>;
+    dedupeKey?:      string;
   }): Promise<number> {
     const [row] = await db
       .insert(notificationEvents)
       .values({
-        userId: params.userId,
-        type: params.type,
-        actorUserId: params.actorUserId,
+        userId:         params.userId,
+        type:           params.type,
+        actorUserId:    params.actorUserId,
         conversationId: params.conversationId,
-        payloadJson: params.payload ?? {},
-        dedupeKey: params.dedupeKey,
+        payloadJson:    params.payload ?? {},
+        dedupeKey:      params.dedupeKey,
       })
       .returning({ id: notificationEvents.id });
     return row.id;
   },
 
-  // ── In-App Notifications ──────────────────────────────────────────────────
+  // ── In-App Notifications ───────────────────────────────────────────────────
 
   async insertInApp(params: {
-    userId: number;
-    category: string;
-    titleKo: string;
-    titleJa: string;
-    bodyKo: string;
-    bodyJa: string;
-    payload?: Record<string, unknown>;
+    userId:    number;
+    category:  string;
+    titleKo:   string;
+    titleJa:   string;
+    bodyKo:    string;
+    bodyJa:    string;
+    payload?:  Record<string, unknown>;
   }): Promise<number> {
     const [row] = await db
       .insert(inAppNotifications)
       .values({
-        userId: params.userId,
+        userId:   params.userId,
         category: params.category,
-        titleKo: params.titleKo,
-        titleJa: params.titleJa,
-        bodyKo: params.bodyKo,
-        bodyJa: params.bodyJa,
-        payload: params.payload ?? {},
+        titleKo:  params.titleKo,
+        titleJa:  params.titleJa,
+        bodyKo:   params.bodyKo,
+        bodyJa:   params.bodyJa,
+        payload:  params.payload ?? {},
       })
       .returning({ id: inAppNotifications.id });
     return row.id;
@@ -176,10 +181,7 @@ export const notificationRepository = {
       .update(inAppNotifications)
       .set({ isRead: true })
       .where(
-        and(
-          eq(inAppNotifications.id, id),
-          eq(inAppNotifications.userId, userId)
-        )
+        and(eq(inAppNotifications.id, id), eq(inAppNotifications.userId, userId))
       );
   },
 
@@ -195,11 +197,24 @@ export const notificationRepository = {
       .select({ id: inAppNotifications.id })
       .from(inAppNotifications)
       .where(
-        and(
-          eq(inAppNotifications.userId, userId),
-          eq(inAppNotifications.isRead, false)
-        )
+        and(eq(inAppNotifications.userId, userId), eq(inAppNotifications.isRead, false))
       );
     return rows.length;
+  },
+
+  async deleteOldInApp(userId: number, keepCount = 100): Promise<void> {
+    const rows = await db
+      .select({ id: inAppNotifications.id })
+      .from(inAppNotifications)
+      .where(eq(inAppNotifications.userId, userId))
+      .orderBy(desc(inAppNotifications.createdAt))
+      .limit(keepCount + 1);
+
+    if (rows.length <= keepCount) return;
+    const idsToDelete = rows.slice(keepCount).map((r) => r.id);
+
+    for (const id of idsToDelete) {
+      await db.delete(inAppNotifications).where(eq(inAppNotifications.id, id));
+    }
   },
 };

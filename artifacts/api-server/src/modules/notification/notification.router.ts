@@ -1,16 +1,19 @@
 /**
  * modules/notification/notification.router.ts
  *
- * REST endpoints for the notification system.
+ * REST endpoints for the MVP notification system.
  *
- * POST  /api/notifications/token         — register/update push token
- * DELETE /api/notifications/token        — deactivate push token
- * GET   /api/notifications/preferences   — get notification prefs
- * PUT   /api/notifications/preferences   — update notification prefs
- * GET   /api/notifications/inbox         — in-app inbox list
- * POST  /api/notifications/inbox/:id/read — mark single read
- * POST  /api/notifications/inbox/read-all — mark all read
- * GET   /api/notifications/inbox/unread-count — badge count
+ * POST   /api/notifications/token             — register / update push token
+ * DELETE /api/notifications/token             — deactivate push token (logout)
+ * GET    /api/notifications/preferences       — fetch user prefs
+ * PUT    /api/notifications/preferences       — update user prefs
+ * GET    /api/notifications/inbox             — in-app inbox list
+ * GET    /api/notifications/inbox/unread-count — badge count
+ * POST   /api/notifications/inbox/:id/read   — mark single notification read
+ * POST   /api/notifications/inbox/read-all   — mark all read
+ *
+ * All routes require authentication.
+ * userId is always derived from req.user — never from the client body.
  */
 
 import { Router } from "express";
@@ -19,18 +22,26 @@ import { notificationRepository } from "./notification.repository.js";
 
 const router = Router();
 
+// ── Device token registration ─────────────────────────────────────────────────
+
 router.post("/notifications/token", requireAuth, async (req, res) => {
   try {
     const { pushToken, platform, appVersion, locale, timezone } = req.body as {
-      pushToken: string;
-      platform: string;
+      pushToken:   string;
+      platform:    string;
       appVersion?: string;
-      locale?: string;
-      timezone?: string;
+      locale?:     string;
+      timezone?:   string;
     };
 
     if (!pushToken || !platform) {
-      res.status(400).json({ error: "pushToken and platform are required" });
+      res.status(400).json({ error: "pushToken과 platform은 필수입니다." });
+      return;
+    }
+
+    const allowed = ["ios", "android", "web"];
+    if (!allowed.includes(platform)) {
+      res.status(400).json({ error: "platform은 ios | android | web 중 하나여야 합니다." });
       return;
     }
 
@@ -51,7 +62,7 @@ router.delete("/notifications/token", requireAuth, async (req, res) => {
   try {
     const { pushToken } = req.body as { pushToken: string };
     if (!pushToken) {
-      res.status(400).json({ error: "pushToken required" });
+      res.status(400).json({ error: "pushToken이 필요합니다." });
       return;
     }
     await notificationRepository.deactivateToken(pushToken);
@@ -62,20 +73,35 @@ router.delete("/notifications/token", requireAuth, async (req, res) => {
   }
 });
 
+// ── Preferences ────────────────────────────────────────────────────────────────
+
+/**
+ * Returns current prefs or safe defaults (no DB row yet).
+ * safety_security is always reported as enabled — cannot be disabled.
+ */
 router.get("/notifications/preferences", requireAuth, async (req, res) => {
   try {
     const prefs = await notificationRepository.getPreferences(req.user!.userId);
     res.json(
-      prefs ?? {
-        messagesEnabled: true,
-        matchesEnabled: true,
-        safetyEnabled: true,
-        aiEnabled: false,
-        promotionsEnabled: false,
-        previewMode: "none",
-        quietHoursStart: 22,
-        quietHoursEnd: 8,
-      }
+      prefs
+        ? {
+            messagesEnabled:       prefs.messagesEnabled,
+            matchesLikesEnabled:   prefs.matchesLikesEnabled,
+            safetySecurityEnabled: true,   // always forced ON
+            accountUpdatesEnabled: prefs.accountUpdatesEnabled,
+            previewMode:           prefs.previewMode,
+            quietHoursStart:       prefs.quietHoursStart,
+            quietHoursEnd:         prefs.quietHoursEnd,
+          }
+        : {
+            messagesEnabled:       true,
+            matchesLikesEnabled:   true,
+            safetySecurityEnabled: true,
+            accountUpdatesEnabled: true,
+            previewMode:           "none",
+            quietHoursStart:       22,
+            quietHoursEnd:         8,
+          }
     );
   } catch (err) {
     console.error("[notification] GET /preferences error:", err);
@@ -85,34 +111,35 @@ router.get("/notifications/preferences", requireAuth, async (req, res) => {
 
 router.put("/notifications/preferences", requireAuth, async (req, res) => {
   try {
-    const {
-      messagesEnabled,
-      matchesEnabled,
-      safetyEnabled,
-      aiEnabled,
-      promotionsEnabled,
-      previewMode,
-      quietHoursStart,
-      quietHoursEnd,
-    } = req.body as Record<string, unknown>;
+    const body = req.body as Record<string, unknown>;
 
     const updated = await notificationRepository.upsertPreferences(req.user!.userId, {
-      ...(typeof messagesEnabled === "boolean" && { messagesEnabled }),
-      ...(typeof matchesEnabled === "boolean" && { matchesEnabled }),
-      ...(typeof safetyEnabled === "boolean" && { safetyEnabled }),
-      ...(typeof aiEnabled === "boolean" && { aiEnabled }),
-      ...(typeof promotionsEnabled === "boolean" && { promotionsEnabled }),
-      ...(typeof previewMode === "string" && { previewMode }),
-      ...(typeof quietHoursStart === "number" && { quietHoursStart }),
-      ...(typeof quietHoursEnd === "number" && { quietHoursEnd }),
+      ...(typeof body["messagesEnabled"]       === "boolean" && { messagesEnabled:       body["messagesEnabled"] }),
+      ...(typeof body["matchesLikesEnabled"]   === "boolean" && { matchesLikesEnabled:   body["matchesLikesEnabled"] }),
+      // safetySecurityEnabled: client cannot disable — ignore any false value
+      ...(body["safetySecurityEnabled"] === true             && { safetySecurityEnabled: true }),
+      ...(typeof body["accountUpdatesEnabled"] === "boolean" && { accountUpdatesEnabled: body["accountUpdatesEnabled"] }),
+      ...(typeof body["previewMode"]           === "string"  && { previewMode:           body["previewMode"] }),
+      ...(typeof body["quietHoursStart"]       === "number"  && { quietHoursStart:       body["quietHoursStart"] }),
+      ...(typeof body["quietHoursEnd"]         === "number"  && { quietHoursEnd:         body["quietHoursEnd"] }),
     });
 
-    res.json(updated);
+    res.json({
+      messagesEnabled:       updated.messagesEnabled,
+      matchesLikesEnabled:   updated.matchesLikesEnabled,
+      safetySecurityEnabled: true,   // always forced ON in response
+      accountUpdatesEnabled: updated.accountUpdatesEnabled,
+      previewMode:           updated.previewMode,
+      quietHoursStart:       updated.quietHoursStart,
+      quietHoursEnd:         updated.quietHoursEnd,
+    });
   } catch (err) {
     console.error("[notification] PUT /preferences error:", err);
     res.status(500).json({ error: "서버 오류" });
   }
 });
+
+// ── In-app inbox ───────────────────────────────────────────────────────────────
 
 router.get("/notifications/inbox", requireAuth, async (req, res) => {
   try {
@@ -139,7 +166,7 @@ router.post("/notifications/inbox/:id/read", requireAuth, async (req, res) => {
   try {
     const id = parseInt(String(req.params["id"]), 10);
     if (isNaN(id)) {
-      res.status(400).json({ error: "invalid id" });
+      res.status(400).json({ error: "유효하지 않은 id입니다." });
       return;
     }
     await notificationRepository.markRead(id, req.user!.userId);
