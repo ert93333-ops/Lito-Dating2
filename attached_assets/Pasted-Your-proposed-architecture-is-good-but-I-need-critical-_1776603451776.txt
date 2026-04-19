@@ -1,0 +1,119 @@
+Your proposed architecture is good, but I need critical improvements before implementation.
+
+IMPORTANT:
+Do NOT start coding yet.
+Refine the design first.
+
+==================================================
+REQUIRED FIXES
+==================================================
+
+1. DIRECTIONAL SCORING (CRITICAL)
+
+The system must support viewer-based scoring.
+
+Current problem:
+- feature extraction is conversation-level only
+
+Fix:
+- scoring must be computed relative to viewerUserId
+- same conversation must produce different PRS depending on viewer
+
+Example:
+User A viewing B → PRS_AB
+User B viewing A → PRS_BA
+
+Update:
+- feature.extractor must accept viewerUserId
+- compute partner-centric features
+
+==================================================
+
+2. SNAPSHOT HISTORY (CRITICAL)
+
+Current problem:
+- only latest snapshot is stored
+
+This is not acceptable.
+
+Fix:
+- store historical snapshots
+
+New schema:
+- id (PK)
+- conversation_id
+- viewer_user_id
+- prs_score
+- confidence_score
+- stage
+- reason_codes
+- created_at
+
+Indexes:
+- (conversation_id, viewer_user_id)
+- (conversation_id, created_at DESC)
+
+Keep:
+- latest snapshot for fast read
+- historical snapshots for analytics
+
+==================================================
+
+3. DECOUPLE LLM FROM CORE SCORING
+
+Current problem:
+- LLM is inside scoring pipeline
+
+This is dangerous.
+
+Fix:
+
+Split into 2 layers:
+
+Layer 1 (required):
+- rule-based scoring (deterministic)
+- no LLM dependency
+- always runs
+
+Layer 2 (optional):
+- LLM semantic extraction
+- enrich feature window
+
+If LLM fails:
+- system must still compute PRS
+
+==================================================
+
+4. WORKER IMPROVEMENT
+
+Add:
+
+- retry logic (max 3)
+- exponential backoff
+- failure logging
+- circuit breaker for LLM
+
+==================================================
+
+5. PERFORMANCE SAFETY
+
+Add hard limits:
+
+- max messages per extraction: 50
+- max LLM calls per conversation per 2 minutes
+- skip analysis if last snapshot < 30 seconds
+
+==================================================
+
+TASK
+
+Update your design to include:
+
+1. Updated file structure
+2. Updated schema
+3. Updated data flow
+4. Failure handling strategy
+5. LLM fallback strategy
+
+Then STOP.
+Do NOT implement yet.
