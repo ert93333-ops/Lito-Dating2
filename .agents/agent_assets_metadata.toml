@@ -83,3 +83,9 @@ id = "thhkcI9X5THwNhkpsEX5L"
 uri = "file://lito-env-template.txt"
 type = "text"
 title = "Lito 환경변수 템플릿"
+
+[[outputs]]
+id = "YikSDjc5RJtg-1eVfgQhI"
+uri = "file://attached_assets/lito_interest_signal_design_v3.txt"
+type = "text"
+title = "AI Interest Signal System 설계 문서 v3"
