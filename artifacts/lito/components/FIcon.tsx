@@ -6,7 +6,7 @@ type IconName =
   | "arrow-right" | "bar-chart-2" | "briefcase" | "camera" | "check"
   | "check-circle" | "chevron-down" | "chevron-left" | "chevron-right" | "chevron-up" | "circle" | "clock"
   | "compass" | "cpu" | "credit-card" | "edit-2" | "flag" | "gift" | "globe"
-  | "heart" | "info" | "instagram" | "lock" | "log-out" | "map-pin"
+  | "heart" | "info" | "instagram" | "lock" | "log-out" | "mail" | "map-pin"
   | "message-circle" | "more-vertical" | "phone" | "refresh-cw" | "send" | "settings" | "shield"
   | "slash" | "sliders" | "star" | "unlock" | "upload" | "user" | "user-check"
   | "plus" | "x" | "x-circle" | "zap";
@@ -173,6 +173,12 @@ function Icon({ name, size = 24, color = "#000", style }: FIconProps) {
         <Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" {...s} />
         <Polyline points="16 17 21 12 16 7" {...s} />
         <Line x1="21" y1="12" x2="9" y2="12" {...s} />
+      </>
+    ),
+    "mail": (
+      <>
+        <Path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" {...s} />
+        <Polyline points="22,6 12,13 2,6" {...s} />
       </>
     ),
     "map-pin": (
