@@ -22,12 +22,11 @@ import { requireAuth } from "../../middleware/auth.js";
 import { logger } from "../../lib/logger.js";
 
 const router = Router();
-router.use(requireAuth);
 
 // ── PATCH /api/contact/my-phone ───────────────────────────────────────────────
 // 자신의 전화번호 해시를 등록한다.
 // 이렇게 해야 상대방이 나를 연락처에서 발견했을 때 차단 대상이 된다.
-router.patch("/contact/my-phone", async (req, res) => {
+router.patch("/contact/my-phone", requireAuth, async (req, res) => {
   const userId = req.user!.userId;
   const { phoneHash } = req.body as { phoneHash?: string };
 
@@ -55,7 +54,7 @@ router.patch("/contact/my-phone", async (req, res) => {
 // 서버는 users.phone_number_hash와 비교해 매칭 유저를 찾고,
 // contact_block_hashes 테이블에 저장 (discover에서 제외됨).
 // 반환: { blocked: number } — 새로 차단된 연락처 수
-router.post("/contact/block", async (req, res) => {
+router.post("/contact/block", requireAuth, async (req, res) => {
   const userId = req.user!.userId;
   const { hashes } = req.body as { hashes?: string[] };
 
@@ -100,7 +99,7 @@ router.post("/contact/block", async (req, res) => {
 });
 
 // ── GET /api/contact/block/count ─────────────────────────────────────────────
-router.get("/contact/block/count", async (req, res) => {
+router.get("/contact/block/count", requireAuth, async (req, res) => {
   const userId = req.user!.userId;
   try {
     const [row] = await db
@@ -116,7 +115,7 @@ router.get("/contact/block/count", async (req, res) => {
 
 // ── DELETE /api/contact/block ─────────────────────────────────────────────────
 // 연락처 차단 전체 해제
-router.delete("/contact/block", async (req, res) => {
+router.delete("/contact/block", requireAuth, async (req, res) => {
   const userId = req.user!.userId;
   try {
     await db.delete(contactBlockHashes).where(eq(contactBlockHashes.userId, userId));

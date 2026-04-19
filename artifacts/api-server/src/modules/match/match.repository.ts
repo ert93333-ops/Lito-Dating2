@@ -7,7 +7,7 @@
  */
 
 import { and, eq, inArray, notInArray, or, sql } from "drizzle-orm";
-import { db, users, userProfiles, swipeLikes, swipePasses, matchesTable, contactBlockHashes } from "@workspace/db";
+import { db, users, userProfiles, swipeLikes, swipePasses, matchesTable, contactBlockHashes, userBlocks } from "@workspace/db";
 
 export const matchRepository = {
   /**
@@ -55,6 +55,27 @@ export const matchRepository = {
     }
 
     return Array.from(blockedIds);
+  },
+
+  /**
+   * IDs of real DB users blocked via the explicit user-block system (신고/차단 버튼).
+   * 양방향: 내가 차단한 + 나를 차단한
+   *
+   * TODO(match/chat): 동일 excludeIds를 채팅 입장/match 생성에도 적용 검토
+   */
+  async getUserBlockedIds(viewerId: number): Promise<number[]> {
+    const rows = await db
+      .select()
+      .from(userBlocks)
+      .where(
+        or(
+          eq(userBlocks.blockerId, viewerId),
+          eq(userBlocks.blockedUserId, viewerId),
+        )
+      );
+    return rows.map((r) =>
+      r.blockerId === viewerId ? r.blockedUserId : r.blockerId
+    );
   },
 
   /** IDs of users that `fromUserId` has already liked. */

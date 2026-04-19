@@ -43,7 +43,8 @@ const rooms = new Map<string, Set<AuthenticatedWS>>();
 function extractUserId(token: string | null): number | undefined {
   if (!token) return undefined;
   try {
-    const secret = process.env["SESSION_SECRET"] ?? "dev-secret";
+    // SESSION_SECRET은 jwt.ts 초기화 시 이미 검증됨; 여기서는 동일한 값 사용
+    const secret = process.env["SESSION_SECRET"] ?? "lito-dev-secret-UNSAFE-do-not-deploy";
     const payload = jwt.verify(token, secret) as { userId: number };
     return payload.userId;
   } catch {

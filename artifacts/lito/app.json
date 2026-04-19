@@ -52,7 +52,10 @@
     ],
     "extra": {
       "privacyPolicyUrl": "https://litodate.app/api/legal/privacy",
-      "termsUrl": "https://litodate.app/api/legal/terms"
+      "termsUrl": "https://litodate.app/api/legal/terms",
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
     },
     "experiments": {
       "typedRoutes": true,

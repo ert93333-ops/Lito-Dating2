@@ -1,0 +1,351 @@
+# Lito Sprint 0 작업지시서
+
+작성일: 2026-04-19
+목적: Closed Beta 이전, 런칭 차단 P0 이슈 제거
+기준 자료: 코드베이스 감사 결과
+
+---
+
+## 1. 이번 스프린트 목표
+
+이번 스프린트의 목표는 **새 기능 추가가 아니라 런칭 차단 이슈 제거**다.
+
+이번 배치가 끝나면 아래가 가능해야 한다.
+
+1. 비인증 사용자가 `/api/ai/*`를 호출할 수 없다.
+2. `SESSION_SECRET` 없이 서버가 부팅되지 않는다.
+3. 차단한 사용자가 discover에 노출되지 않는다.
+4. Apple Sign-In이 안전하게 검증되거나 배포 대상에서 제거된다.
+5. EAS 빌드가 실제로 실행 가능하다.
+
+---
+
+## 2. 현재 블로커 요약
+
+감사 결과 기준 현재 P0 블로커는 아래 5개다.
+
+1. `/api/ai/*` 전체에 `requireAuth` 없음
+2. `SESSION_SECRET` 폴백 시크릿 사용
+3. 차단 유저가 discover에 계속 노출
+4. `eas.json` 없음
+5. Apple Sign-In JWKS 검증 없음
+
+---
+
+## 3. 작업 범위
+
+### 포함
+- AI 관련 API 인증 강제
+- JWT secret 환경변수 강제화
+- discover 쿼리에서 block 반영
+- Apple Sign-In 보안 보강 또는 임시 비활성화
+- Expo/EAS 빌드 설정 추가
+- 각 작업에 대한 테스트 및 검증 리포트
+
+### 제외
+- PRS/CS 알고리즘 개선
+- AI 코칭 기능 확장
+- 알림 시스템 확장
+- 읽음 표시
+- analytics provider 연결
+- ID 인증 백엔드
+
+---
+
+## 4. 작업 우선순위 및 순서
+
+### Batch 1 — `/api/ai/*` 인증 강제
+### Batch 2 — `SESSION_SECRET` 강제화
+### Batch 3 — 차단 유저 discover 필터링
+### Batch 4 — Apple Sign-In 수정 또는 임시 비활성화
+### Batch 5 — EAS 빌드 설정 및 배포 경로 복구
+### Batch 6 — 통합 검증 리포트 제출
+
+순서를 바꾸지 않는다.
+
+---
+
+## 5. 공통 구현 원칙
+
+1. 전체 앱 리라이트 금지
+2. 최소 수정 원칙 유지
+3. 기존 채팅/매칭/AI 기능의 정상 동작을 깨지 말 것
+4. 먼저 영향 파일을 나열하고, 구현 계획을 설명한 뒤 수정 시작
+5. destructive migration 금지
+6. 배포 전환을 고려해 환경변수 의존성은 명시적으로 처리
+7. 테스트 없이 종료 금지
+8. 문서상 완료가 아니라 **코드 + 검증 결과**까지 제출
+
+---
+
+## 6. 세부 작업지시
+
+## Task 1. `/api/ai/*` 전체 인증 강제
+
+### 목적
+비인증 사용자의 OpenAI API 무단 사용을 차단한다.
+
+### 배경
+감사 결과 `/api/ai/suggest-reply`, `/api/ai/translate`, `/api/ai/coach` 등 AI 라우트에 `requireAuth`가 누락되어 있다.
+
+### 요구사항
+- 모든 production-facing `/api/ai/*` 엔드포인트에 `requireAuth` 적용
+- 이미 rate limit이 있다면 `requireAuth`보다 앞/뒤 순서도 점검
+- 테스트/내부용 라우트가 있다면 명시적으로 분리
+- 비로그인 접근 시 401 또는 403 일관 반환
+- 클라이언트가 인증 누락 상태에서 호출하는 기존 코드가 있다면 해당 호출부도 정리
+
+### 확인 대상
+- `routes` 또는 `modules/interest`, `modules/coaching`, `translate`, `suggest-reply` 관련 라우트
+- API router mounting 지점
+
+### 산출물
+- 수정 파일 목록
+- 인증 적용된 엔드포인트 목록
+- 비인증 접근 테스트 결과
+
+### 완료 기준
+- 비로그인 상태에서 `/api/ai/*` 호출 시 OpenAI 호출까지 가지 않고 차단됨
+- 로그인 상태에서는 기존 기능 정상 작동
+
+---
+
+## Task 2. `SESSION_SECRET` 필수 환경변수 강제화
+
+### 목적
+개발용 폴백 시크릿으로 인한 JWT 위조 가능성을 제거한다.
+
+### 배경
+감사 결과 `lib/jwt.ts`에서 폴백 시크릿이 남아 있다.
+
+### 요구사항
+- 프로덕션/비개발 환경에서 `SESSION_SECRET` 미설정 시 서버 시작 실패
+- 개발 환경에서만 명시적인 dev fallback 허용 여부를 결정하고 코드상 분리
+- `.env` 템플릿, 배포 문서, Replit/Expo 환경변수 가이드 업데이트
+- 에러 메시지는 명확해야 함
+
+### 확인 대상
+- `lib/jwt.ts`
+- 서버 부트스트랩 파일
+- env 문서 및 템플릿
+
+### 산출물
+- 환경변수 체크 로직
+- 실행 실패 스크린샷 또는 로그
+- 필요한 env 목록 업데이트
+
+### 완료 기준
+- `SESSION_SECRET` 없이 production mode 부팅 불가
+- 정상 값 설정 시 로그인/JWT 검증 정상 동작
+
+---
+
+## Task 3. 차단 유저 discover 필터링
+
+### 목적
+차단한 사용자가 추천/디스커버 목록에 노출되지 않게 한다.
+
+### 배경
+감사 결과 `user_blocks`는 있으나 discover 쿼리에 반영되지 않는다.
+
+### 요구사항
+- discover query에서 아래 모두 제외
+  - 내가 차단한 사용자
+  - 나를 차단한 사용자
+- mock/demo/real user 혼합 구조를 깨지 않게 처리
+- 차단 상태가 즉시 반영되도록 확인
+- 향후 match/chat에도 동일 원칙을 적용할 여지가 있는지 TODO 명시
+
+### 확인 대상
+- `modules/match/match.service.ts`
+- `user_blocks` 관련 repository/query
+- discover response shaping 코드
+
+### 산출물
+- 수정된 discover 쿼리
+- 차단/역차단 케이스 테스트 결과
+
+### 완료 기준
+- 차단 후 discover 새로고침 시 해당 사용자가 노출되지 않음
+- 역차단도 노출되지 않음
+
+---
+
+## Task 4. Apple Sign-In 보안 보강 또는 임시 비활성화
+
+### 목적
+임의 Apple UID로 계정 생성/탈취 가능한 취약점을 제거한다.
+
+### 배경
+감사 결과 Apple Sign-In은 클라이언트가 넘긴 `providerUserId`를 신뢰하고 있고, JWKS 기반 ID token 검증이 없다.
+
+### 요구사항
+두 가지 경로 중 하나를 선택하되, 먼저 현재 코드 상태를 보고 더 안전한 쪽을 채택한다.
+
+#### 옵션 A — 올바른 수정
+- Apple identity token 검증 구현
+- Apple JWKS 조회 및 서명 검증
+- iss, aud, exp, sub 검증
+- 검증된 sub만 providerUserId로 사용
+
+#### 옵션 B — 임시 비활성화
+- Apple 로그인 버튼/엔드포인트를 production path에서 제거 또는 feature flag로 차단
+- Google/Kakao/Line/email만 유지
+- 문서에 Apple 임시 비활성화 사유 명시
+
+### 산출물
+- 선택한 옵션
+- 이유
+- 영향 파일 목록
+- 보안 검증 방식 설명
+
+### 완료 기준
+- 더 이상 client-supplied Apple UID만으로 계정 생성 불가
+
+---
+
+## Task 5. EAS 빌드 및 배포 경로 복구
+
+### 목적
+앱스토어/테스트플라이트/안드로이드 배포용 실제 빌드 경로를 확보한다.
+
+### 배경
+감사 결과 `eas.json`이 없고 Expo project ID도 누락되어 있다.
+
+### 요구사항
+- `eas.json` 추가
+- app.json/app.config의 Expo project ID 설정
+- 필요한 빌드 프로필 정의
+  - development
+  - preview
+  - production
+- iOS/Android identifier와 충돌 없는지 재확인
+- 최소 1회 빌드 커맨드 기준 정리
+- 필수 env 목록 문서화
+
+### 산출물
+- `eas.json`
+- Expo project config 수정
+- 빌드 실행 방법 문서
+
+### 완료 기준
+- EAS build 명령 기준으로 실제 빌드 가능한 상태
+- 누락 env가 문서화되어 있음
+
+---
+
+## 7. 검증 및 제출 형식
+
+모든 작업 완료 후 아래 형식으로 결과 제출.
+
+### 1) 변경 요약
+- 생성 파일
+- 수정 파일
+- 삭제 파일(없으면 없음)
+
+### 2) 작업별 결과
+각 Task 1~5에 대해:
+- 무엇을 바꿨는지
+- 왜 그렇게 바꿨는지
+- 어떤 테스트를 했는지
+- 남은 리스크는 무엇인지
+
+### 3) 테스트 결과
+최소 아래를 포함한다.
+
+- 비인증 `/api/ai/*` 접근 차단
+- `SESSION_SECRET` 미설정 부팅 실패
+- 차단/역차단 discover 미노출
+- Apple 로그인 보안 확인 또는 비활성화 확인
+- EAS 설정 검증
+
+### 4) 런칭 판정
+아래 중 하나로 제출한다.
+- Sprint 0 완료 — Closed Beta 준비 단계로 이동 가능
+- Sprint 0 부분 완료 — 남은 블로커 있음
+
+---
+
+## 8. Replit 전달용 실행 프롬프트
+
+아래 프롬프트를 그대로 사용한다.
+
+```text
+You are working on the Lito codebase.
+
+Do NOT add new product features.
+Do NOT work on PRS improvements, notifications expansion, or UI redesign.
+
+Your task is to complete Sprint 0 launch-blocker fixes only.
+
+Scope:
+1. Enforce requireAuth on all production-facing /api/ai/* routes
+2. Remove insecure SESSION_SECRET fallback for production and fail fast if missing
+3. Exclude blocked users in discover results
+4. Secure Apple Sign-In with proper verification, or disable it safely for production
+5. Add EAS build configuration and required Expo project settings
+
+Rules:
+- Keep changes minimal and isolated
+- Do not rewrite the app
+- Preserve existing working functionality
+- Use additive and low-risk changes
+- List affected files first
+- Explain the implementation plan before editing code
+
+Before coding, show:
+1. files to create
+2. files to modify
+3. exact plan for each of the 5 tasks
+4. test plan
+5. any blockers or assumptions
+
+Then implement only Sprint 0.
+After implementation, provide:
+- changed files summary
+- test results
+- remaining risks
+- whether Closed Beta preparation can begin
+```
+
+---
+
+## 9. Definition of Done
+
+이번 Sprint 0은 아래를 모두 만족해야 완료다.
+
+- [ ] `/api/ai/*` 비인증 호출 차단
+- [ ] `SESSION_SECRET` production 필수화
+- [ ] 차단/역차단 discover 미노출
+- [ ] Apple Sign-In 취약점 제거 또는 production 비활성화
+- [ ] `eas.json` 및 Expo project 설정 완료
+- [ ] 테스트 결과 제출
+- [ ] 남은 리스크 명시
+
+---
+
+## 10. 다음 스프린트 예고
+
+Sprint 0 완료 후 다음 우선순위는 아래다.
+
+### Sprint 1
+- 읽음 표시
+- analytics provider 연결
+- push 실기기 검증
+- 사진 삭제
+- auth rate limit
+- 회원가입 약관 동의
+
+### Sprint 2
+- closed beta 운영
+- KPI 관찰
+- AI 코칭 제한 공개
+
+### Sprint 3
+- ID 인증 백엔드
+- 안티스캠 자동 탐지
+- 계정/데이터 삭제
+- 데이터 export
+- 신고 운영 워크플로우
+- discover mock 정리
+

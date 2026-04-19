@@ -47,18 +47,17 @@ async function verifyLineToken(accessToken: string): Promise<{ id: string; email
   } catch { return null; }
 }
 
-async function verifyAppleToken(
-  providerUserId: string,
-  email: string | undefined,
-  name: string | undefined,
-): Promise<{ id: string; email: string; name: string } | null> {
-  if (!providerUserId) return null;
-  return {
-    id: providerUserId,
-    email: email ?? `apple_${providerUserId.slice(0, 12)}@lito.app`,
-    name: name ?? "Apple 사용자",
-  };
-}
+/**
+ * Apple Sign-In은 현재 임시 비활성화 상태입니다.
+ *
+ * 사유: Apple JWKS 기반 identityToken 검증이 구현되지 않아
+ * 클라이언트가 제공하는 providerUserId를 그대로 신뢰하면 계정 탈취 위험이 있습니다.
+ * 보안 검증 구현 완료 시까지 /api/auth/social?provider=apple 은 503을 반환합니다.
+ *
+ * TODO(Sprint 1): Apple JWKS(https://appleid.apple.com/auth/keys) 기반
+ *   identityToken 서명/iss/aud/exp/sub 검증 구현 후 재활성화
+ */
+const APPLE_TEMPORARILY_DISABLED = true;
 
 /**
  * POST /api/auth/social
@@ -110,7 +109,14 @@ router.post("/auth/social", async (req, res) => {
       if (!accessToken) { res.status(400).json({ error: "accessToken 필수입니다." }); return; }
       providerInfo = await verifyLineToken(accessToken);
     } else if (provider === "apple") {
-      providerInfo = await verifyAppleToken(rawProviderUserId ?? "", rawEmail, rawName);
+      if (APPLE_TEMPORARILY_DISABLED) {
+        res.status(503).json({
+          error: "Apple 로그인은 현재 임시 비활성화 상태입니다. Google 또는 Kakao로 로그인해주세요.",
+          code: "APPLE_LOGIN_DISABLED",
+        });
+        return;
+      }
+      providerInfo = null; // APPLE_TEMPORARILY_DISABLED=false 시 JWKS 검증 구현 예정
     } else {
       res.status(400).json({ error: "지원하지 않는 provider입니다." });
       return;
