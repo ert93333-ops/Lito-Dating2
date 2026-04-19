@@ -1,0 +1,728 @@
+좋습니다. 아래는 Lito용 채팅 시그널 + AI 코칭 스코어링 시스템의 구현 스펙입니다.
+Replit에 넘겨서 바로 구현 방향을 잡을 수 있도록 제품 정의, 점수 체계, 알고리즘, 이유 코드, 코칭 규칙, 안전 장치, 테스트 기준까지 한 번에 정리하겠습니다.
+
+질문, 특히 follow-up question은 낯선 사람 간 대화와 speed-dating 맥락에서 호감 형성에 유의미한 긍정 신호로 보고되었고, 온라인 CMC에서는 reciprocal self-disclosure가 신뢰와 liking을 높이며, language style matching은 관계 개시·지속과 연결되는 지표로 연구되어 왔습니다. 반대로 질문을 던진 뒤 곧바로 자기 자랑이나 자기 이야기로 되돌리는 boomerasking은 상대에게 egocentric·insincere하게 보일 수 있으므로, “질문 개수”만 세는 방식은 위험합니다. 또한 partner responsiveness는 관계 연구에서 핵심 관계 지표로 다뤄집니다. 
+
+또한 일본 온라인 데이팅 연구는 사용자가 플랫폼이 제공하는 단서를 바탕으로 관계를 점진적으로 전개한다는 점에서 stage-aware 설계를 뒷받침합니다. NIST는 사용자-facing AI에서 transparency / explainability / interpretability를 강조하고 있고, 번역 품질 추정·불확실성 추정 연구는 모델 출력이나 번역이 불확실할 때 신뢰도를 낮춰야 한다는 설계 근거를 제공합니다. FTC는 로맨스 스캠에서 앱 밖 이동, 돈·투자·암호화폐 요구가 대표 위험 신호라고 경고하고 있습니다. 따라서 Lito에서는 설명 가능한 점수 + confidence gating + safety override가 맞습니다. 
+
+1. Lito에서 이 점수 시스템이 실제로 해야 하는 일
+이 시스템은 “상대가 나를 얼마나 좋아하나”를 맞히는 기능이 아닙니다.
+정확한 역할은 아래입니다.
+
+PRS (Partner Receptivity Score): 상대가 현재 대화를 긍정적으로 이어가고, 다음 단계로 이동할 가능성을 나타내는 정규화된 상호작용 신호 지수
+
+CS (Confidence Score): 지금 PRS를 얼마나 믿어도 되는지 나타내는 신뢰도
+
+Stage: opening / discovery / escalation
+
+Reason Codes: 왜 그렇게 판단했는지
+
+Coach Suggestions: 지금 어떤 액션이 더 자연스러운지
+
+핵심은 viewer-user 기준 partner-centric입니다.
+즉 같은 대화라도 viewer = A일 때의 PRS는 “B가 A에게 얼마나 receptive한가”를 계산하고, viewer = B일 때는 반대 방향으로 별도 계산해야 합니다.
+
+2. 점수의 의미를 stage별로 다르게 정의해야 함
+같은 70점이어도 opening과 escalation의 의미는 다릅니다.
+그래서 PRS는 stage-conditioned score로 정의하는 것이 좋습니다.
+
+Opening PRS:
+상대가 앞으로 24~72시간 안에 대화를 계속 긍정적으로 이어갈 가능성
+
+Discovery PRS:
+상대가 앞으로 3~7일 안에 상호적 대화, 자기개방, 자연스러운 주제 확장을 유지할 가능성
+
+Escalation PRS:
+상대가 통화/만남/구체적 일정 조율 같은 다음 단계 제안에 긍정적으로 반응할 가능성
+이 정의를 써두면 나중에 v2에서 실제 outcome label로 학습시키기도 쉬워집니다.
+
+3. 전처리 설계
+이 부분이 점수 정확도에 매우 중요합니다.
+
+3-1. 메시지 → Turn 병합
+연속된 말풍선 여러 개를 하나의 의도로 보내는 경우가 많으므로, 같은 발신자가 3분 이내 연속으로 보낸 텍스트는 하나의 turn으로 병합하는 것을 권장합니다.
+
+merge_gap_seconds = 180
+3-2. Session 정의
+대화 흐름을 보기 위해 8시간 이상 공백이 있으면 새 session으로 봅니다.
+
+session_gap_hours = 8
+reinitiation_gap_hours = 12
+dormant_gap_days = 14
+3-3. 분석 윈도우
+한 번에 전체 대화만 보면 최근 감정 변화를 놓치고, 최근만 보면 baseline이 없습니다.
+그래서 최소 3개 윈도우가 좋습니다.
+
+recent_window = 최근 40 turns 또는 최근 10일
+analysis_window = 최근 120 turns 또는 최근 30일
+baseline_window = analysis_window 이전의 전체 히스토리
+3-4. 언어 정규화
+스타일 특징은 원문(한국어/일본어) 기준
+
+의미 특징은 canonical text 기준(번역본 또는 공통 semantic representation)
+
+번역 신뢰도가 낮으면 semantic feature는 neutral 처리하고 CS를 낮춤
+
+4. Stage detection 알고리즘
+권장 순서는 escalation 우선 판정 → opening → discovery 입니다.
+
+if explicit_progression_signal_detected:
+    stage = escalation
+else if total_turns < 30 or conversation_age_hours < 72:
+    stage = opening
+else:
+    stage = discovery
+escalation signal 예시
+통화 제안 / 통화 수락
+
+만남 제안 / 만남 수락
+
+구체적 가능 시간 공유
+
+“이번 주말”, “일요일 저녁”, “퇴근 후” 같은 availability sharing
+
+완곡하지만 명확한 가능 표현
+
+한국어: “주말엔 괜찮을 것 같아”, “저녁이면 가능할 듯”
+
+일본어: “その日なら大丈夫かも”, “夜ならいけそう”
+
+단, 한국/일본 사용자라고 해서 문화 stereotype을 넣지 말고, 완곡한 표현을 tentative progression signal로 낮은 강도로 점수화하는 방식이 안전합니다.
+
+5. Atomic feature 설계 원칙
+여기서 중요한 원칙은 두 가지입니다.
+
+원칙 A
+양성 feature는 데이터가 부족하면 0이 아니라 0.5(중립) 로 둡니다.
+그래야 “정보 부족”이 “부정 신호”로 오해되지 않습니다.
+
+원칙 B
+Penalty feature는 감지되지 않으면 0 입니다.
+
+positive feature range: 0..1, default = 0.5 when unavailable
+penalty feature range: 0..1, default = 0
+6. Feature 그룹별 계산식
+6-1. Responsiveness
+Responsiveness =
+  0.40 * FollowUpQuestionRate
++ 0.35 * ContingentReplyScore
++ 0.25 * ValidationScore
+FollowUpQuestionRate
+상대가 단순 질문이 아니라 내 직전 발화에 이어지는 질문을 하는 비율
+
+followUpQuestionRate =
+  follow_up_questions / max(1, eligible_partner_replies)
+MVP 규칙:
+
+질문표현 존재 (?, ？, 의문사, 질문 종결 표현)
+
+내 직전 1~2 turn의 토픽/엔티티/키워드와 연결
+
+또는 semantic contingent classifier가 high
+
+ContingentReplyScore
+상대 답장이 내 직전 내용에 이어붙는지 평가
+
+MVP proxy:
+
+keyword/entity overlap
+
+acknowledgment 후 이어가는 구조
+
+abrupt self-topic shift 여부
+
+optional embedding similarity
+
+ValidationScore
+상대가 먼저 인정·반응·공감하고 답하는 비율
+
+예시 dictionary:
+
+한국어: “그렇구나”, “맞아”, “오 진짜?”, “좋다”, “이해돼”
+
+일본어: “そうなんだ”, “なるほど”, “いいね”, “わかる”, “大変だったね”
+
+6-2. Reciprocity
+Reciprocity =
+  0.40 * DisclosureTurnTaking
++ 0.35 * DisclosureBalance
++ 0.25 * PartnerReinitiation
+DisclosureTurnTaking
+내가 자기개방을 했을 때 상대도 비슷한 깊이로 되돌려주는가
+
+자기개방 깊이 예시:
+
+0 = 인사/표면 정보
+1 = 취향/가벼운 의견
+2 = 경험/일상/가치관
+3 = 취약성/감정/가족/관계관/민감 주제
+MVP 규칙:
+
+내가 depth >= 1 발화
+
+상대가 다음 1~3 partner turns 안에 depth >= (내 depth - 1) 수준 개방
+
+비율 계산
+
+DisclosureBalance
+최근 구간에서 양쪽 개방 깊이의 균형
+
+disclosureBalance =
+  1 - min(1, abs(avg_user_disclosure - avg_partner_disclosure) / 3)
+PartnerReinitiation
+긴 공백 이후 상대가 먼저 다시 말을 꺼내는 비율
+
+partnerReinitiation =
+  partner_started_next_session_after_user_last_message / eligible_silence_gaps
+6-3. Linguistic Matching
+LinguisticMatching =
+  0.30 * LSMProxy
++ 0.45 * TopicAlignment
++ 0.25 * FormatAccommodation
+LSMProxy
+실제 LIWC가 없더라도 아래 style vector로 MVP 가능
+
+styleVec = [
+  avg_message_length_bucket,
+  emoji_rate,
+  laughter_token_rate,   // ㅋㅋ, ㅎㅎ, w, 笑
+  exclamation_rate,
+  question_rate,
+  politeness_level_proxy,
+  punctuation_density
+]
+
+LSMProxy = 1 - normalized_distance(styleVec_user, styleVec_partner)
+TopicAlignment
+상대 답장이 최근 내 토픽을 얼마나 유지하는가
+
+MVP:
+
+keyword/entity overlap
+
+recent topic memory callback
+
+optional multilingual embedding similarity
+
+FormatAccommodation
+상대가 대화 포맷을 맞추는가
+
+짧게 주고받는 템포에 적응
+
+한국어/일본어/번역 사용 패턴 적응
+
+이모지/톤 과도한 미스매치 감소
+
+6-4. Temporal Engagement
+TemporalEngagement =
+  0.60 * BaselineAdjustedReplySpeed
++ 0.40 * ReplyConsistency
+BaselineAdjustedReplySpeed
+절대 응답속도가 아니라 상대 자신의 baseline 대비 최근 속도
+
+recent_median = median(recent_partner_reply_latencies_trimmed)
+baseline_median = median(partner_historical_reply_latencies_same_time_bucket)
+
+speed_delta = (baseline_median - recent_median) / max(baseline_median, 30m)
+
+BaselineAdjustedReplySpeed =
+  clamp(0.5 + 0.5 * speed_delta, 0, 1)
+fallback 순서:
+
+partner personal baseline
+
+localePair baseline
+
+global baseline
+
+ReplyConsistency
+최근 응답이 너무 들쭉날쭉하지 않은지
+
+ReplyConsistency =
+  clamp(1 - IQR(reply_latencies_recent) / max(median(reply_latencies_recent), 30m), 0, 1)
+6-5. Warmth / Other-Focus / Authenticity
+Warmth =
+  0.30 * OtherFocusScore
++ 0.35 * WarmthScore
++ 0.35 * AuthenticityScore
+OtherFocusScore
+상대가 “나”에게 초점을 두는 정도
+
+내 이름/호칭
+
+내 이전 정보 recall
+
+나를 향한 질문
+
+내 감정/상황 reference
+
+WarmthScore
+정서적으로 따뜻한 반응
+
+공감
+
+격려
+
+칭찬
+
+안부/배려
+
+부드러운 톤
+
+AuthenticityScore
+말이 “사람 냄새” 나는지
+
+구체적인 디테일
+
+반복 템플릿 낮음
+
+내 맥락과 연결됨
+
+named entities / concrete references 존재
+
+6-6. Progression
+Progression =
+  0.35 * FutureOrientation
++ 0.30 * AvailabilitySharing
++ 0.35 * CallOrDateAcceptance
+FutureOrientation
+앞으로의 상호작용을 암시하는 표현
+
+“다음에”
+
+“나중에”
+
+“언제 한번”
+
+“주말에”
+
+“다음엔 같이”
+
+AvailabilitySharing
+구체적 시간/요일/상황 가능성 공유
+
+CallOrDateAcceptance
+통화/만남 제안에 대한 수락·개방성
+
+explicit yes
+
+soft yes / tentative yes
+
+counter-proposal
+
+6-7. Penalty Signals
+Penalty =
+  0.30 * EarlyOversharePenalty
++ 0.25 * SelfPromotionPenalty
++ 0.20 * GenericTemplatePenalty
++ 0.15 * NonContingentTopicSwitchPenalty
++ 0.10 * ScamRiskPenalty
+EarlyOversharePenalty
+opening 단계에서 깊은 취약성/과한 미래 몰입/감정 압박이 반복될 때
+
+SelfPromotionPenalty
+자기 자랑, 이력서식 나열, ask-bragging, 자기중심 monologue
+
+GenericTemplatePenalty
+반복되는 상투적 답장
+
+높은 self-similarity
+
+구체성 부족
+
+복붙 느낌
+
+NonContingentTopicSwitchPenalty
+내 말에 거의 반응하지 않고 자기 화제로 점프
+
+ScamRiskPenalty
+앱 밖 이동 강요
+
+돈/투자/암호화폐
+
+만남/통화 회피 + 반복 변명
+
+급한 송금/선물/티켓/통관/의료비
+
+그리고 아래는 hard safety override 로 두는 것이 좋습니다.
+
+if money_request or crypto_request or repeated_off_platform_push or high_scam_risk:
+    suppress PRS UI
+    suppress normal coaching
+    show safety guidance instead
+7. PRS 계산식
+당신이 제시한 stage 가중치를 그대로 v1 priors로 쓰면 됩니다.
+
+Opening:
+PRS_raw =
+  0.26 * Responsiveness
++ 0.22 * Reciprocity
++ 0.18 * TemporalEngagement
++ 0.14 * Warmth
++ 0.12 * LinguisticMatching
++ 0.08 * Progression
+- Penalty
+
+Discovery:
+PRS_raw =
+  0.22 * Reciprocity
++ 0.18 * LinguisticMatching
++ 0.18 * Responsiveness
++ 0.14 * TemporalEngagement
++ 0.14 * Progression
++ 0.14 * Warmth
+- Penalty
+
+Escalation:
+PRS_raw =
+  0.28 * Progression
++ 0.20 * TemporalEngagement
++ 0.18 * Reciprocity
++ 0.14 * Responsiveness
++ 0.10 * LinguisticMatching
++ 0.10 * Warmth
+- Penalty
+권장 보강 1: reliability shrink
+초기 대화에서 극단값을 막기 위해 raw score를 50 쪽으로 당기는 게 좋습니다.
+
+PRS_raw_clamped = clamp(PRS_raw, 0, 1)
+CS_norm = CS / 100
+
+shrinkFactor = 0.25 + 0.75 * CS_norm
+
+PRS_shrunk =
+  50 + ((PRS_raw_clamped * 100) - 50) * shrinkFactor
+권장 보강 2: volatility smoothing
+메시지 한두 개로 점프하지 않게 EWMA 적용
+
+if previous_snapshot_exists:
+  PRS_final = clamp(
+    0.70 * prev_prs + 0.30 * current_prs_shrunk,
+    prev_prs - 12,
+    prev_prs + 12
+  )
+else:
+  PRS_final = current_prs_shrunk
+단, call/date acceptance, money request, high scam risk 같은 hard event는 smoothing을 일부 우회해도 됩니다.
+
+8. Confidence Score (CS)
+messageVolumeFactor =
+  0.7 * clamp(partner_turns / 16, 0, 1) +
+  0.3 * clamp(total_turns / 32, 0, 1)
+
+sessionFactor = clamp(session_count / 3, 0, 1)
+
+signalDensityFactor =
+  signal_bearing_partner_turns / max(1, partner_turns)
+
+trendStability =
+  1 - avg_abs_diff(group_scores_recent_half, group_scores_prev_half)
+
+directionAgreement =
+  pct_of_groups_same_side_of_neutral_between_halves
+
+signalConsistencyFactor =
+  0.5 * trendStability + 0.5 * directionAgreement
+
+recentnessFactor =
+  exp(-days_since_last_partner_turn / 10)
+
+translationReliabilityFactor =
+  avg_translation_reliability_or_1
+
+timestampIntegrityFactor =
+  valid_reply_pairs / max(1, eligible_reply_pairs)
+
+CS =
+  round(100 * clamp(
+    0.25 * messageVolumeFactor +
+    0.15 * sessionFactor +
+    0.15 * signalDensityFactor +
+    0.20 * signalConsistencyFactor +
+    0.10 * recentnessFactor +
+    0.10 * translationReliabilityFactor +
+    0.05 * timestampIntegrityFactor,
+  0, 1))
+UI gating 규칙
+CS < 40:
+  numeric PRS 숨김
+  "아직 데이터가 부족해요"
+
+40 <= CS < 60:
+  hard score 숨김
+  band + reason only
+  "신호가 아직 형성되는 중이에요"
+
+CS >= 60:
+  reason-first UI
+  numeric PRS는 secondary로만 표시
+9. Reason code 생성 규칙
+이유는 “설명 가능한 top contribution”으로 뽑는 게 좋습니다.
+
+생성 절차
+각 그룹/패널티의 PRS 기여도 계산
+
+절대 기여도 순으로 정렬
+
+증거 수가 충분한 것만 채택
+
+positive 2개 + caution 1개 정도만 노출
+
+positive_contribution =
+  stage_weight * (groupScore - 0.5)
+
+negative_contribution =
+  stage_weight * (0.5 - groupScore)
+  or penalty_weight * penaltyScore
+예시 reason codes
+FOLLOW_UP_QUESTIONS_HIGH
+
+CONTINGENT_REPLIES_HIGH
+
+VALIDATION_HIGH
+
+DISCLOSURE_RECIPROCITY_HIGH
+
+PARTNER_REINITIATES
+
+TOPIC_ALIGNMENT_HIGH
+
+FORMAT_ACCOMMODATION_HIGH
+
+REPLY_SPEED_ABOVE_BASELINE
+
+WARMTH_HIGH
+
+FUTURE_ORIENTATION_HIGH
+
+AVAILABILITY_SHARED
+
+LOW_DATA
+
+MIXED_SIGNALS
+
+LONG_INACTIVITY
+
+TRANSLATION_UNCERTAIN
+
+GENERIC_REPLY_PATTERN
+
+NON_CONTINGENT_SWITCH
+
+EARLY_OVERSHARE
+
+SELF_PROMOTION_HIGH
+
+SCAM_RISK
+
+한국어 UI copy 예시
+“상대가 당신의 말에 이어지는 질문을 자주 해요”
+
+“상대가 평소 자기 페이스보다 더 빠르게 답해요”
+
+“당신이 꺼낸 화제를 자연스럽게 이어가요”
+
+“대화는 따뜻하지만 다음 단계 신호는 아직 약해요”
+
+“아직 신호를 판단하기엔 데이터가 부족해요”
+
+10. AI 코칭 알고리즘
+코칭은 freeform LLM 생성부터 하지 말고, rule engine → optional natural-language rewrite 구조가 좋습니다.
+
+10-1. Coaching intent 집합
+ASK_LIGHT_FOLLOW_UP
+SHARE_ONE_CONCRETE_DETAIL
+MIRROR_PACE
+HOLD_ESCALATION
+SUGGEST_LIGHT_PLAN
+KEEP_TOPIC_CONTINUITY
+REDUCE_MESSAGE_LENGTH
+WAIT_FOR_REPLY
+SAFETY_CAUTION
+10-2. 코칭 규칙 예시
+Opening
+Responsiveness 높고 Progression 낮음
+→ ASK_LIGHT_FOLLOW_UP
+→ “지금은 가벼운 후속 질문 1개가 잘 맞아요”
+
+Reciprocity 낮고 Warmth 중간 이상
+→ SHARE_ONE_CONCRETE_DETAIL
+→ “짧은 자기 이야기 하나를 덧붙이면 상호성이 좋아질 수 있어요”
+
+Partner reply speed가 baseline보다 느려졌고 user가 장문 연속 전송
+→ MIRROR_PACE + REDUCE_MESSAGE_LENGTH
+
+Discovery
+Warmth 높고 Progression 아직 약함
+→ HOLD_ESCALATION
+→ “분위기는 좋아요. 지금은 통화 제안보다 구체적인 공통 관심사 대화가 더 자연스러워요”
+
+Progression 중간 이상, CS 높음
+→ SUGGEST_LIGHT_PLAN
+→ “가벼운 다음 단계 제안을 해볼 타이밍일 수 있어요”
+
+Escalation
+AvailabilitySharing 높고 CallOrDateAcceptance 높음
+→ SUGGEST_LIGHT_PLAN
+→ “애매한 제안보다 선택지 2개가 있는 구체적 제안이 더 자연스러워요”
+
+Safety
+ScamRiskPenalty 높음
+→ SAFETY_CAUTION
+→ “앱 밖 이동이나 금전 관련 요청에는 응하지 않는 것이 안전해요”
+
+10-3. 코칭 생성 규칙
+최대 2개만 노출
+
+최근 대화 맥락과 연결
+
+압박, 조종, guilt 유도 금지
+
+“상대를 공략하라” 류 문구 금지
+
+CS 낮으면 코칭도 보수적으로
+
+11. 한국/일본, 한국남자/일본여자 타깃을 고려한 운영 원칙
+여기가 중요합니다.
+
+런칭 세그먼트는 반영하되, runtime scoring에는 stereotype을 넣지 말 것
+Lito의 주 타깃이 한국 남성 ↔ 일본 여성이어도, 점수식에
+“일본 여성은 원래 답장이 느리다”
+“한국 남성은 원래 직설적이다”
+같은 prior를 넣으면 위험합니다.
+
+권장 방식은 이렇습니다.
+
+runtime priority:
+1. 개인 baseline
+2. localePair calibration
+3. global fallback
+그리고 아래는 offline analytics 용도로만 쓰는 게 좋습니다.
+
+KR male → JP female
+
+KR female → JP male
+
+KR-KR
+
+JP-JP
+
+translation-heavy vs same-language
+
+즉, 성별/국적은 운영 분석용,
+실시간 점수는 실제 대화 행동 기반이 가장 안전합니다.
+
+localePair에서 허용할 것
+lexicon pack
+
+progression 표현 dictionary
+
+translation reliability prior
+
+reply latency fallback percentile
+
+localePair에서 금지할 것
+국적/성별 자체를 positive/negative weight로 직접 반영
+
+문화 stereotype 기반 penalty
+
+12. LLM 사용 원칙
+LLM은 써도 되지만 역할을 제한해야 합니다.
+
+LLM allowed:
+- self-disclosure depth extraction
+- contingent reply semantic extraction
+- future orientation detection
+- availability sharing detection
+- warmth / empathy semantic cue extraction
+- structured reason evidence extraction
+
+LLM not allowed:
+- final PRS 직접 산출
+- 최종 CS 직접 산출
+- 감정 확정 문구 생성
+권장 JSON schema
+{
+  "contingentReply": 0.0,
+  "selfDisclosureDepth": 0,
+  "otherFocus": 0.0,
+  "warmth": 0.0,
+  "futureOrientation": 0.0,
+  "availabilitySharing": 0.0,
+  "callOrDateOpenness": 0.0,
+  "genericness": 0.0,
+  "scamCueTags": [],
+  "confidence": 0.0
+}
+final score는 반드시 deterministic code가 계산하게 두세요.
+
+13. 테스트 기준
+Replit에 구현시킬 때 최소 아래는 unit/integration test로 잡는 게 좋습니다.
+
+초기 저데이터 대화
+
+6 turns, 1 session
+
+기대: CS < 40, PRS hidden
+
+초기 고반응 대화
+
+follow-up question 많음, reply speed baseline 이상
+
+기대: opening, PRS 60+, CS 중간 이상
+
+따뜻하지만 느린 discovery
+
+warmth 높음, progression 낮음
+
+기대: mixed/positive, hold escalation coaching
+
+강한 progression
+
+availability sharing + explicit acceptance
+
+기대: escalation, PRS 높음
+
+긴 침묵 후 partner reinitiation
+
+기대: reciprocity 가산
+
+빠르지만 얕고 generic한 답장
+
+기대: temporal은 높아도 authenticity 낮고 generic penalty 존재
+
+high warmth / low progression
+
+기대: 과도한 escalation 코칭 금지
+
+early overshare 케이스
+
+opening에서 depth 3 반복
+
+기대: overshare penalty
+
+스캠 리스크 케이스
+
+오프플랫폼 이동 + 돈/투자 언급
+
+기대: PRS suppress, safety caution only
+
+번역 의존 대화
+
+semantic feature 일부 가능하나 translation reliability 낮음
+
+기대: CS 하락, hard score 제한
+
+14. 구현 우선순위
+Replit에는 한 번에 다 시키기보다 이 순서가 가장 안전합니다.
+
+1. types + config
+2. turn/session preprocessing
+3. stage detection
+4. rule-based feature extractors
+5. PRS / CS calculator
+6. reason code engine
+7. coaching rule engine
+8. tests
+9. optional LLM semantic layer
+10. optional UI wiring

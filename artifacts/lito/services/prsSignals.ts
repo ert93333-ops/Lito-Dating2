@@ -228,13 +228,68 @@ const stdDev = (arr: number[]): number => {
   return Math.sqrt(variance);
 };
 
+// ── Turn merging ──────────────────────────────────────────────────────────────
+
+/**
+ * mergeTurns
+ *
+ * Spec §3-1: Consecutive messages from the same sender within MERGE_GAP_SECONDS
+ * are merged into a single "turn" for analysis.
+ *
+ * This prevents rapid multi-bubble sending (a common mobile typing pattern)
+ * from inflating message counts and distorting per-message feature calculations.
+ *
+ * Design:
+ *  - Returns a new Message[] where merged messages have:
+ *      originalText  = joined with " | "
+ *      translatedText = joined (when both present)
+ *      createdAt     = timestamp of the FIRST message in the run
+ *  - The original array is not mutated.
+ */
+export const MERGE_GAP_SECONDS = 180; // 3 minutes
+
+export function mergeTurns(messages: Message[]): Message[] {
+  if (messages.length === 0) return [];
+
+  const merged: Message[] = [];
+  let current = { ...messages[0] };
+
+  for (let i = 1; i < messages.length; i++) {
+    const msg = messages[i];
+    const gapMs = Date.parse(msg.createdAt) - Date.parse(current.createdAt);
+    const sameSender = msg.senderId === current.senderId;
+    const withinGap = gapMs >= 0 && gapMs <= MERGE_GAP_SECONDS * 1000;
+
+    if (sameSender && withinGap) {
+      current = {
+        ...current,
+        originalText: current.originalText + " | " + msg.originalText,
+        translatedText:
+          current.translatedText !== undefined && msg.translatedText !== undefined
+            ? current.translatedText + " | " + msg.translatedText
+            : (current.translatedText ?? msg.translatedText),
+        // Keep the first message's timestamp as the turn timestamp
+      };
+    } else {
+      merged.push(current);
+      current = { ...msg };
+    }
+  }
+  merged.push(current);
+
+  return merged;
+}
+
 // ── Stage detection ───────────────────────────────────────────────────────────
 
 /**
  * Detect the conversation stage from the full message list.
  *
+ * Spec §4 order: escalation FIRST, then opening, then discovery.
+ *
+ * Escalation: any call/date/availability signal in recent partner messages
+ *             AND past the opening turn threshold
  * Opening:    totalTurns < openingMaxTurns  OR  first message < openingMaxHours ago
- * Escalation: any call/date/availability signal in the last 10 messages
  * Discovery:  everything else
  *
  * HEURISTIC — v2 can use LLM to detect escalation signals more reliably.
@@ -249,14 +304,7 @@ export function detectConversationStage(
   const firstMsgMs = Date.parse(messages[0].createdAt);
   const hoursAgo = (Date.now() - firstMsgMs) / (60 * 60_000);
 
-  if (
-    totalTurns < calibration.openingMaxTurns ||
-    hoursAgo < calibration.openingMaxHours
-  ) {
-    return "opening";
-  }
-
-  // Check for escalation signals in last 10 partner messages
+  // Spec §4: check escalation FIRST (so even high-volume chats catch active escalation signals)
   const recentPartner = messages
     .filter((m) => m.senderId !== MY_ID)
     .slice(-10);
@@ -269,8 +317,16 @@ export function detectConversationStage(
     );
   });
 
-  if (totalTurns > calibration.openingMaxTurns && hasEscalation) {
+  if (hasEscalation && totalTurns >= calibration.openingMaxTurns) {
     return "escalation";
+  }
+
+  // Opening: not enough messages OR conversation just started
+  if (
+    totalTurns < calibration.openingMaxTurns ||
+    hoursAgo < calibration.openingMaxHours
+  ) {
+    return "opening";
   }
 
   return "discovery";
@@ -890,24 +946,29 @@ export function extractInterestFeatureWindow(
 
   const translation = extractTranslationMetrics(messages, myCountry, partnerCountry);
   const calibration = CALIBRATION[translation.localePair];
-  const stage = detectConversationStage(messages, calibration);
+
+  // Spec §3-1: Merge consecutive same-sender messages within 3 min into one turn.
+  // Use merged turns for ALL feature extraction (avoids multi-bubble distortion).
+  // Keep raw messages for count metadata so cache/refresh logic stays accurate.
+  const turns = mergeTurns(messages);
+  const stage = detectConversationStage(turns, calibration);
 
   const partnerMsgs = messages.filter((m) => m.senderId !== myUserId);
   const myMsgs = messages.filter((m) => m.senderId === myUserId);
 
-  const recentMessages = messages.slice(-10).map((m) => ({
+  const recentMessages = turns.slice(-10).map((m) => ({
     sender: m.senderId === myUserId ? ("me" as const) : ("them" as const),
     text: m.translatedText ?? m.originalText,
     createdAt: m.createdAt,
   }));
 
-  const responsiveness = extractResponsivenessFeatures(messages);
-  const reciprocity = extractReciprocityFeatures(messages, calibration);
-  const linguistic = extractLinguisticFeatures(messages);
-  const temporal = extractTemporalFeatures(messages, calibration);
-  const warmth = extractWarmthFeatures(messages, myName);
-  const progression = extractProgressionFeatures(messages);
-  const penalties = extractPenaltyFeatures(messages);
+  const responsiveness = extractResponsivenessFeatures(turns);
+  const reciprocity = extractReciprocityFeatures(turns, calibration);
+  const linguistic = extractLinguisticFeatures(turns);
+  const temporal = extractTemporalFeatures(turns, calibration);
+  const warmth = extractWarmthFeatures(turns, myName);
+  const progression = extractProgressionFeatures(turns);
+  const penalties = extractPenaltyFeatures(turns);
 
   return {
     conversationId,

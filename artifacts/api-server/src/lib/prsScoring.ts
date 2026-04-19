@@ -25,7 +25,7 @@
 
 export const PRS_SCORING_CONFIG = {
   /** Semver for reproducibility. Increment when changing weights. */
-  modelVersion: "1.0.0",
+  modelVersion: "1.1.0",
 
   /** Stage detection thresholds */
   stage: {
@@ -78,13 +78,15 @@ export const PRS_SCORING_CONFIG = {
   penaltyDampeningFactor: 0.5,
 
   /** Confidence computation weights — six factors each 0–1, summing to CS. */
+  /** Spec §8 weights — documented here for reference; hardcoded inline in computeConfidenceScore. */
   confidenceWeights: {
-    messageVolumeFactor:      0.20,
-    partnerMessageFactor:     0.25,
-    sessionCountFactor:       0.15,
-    signalConsistencyFactor:  0.20,
-    recentnessFactor:         0.10,
+    messageVolumeFactor:          0.25,
+    sessionCountFactor:           0.15,
+    signalDensityFactor:          0.15,
+    signalConsistencyFactor:      0.20,
+    recentnessFactor:             0.10,
     translationReliabilityFactor: 0.10,
+    timestampIntegrityFactor:     0.05,
   } as Record<string, number>,
 
   /** Thresholds for each confidence factor. */
@@ -189,12 +191,6 @@ const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const safeDivide = (n: number, d: number) => (d === 0 ? 0 : n / d);
 
-/** Group average for a plain object of 0–1 numbers. */
-function groupAvg(obj: Record<string, number>): number {
-  const vals = Object.values(obj);
-  return vals.length === 0 ? 0 : vals.reduce((s, v) => s + v, 0) / vals.length;
-}
-
 /** Weighted sum of an object's numeric values against a matching weights object. */
 function weightedSum(
   values: Record<string, number>,
@@ -238,20 +234,22 @@ export function detectConversationStageFromFeatureWindow(
   const total = typeof fw.totalMessages === "number" ? fw.totalMessages : 0;
   const windowStart = typeof fw.timeWindowStart === "string" ? fw.timeWindowStart : null;
 
+  // Spec order: escalation FIRST, then opening, then discovery.
+  // This prevents a high-volume conversation from masking an active escalation signal.
+
+  // Escalation: strong progression signals present (regardless of message count)
+  const progression = (fw.progression ?? {}) as Record<string, number>;
+  const hasEscalation =
+    (progression.availabilitySharing ?? 0) > 0.5 ||
+    (progression.callOrDateAcceptance ?? 0) > 0.5;
+  if (hasEscalation && total >= cfg.openingMaxTurns) return "escalation";
+
   // Opening: low message count OR very recent conversation start
   if (total < cfg.openingMaxTurns) return "opening";
   if (windowStart) {
     const hoursAgo = (Date.now() - Date.parse(windowStart)) / (60 * 60_000);
     if (hoursAgo < cfg.openingMaxHours) return "opening";
   }
-
-  // Escalation: progression signals detected AND past opening thresholds
-  const progression = (fw.progression ?? {}) as Record<string, number>;
-  const hasEscalation =
-    (progression.availabilitySharing ?? 0) > 0.5 ||
-    (progression.callOrDateAcceptance ?? 0) > 0.5;
-
-  if (total > cfg.openingMaxTurns && hasEscalation) return "escalation";
 
   return "discovery";
 }
@@ -277,47 +275,59 @@ export function computeGroupScores(
     return g?.[key] ?? 0.5;
   };
 
-  // Responsiveness
-  const responsiveness = groupAvg({
-    followUpQuestionRate: get("responsiveness", "followUpQuestionRate"),
-    contingentReplyScore: get("responsiveness", "contingentReplyScore"),
-    validationScore: get("responsiveness", "validationScore"),
-  });
+  // Spec §6 — each group uses explicit intra-group weights, not a simple average.
+  // Positive features: default 0.5 (neutral) when data unavailable.
+  // This prevents "no data" from being interpreted as "negative signal".
 
-  // Reciprocity
-  const reciprocity = groupAvg({
-    disclosureTurnTaking: get("reciprocity", "disclosureTurnTaking"),
-    disclosureBalance:    get("reciprocity", "disclosureBalance"),
-    partnerReinitiation:  get("reciprocity", "partnerReinitiation"),
-  });
+  // Responsiveness (§6-1)
+  const responsiveness = clamp01(
+    0.40 * get("responsiveness", "followUpQuestionRate") +
+    0.35 * get("responsiveness", "contingentReplyScore") +
+    0.25 * get("responsiveness", "validationScore")
+  );
 
-  // Linguistic — inject LLM linguisticMatch alongside heuristic proxy fields
-  const linguistic = groupAvg({
-    lsmProxy:            get("linguistic", "lsmProxy"),
-    topicAlignment:      get("linguistic", "topicAlignment"),
-    formatAccommodation: get("linguistic", "formatAccommodation"),
-    linguisticMatch:     semanticScores.linguisticMatch, // LLM score
-  });
+  // Reciprocity (§6-2)
+  const reciprocity = clamp01(
+    0.40 * get("reciprocity", "disclosureTurnTaking") +
+    0.35 * get("reciprocity", "disclosureBalance") +
+    0.25 * get("reciprocity", "partnerReinitiation")
+  );
 
-  // Temporal
-  const temporal = groupAvg({
-    baselineAdjustedReplySpeed: get("temporal", "baselineAdjustedReplySpeed"),
-    replyConsistency:           get("temporal", "replyConsistency"),
-  });
+  // Linguistic (§6-3) — LLM linguisticMatch blended as a 4th input at ~0.25 weight.
+  // If LLM score is the default neutral (0.5) the blend leaves heuristic scores intact.
+  const heuristicLinguistic = clamp01(
+    0.30 * get("linguistic", "lsmProxy") +
+    0.45 * get("linguistic", "topicAlignment") +
+    0.25 * get("linguistic", "formatAccommodation")
+  );
+  const llmLinguistic = semanticScores.linguisticMatch;
+  // When LLM score equals 0.5 (default/missing), keep heuristic as-is; otherwise blend 75/25.
+  const linguistic = llmLinguistic === 0.5
+    ? heuristicLinguistic
+    : clamp01(0.75 * heuristicLinguistic + 0.25 * llmLinguistic);
 
-  // Warmth — inject LLM warmth + authenticity
-  const warmth = groupAvg({
-    otherFocusScore:  get("warmth", "otherFocusScore"),
-    warmthScore:      semanticScores.warmth,       // LLM score
-    authenticityScore: semanticScores.authenticity, // LLM score
-  });
+  // Temporal (§6-4)
+  const temporal = clamp01(
+    0.60 * get("temporal", "baselineAdjustedReplySpeed") +
+    0.40 * get("temporal", "replyConsistency")
+  );
 
-  // Progression
-  const progression = groupAvg({
-    futureOrientation:    get("progression", "futureOrientation"),
-    availabilitySharing:  get("progression", "availabilitySharing"),
-    callOrDateAcceptance: get("progression", "callOrDateAcceptance"),
-  });
+  // Warmth (§6-5) — LLM scores for warmth + authenticity per spec §12.
+  // Fall back to heuristic warmthScore if LLM returns exact default 0.5.
+  const llmWarmth = semanticScores.warmth;
+  const llmAuthenticity = semanticScores.authenticity;
+  const warmth = clamp01(
+    0.30 * get("warmth", "otherFocusScore") +
+    0.35 * (llmWarmth === 0.5 ? get("warmth", "warmthScore") : llmWarmth) +
+    0.35 * (llmAuthenticity === 0.5 ? get("warmth", "authenticityScore") : llmAuthenticity)
+  );
+
+  // Progression (§6-6)
+  const progression = clamp01(
+    0.35 * get("progression", "futureOrientation") +
+    0.30 * get("progression", "availabilitySharing") +
+    0.35 * get("progression", "callOrDateAcceptance")
+  );
 
   // Penalty — weighted sum (already 0–1 for each signal)
   const penalties = (fw.penalties ?? {}) as Record<string, number>;
@@ -341,17 +351,22 @@ export function computeGroupScores(
 /**
  * computePartnerReceptivityScore
  *
- * Applies stage-weighted formula to group scores, subtracts penalty, clamps,
- * and converts to 0–100 integer.
+ * Applies stage-weighted formula to group scores, subtracts penalty, then
+ * applies spec §7 reliability shrinkage toward 50 based on Confidence Score.
  *
  * Formula:
- *   PRS_raw = Σ(weight[group] × score[group])   (stage-specific weights)
- *   PRS_adjusted = clamp(PRS_raw - penaltyTotal, 0, 1)
- *   PRS = round(PRS_adjusted × 100)
+ *   PRS_raw    = Σ(weight[group] × score[group])   (stage-specific weights)
+ *   PRS_adj    = clamp(PRS_raw - penaltyTotal, 0, 1)
+ *   shrinkFactor = 0.25 + 0.75 * (CS / 100)
+ *   PRS_shrunk = 50 + (PRS_adj * 100 - 50) * shrinkFactor
+ *   PRS_final  = round(PRS_shrunk)
+ *
+ * Effect: when CS is low, scores cluster near 50; when CS is high (100), no shrinkage.
  */
 export function computePartnerReceptivityScore(
   groups: GroupScoreBreakdown,
-  stage: ConversationStage
+  stage: ConversationStage,
+  confidenceScore: number = 100
 ): number {
   const weights = PRS_SCORING_CONFIG.stageWeights[stage] ?? PRS_SCORING_CONFIG.stageWeights.opening;
 
@@ -368,7 +383,13 @@ export function computePartnerReceptivityScore(
   );
 
   const prsAdjusted = clamp01(prsRaw - groups.penaltyTotal);
-  return Math.round(prsAdjusted * 100);
+
+  // Spec §7 reliability shrinkage toward 50 based on Confidence Score
+  const csNorm = clamp01(confidenceScore / 100);
+  const shrinkFactor = 0.25 + 0.75 * csNorm;
+  const prsShrunk = 50 + (prsAdjusted * 100 - 50) * shrinkFactor;
+
+  return Math.round(clamp(prsShrunk, 0, 100));
 }
 
 // ── Confidence score computation ──────────────────────────────────────────────
@@ -398,42 +419,49 @@ export function computeConfidenceScore(fw: Record<string, unknown>): {
   const windowEnd = typeof fw.timeWindowEnd === "string" ? fw.timeWindowEnd : new Date().toISOString();
   const translation = (fw.translation ?? {}) as Record<string, unknown>;
   const temporal = (fw.temporal ?? {}) as Record<string, number>;
+  const responsiveness = (fw.responsiveness ?? {}) as Record<string, number>;
+  const reciprocity = (fw.reciprocity ?? {}) as Record<string, number>;
 
-  // 1. messageVolumeFactor
-  const messageVolumeFactor = linearNorm(
-    total,
-    thresholds.messageVolumeMin,
-    thresholds.messageVolumeGood
+  // ── Spec §8 formula ───────────────────────────────────────────────────────
+  //
+  // CS = 0.25*messageVolumeFactor + 0.15*sessionFactor + 0.15*signalDensityFactor
+  //    + 0.20*signalConsistencyFactor + 0.10*recentnessFactor
+  //    + 0.10*translationReliabilityFactor + 0.05*timestampIntegrityFactor
+
+  // 1. messageVolumeFactor — partner volume weighted more heavily than total
+  //    Spec: 0.7 * clamp(partnerTurns/16, 0, 1) + 0.3 * clamp(totalTurns/32, 0, 1)
+  const messageVolumeFactor = clamp01(
+    0.7 * clamp01(partnerMsgs / 16) +
+    0.3 * clamp01(total / 32)
   );
 
-  // 2. partnerMessageFactor — strongest signal: we need partner data to score partner
-  const partnerMessageFactor = linearNorm(
-    partnerMsgs,
-    thresholds.partnerMessagesMin,
-    thresholds.partnerMessagesGood
+  // 2. sessionFactor — number of distinct "sessions" (via partnerReinitiation as proxy)
+  //    Spec: clamp(session_count / 3, 0, 1)
+  const partnerReinitiation = reciprocity.partnerReinitiation ?? 0;
+  const estimatedSessions = partnerMsgs >= 8
+    ? (partnerReinitiation > 0.3 ? 3 : 2)
+    : (partnerMsgs >= 4 ? 2 : 1);
+  const sessionCountFactor = clamp01(estimatedSessions / 3);
+
+  // 3. signalDensityFactor — proportion of partner turns carrying a meaningful signal
+  //    Spec: signal_bearing_partner_turns / max(1, partner_turns)
+  //    Proxy: average of followUpQuestionRate and contingentReplyScore (both 0–1)
+  const signalDensityFactor = clamp01(
+    0.5 * (responsiveness.followUpQuestionRate ?? 0.5) +
+    0.5 * (responsiveness.contingentReplyScore ?? 0.5)
   );
 
-  // 3. sessionCountFactor
-  // Estimate sessions from message gaps (not directly available in feature window).
-  // Proxy: if partnerMessages >= 5 and there's been ≥1 re-initiation, assume 2+ sessions.
-  const partnerReinitiation = (fw as Record<string, Record<string, number>>).reciprocity
-    ?.partnerReinitiation ?? 0;
-  const estimatedSessions = partnerMsgs >= 8 ? (partnerReinitiation > 0.3 ? 3 : 2) : 1;
-  const sessionCountFactor = linearNorm(
-    estimatedSessions,
-    thresholds.sessionsMin,
-    thresholds.sessionsGood
-  );
-
-  // 4. signalConsistencyFactor — higher temporal consistency = more reliable signals
+  // 4. signalConsistencyFactor — proxy via temporal replyConsistency
+  //    Spec: 0.5 * trendStability + 0.5 * directionAgreement
+  //    Heuristic: replyConsistency is a reasonable trendStability proxy.
   const replyConsistency = temporal.replyConsistency ?? 0.5;
   const signalConsistencyFactor = replyConsistency;
 
-  // 5. recentnessFactor — data older than stalenessHours gets penalised
-  const lastMsgAgeHours = (Date.now() - Date.parse(windowEnd)) / (60 * 60_000);
-  const recentnessFactor = clamp01(
-    1 - (lastMsgAgeHours / thresholds.stalenessHours) * 0.8
-  );
+  // 5. recentnessFactor — spec uses exp(-days/10) for smoother decay
+  //    Spec: exp(-days_since_last_partner_turn / 10)
+  const lastMsgAgeMs = Date.now() - Date.parse(windowEnd);
+  const daysSinceLastMsg = lastMsgAgeMs / (24 * 60 * 60_000);
+  const recentnessFactor = clamp01(Math.exp(-daysSinceLastMsg / 10));
 
   // 6. translationReliabilityFactor
   const isCrossBorder = translation.crossBorderConversation === true;
@@ -442,34 +470,45 @@ export function computeConfidenceScore(fw: Record<string, unknown>): {
     : 1.0;
   let translationReliabilityFactor: number;
   if (!isCrossBorder) {
-    translationReliabilityFactor = 1.0; // Same language: no translation uncertainty
+    translationReliabilityFactor = 1.0;
   } else {
     translationReliabilityFactor = clamp(
       linearNorm(translatedRate, thresholds.translationMinRate, 1.0),
-      0.3,  // Even with 0% translation, some confidence remains (sender's raw text)
-      1.0
+      0.3, 1.0
     );
   }
 
+  // 7. timestampIntegrityFactor (spec §8) — proxy: assume valid when partnerMsgs > 0
+  //    Full implementation needs valid_reply_pairs count from feature window.
+  //    Heuristic: 1.0 when we have partner messages, 0.5 when partner hasn't replied.
+  const timestampIntegrityFactor = partnerMsgs > 0 ? 1.0 : 0.5;
+
+  // Spec §8 weights: 0.25 + 0.15 + 0.15 + 0.20 + 0.10 + 0.10 + 0.05 = 1.00
+  const rawScore =
+    0.25 * messageVolumeFactor +
+    0.15 * sessionCountFactor +
+    0.15 * signalDensityFactor +
+    0.20 * signalConsistencyFactor +
+    0.10 * recentnessFactor +
+    0.10 * translationReliabilityFactor +
+    0.05 * timestampIntegrityFactor;
+
   const factors: ConfidenceFactors = {
     messageVolumeFactor,
-    partnerMessageFactor,
+    partnerMessageFactor: messageVolumeFactor, // aliased for backward compat with UI
     sessionCountFactor,
     signalConsistencyFactor,
     recentnessFactor,
     translationReliabilityFactor,
   };
 
-  const rawScore = weightedSum(factors as unknown as Record<string, number>, PRS_SCORING_CONFIG.confidenceWeights);
   let score = Math.round(clamp01(rawScore) * 100);
 
-  // FIX B2: Safety override — when scam signals are present, cap confidence at 45.
-  // This prevents the UI from showing a "confident / positive" state alongside a scam warning.
-  // A charming scammer can generate high responsiveness scores; capping confidence forces
-  // the system into low_confidence_hidden_score mode regardless of other signals.
+  // Safety override — scam signals cap confidence at 20 (spec hard override §6-7)
+  // This forces the UI into not_enough_data / safety mode regardless of other signals.
   const penaltiesForScam = (fw.penalties ?? {}) as Record<string, number>;
   if ((penaltiesForScam.scamRiskPenalty ?? 0) >= 0.5) {
-    score = Math.min(score, 45);
+    score = Math.min(score, 20);
   }
 
   return { score, factors };
@@ -833,11 +872,11 @@ export function generateConversationInterestSnapshot(
   // Step 2: Group scores
   const groups = computeGroupScores(fw, semanticScores);
 
-  // Step 3: PRS
-  const prsScore = computePartnerReceptivityScore(groups, stage);
-
-  // Step 4: Confidence
+  // Step 3: Confidence — computed FIRST so it can be passed to PRS shrinkage (spec §7)
   const { score: confidenceScore } = computeConfidenceScore(fw);
+
+  // Step 4: PRS with reliability shrinkage toward 50 based on CS
+  const prsScore = computePartnerReceptivityScore(groups, stage, confidenceScore);
 
   // Step 5: Reason codes
   const { reasonCodes, generatedInsights } = generateInterestReasonCodes(
