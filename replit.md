@@ -53,16 +53,27 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Legal pages**: `GET /api/legal/privacy` (개인정보처리방침), `GET /api/legal/terms` (이용약관) — 한국어 HTML 페이지, 앱스토어 심사용
 - **아키텍처**: 모듈화 3계층 (Router → Service → Repository)
   - `src/modules/chat/` — 채팅 메시지 CRUD (chatRepository → chatService → chatRouter)
-  - `src/modules/interest/` — PRS 스코어링 (interestService + interestRouter: `/ai/prs`, admin analytics)
+  - `src/modules/interest/` — AI Interest Signal System v4:
+    - `participant.repository.ts` — conversation_participants CRUD (WS 인증 + 워커)
+    - `feature.extractor.ts` — 순수 함수 Feature Window 추출 (50개 최근 메시지 기반 8개 그룹 특징)
+    - `interest.repository.ts` — interest_snapshots + latest_interest_snapshots DB I/O
+    - `llm.circuit.ts` — LLM 서킷 브레이커 (3회 실패 → OPEN, 60초 후 HALF_OPEN)
+    - `interest.worker.ts` — 비동기 분석 워커 (30초 디바운스, Layer1+Layer2, 방향성 PRS, viewer-scoped WS push)
+    - `interest.service.ts` — computePrs (Layer1 결정론적 + Layer2 LLM 선택)
+    - `interest.router.ts` — `GET /api/ai/prs/:conversationId`, `GET /api/ai/prs/:conversationId/history`, `POST /api/ai/prs` (내부 전용, requireAuth), admin analytics
   - `src/modules/coaching/` — AI 코칭/언어 기능 (coachingService + coachingRouter: `/ai/coach`, `/ai/suggest-reply`, `/ai/translate`, `/ai/persona`, `/ai/conversation-starter`, `/ai/generate-profile-photo`)
-  - `src/modules/match/` — discover 피드, 스와이프, 매칭 (matchRepository → matchService → matchRouter)
+  - `src/modules/match/` — discover 피드, 스와이프, 매칭. **insertMatch 성공 시 participantRepository.seedParticipants 자동 호출**
   - `src/modules/user/` — 사용자 프로필 변환 (userRepository, userService)
   - `src/modules/reports/` — 신고/차단
   - `src/infra/` — 공유 인프라 싱글톤 (openai, analytics re-exports)
   - `src/fixtures/` — AI·데모 목업 유저, 인메모리 스와이프 상태
   - `src/lib/` — 순수 함수 엔진 (prsScoring.ts v1.1.0, prsCoaching.ts, prsAnalytics.ts — 변경 없음)
-  - `src/ws.ts` — WebSocket 씬 레이어 (chatService에 DB 위임, 직접 DB 쓰기 제거)
+  - `src/ws.ts` — WebSocket 게이트웨이 v4: JWT 인증, room join 권한 검증 (conversation_participants), senderUserId NULL 차단, setImmediate로 interest.worker.schedule(), broadcastToViewer(viewer-scoped PRS push)
 - **라우팅 원칙**: Router는 I/O 검증만. Service는 비즈니스 로직 + LLM 호출. Repository는 DB 쿼리만.
+- **Interest Signal System v4 DB 테이블**:
+  - `conversation_participants` — 대화 참여자 멤버십 (conversationId, userId, membershipSource)
+  - `interest_snapshots` — PRS 스냅샷 이력 (방향성, append-only)
+  - `latest_interest_snapshots` — 최신 PRS 스냅샷 캐시 (conversationId+viewerUserId unique)
 
 ## Launch Readiness
 

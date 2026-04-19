@@ -1,0 +1,86 @@
+----------------------------------------------------------------
+13. 선행 백엔드 보안 / 권한 보강 (P0)
+----------------------------------------------------------------
+
+[P0-1. WebSocket room join authorization]
+
+- JWT 인증만으로는 충분하지 않다.
+- 소켓은 conversationId만으로 룸 조인할 수 없어야 한다.
+- authenticated user가 해당 conversation의 검증된 participant일 때만 join 허용.
+- unauthorized join 시 즉시 거부 및 보안 로그 기록.
+- 이 수정은 AI Interest Signal 기능보다 선행되어야 한다.
+
+[P0-2. Authenticated-only message writes]
+
+- 신규 chat_messages는 senderUserId NULL 저장을 허용하지 않는다.
+- 인증 없는 메시지 쓰기는 애플리케이션 레벨에서 즉시 거부.
+- 레거시 NULL rows는 별도 정리 후, 단계적으로 senderUserId NOT NULL 마이그레이션 검토.
+
+[P0-3. Authoritative participant source]
+
+- latest_interest_snapshots 존재 여부를 conversation 접근 권한 검증에 사용하지 않는다.
+- additive schema로 conversation_participants 테이블을 도입한다.
+
+conversation_participants
+- conversation_id VARCHAR(100) NOT NULL
+- user_id INTEGER NOT NULL
+- joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+PRIMARY KEY (conversation_id, user_id)
+
+용도:
+- WS room join authorization
+- GET /api/ai/prs 접근 검증
+- worker participant source
+- viewer/partner 방향성 계산 기준
+
+[P0-4. Legacy PRS route lockdown]
+
+- POST /api/ai/prs는 production public endpoint로 유지하지 않는다.
+- 서버는 client-supplied featureWindow / myUserId / partnerUserId를 신뢰하지 않는다.
+- 해당 라우트는 제거 또는 internal/admin/test 전용으로 격리한다.
+
+
+----------------------------------------------------------------
+14. 추가 백엔드 보강 사항 (P1)
+----------------------------------------------------------------
+
+[P1-1. Coaching persistence]
+
+latest_interest_snapshots / interest_snapshots에 아래 필드 추가:
+- coaching_codes JSONB NOT NULL DEFAULT '[]'
+- coaching_payload JSONB NOT NULL DEFAULT '{}'
+
+deduplication에도 coaching hash 포함.
+
+[P1-2. Canonical hashing]
+
+reason_codes / coaching_codes hash 계산 전:
+- 정렬
+- 중복 제거
+- deterministic serialization
+을 적용한다.
+
+[P1-3. Supporting indexes]
+
+chat_messages에 아래 인덱스를 보장한다:
+- (conversation_id, created_at DESC)
+- (conversation_id, sender_user_id, created_at DESC)
+
+[P1-4. MVP feature-window limitation]
+
+최신 50건 기반 분석은 MVP proxy임을 명시한다.
+특히 아래는 full-history가 아니라 windowed approximation이다:
+- baseline-adjusted reply speed
+- reinitiation/session accuracy
+- long-term reciprocity calibration
+
+[P1-5. Data lifecycle]
+
+- 유저 삭제 시 viewer_user_id 기준 스냅샷 정리
+- conversation purge 시 conversation_id 기준 latest/history 삭제
+- source_message_id_min/max는 FK 없이 plain integer로 유지
+
+[P1-6. Layer1 / Layer2 delivery smoothing]
+
+- Layer2가 짧은 grace window 안에 끝나면 Layer1 즉시 push를 suppress할 수 있다.
+- Layer2가 늦거나 실패하면 Layer1 결과를 즉시 전달한다.

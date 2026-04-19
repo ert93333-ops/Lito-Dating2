@@ -14,6 +14,7 @@
 
 import { matchRepository } from "./match.repository.js";
 import { buildServerUser } from "../user/user.service.js";
+import { participantRepository } from "../interest/participant.repository.js";
 import {
   AI_MOCK_USERS,
   DEMO_USERS,
@@ -154,6 +155,10 @@ export const matchService = {
 
       const newMatch = await matchRepository.insertMatch(fromDbId, toDbId);
       if (!newMatch) return { liked: true, matched: false, matchId: null, matchedUser: null };
+
+      void participantRepository
+        .seedParticipants(String(newMatch.id), [fromDbId, toDbId], "match_accept")
+        .catch((err) => console.error("[match.service] seedParticipants failed:", err));
 
       const row = await matchRepository.getUserWithProfile(toDbId);
       const matchedUser = row ? buildServerUser(row.users, row.user_profiles) : null;

@@ -5,19 +5,26 @@
  *
  * Responsibilities:
  *  - JWT auth from query param
- *  - Room join/leave management
+ *  - Room join/leave management with participant authorization
  *  - Routing incoming WS messages to the appropriate service
  *  - Broadcasting saved messages back to room members
+ *  - Scheduling async interest analysis (fire-and-forget, never blocks chat)
+ *  - Viewer-scoped prs_update delivery
  *
  * What this file does NOT do:
- *  - DB queries (delegated to chatService)
+ *  - DB queries (delegated to chatService / participantRepository)
  *  - Business logic (delegated to chatService)
+ *  - Scoring or LLM calls (delegated to interest.worker via setImmediate)
  */
 
 import { WebSocketServer, WebSocket } from "ws";
 import type { IncomingMessage } from "http";
 import jwt from "jsonwebtoken";
 import { chatService } from "./modules/chat/chat.service.js";
+import { participantRepository } from "./modules/interest/participant.repository.js";
+import { schedule as scheduleInterest, registerBroadcast } from "./modules/interest/interest.worker.js";
+import { db, matchesTable } from "@workspace/db";
+import { and, eq, or } from "drizzle-orm";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -61,9 +68,103 @@ function broadcast(conversationId: string, payload: string, exclude?: Authentica
   }
 }
 
+/**
+ * Viewer-scoped broadcast — sends only to the socket belonging to viewerUserId.
+ * Prevents PRS_AB from leaking to participant B.
+ */
+function broadcastToViewer(
+  conversationId: string,
+  viewerUserId: number,
+  payload: unknown
+): void {
+  const room = rooms.get(conversationId);
+  if (!room) return;
+  const data = JSON.stringify(payload);
+  for (const client of room) {
+    if (client.userId === viewerUserId && client.readyState === WebSocket.OPEN) {
+      client.send(data);
+    }
+  }
+}
+
+/**
+ * Resolve and authorize a user's membership in a conversation.
+ *
+ * Order:
+ *  1. Check conversation_participants table
+ *  2. Backfill from matches table if conversationId is numeric (matchId)
+ *  3. Backfill from distinct non-null senderUserId (legacy conversations)
+ *
+ * Returns true if user is a valid participant (and seeds the table if needed).
+ */
+async function authorizeAndSeedParticipant(
+  conversationId: string,
+  userId: number
+): Promise<boolean> {
+  if (await participantRepository.isParticipant(conversationId, userId)) {
+    return true;
+  }
+
+  if (/^\d+$/.test(conversationId)) {
+    const matchId = parseInt(conversationId, 10);
+    try {
+      const [match] = await db
+        .select()
+        .from(matchesTable)
+        .where(
+          and(
+            eq(matchesTable.id, matchId),
+            or(
+              eq(matchesTable.user1Id, userId),
+              eq(matchesTable.user2Id, userId)
+            )
+          )
+        )
+        .limit(1);
+
+      if (match) {
+        await participantRepository.seedParticipants(
+          conversationId,
+          [match.user1Id, match.user2Id],
+          "match_accept"
+        );
+        return true;
+      }
+    } catch (err) {
+      console.error("[ws] match backfill error:", err);
+    }
+  }
+
+  try {
+    const messages = await chatService.getMessages(conversationId);
+    const senderIds = [
+      ...new Set(
+        messages
+          .map((m) => m.senderUserId)
+          .filter((id): id is number => id !== null && id !== undefined)
+      ),
+    ];
+
+    if (senderIds.includes(userId) && senderIds.length <= 2) {
+      await participantRepository.seedParticipants(
+        conversationId,
+        senderIds,
+        "backfill_chat"
+      );
+      return true;
+    }
+  } catch (err) {
+    console.error("[ws] chat backfill error:", err);
+  }
+
+  return false;
+}
+
 // ── Setup ──────────────────────────────────────────────────────────────────────
 
 export function setupWebSocket(wss: WebSocketServer) {
+  registerBroadcast(broadcastToViewer);
+
   wss.on("connection", (rawWs: WebSocket, req: IncomingMessage) => {
     const ws = rawWs as AuthenticatedWS;
     ws.conversations = new Set();
@@ -86,6 +187,31 @@ export function setupWebSocket(wss: WebSocketServer) {
       if (type === "join") {
         const conversationId = msg["conversationId"] as string;
         if (!conversationId) return;
+
+        if (!ws.userId) {
+          ws.send(JSON.stringify({
+            type: "error",
+            error: "인증이 필요합니다.",
+          }));
+          return;
+        }
+
+        try {
+          const allowed = await authorizeAndSeedParticipant(conversationId, ws.userId);
+          if (!allowed) {
+            console.warn(`[ws] unauthorized join attempt userId=${ws.userId} conv=${conversationId}`);
+            ws.send(JSON.stringify({
+              type: "error",
+              error: "이 대화에 참여할 권한이 없습니다.",
+            }));
+            return;
+          }
+        } catch (err) {
+          console.error("[ws] join auth error:", err);
+          ws.send(JSON.stringify({ type: "error", error: "서버 오류" }));
+          return;
+        }
+
         ws.conversations.add(conversationId);
         if (!rooms.has(conversationId)) rooms.set(conversationId, new Set());
         rooms.get(conversationId)!.add(ws);
@@ -104,6 +230,14 @@ export function setupWebSocket(wss: WebSocketServer) {
 
       // ── message ─────────────────────────────────────────────────────────────
       if (type === "message") {
+        if (!ws.userId) {
+          ws.send(JSON.stringify({
+            type: "error",
+            error: "메시지를 보내려면 로그인이 필요합니다.",
+          }));
+          return;
+        }
+
         const conversationId = msg["conversationId"] as string;
         const content = msg["content"] as string;
         const senderId = msg["senderId"] as string;
@@ -112,16 +246,19 @@ export function setupWebSocket(wss: WebSocketServer) {
         if (!conversationId || !content || !senderId) return;
 
         try {
-          // Delegate to chatService — no direct DB call here
           const saved = await chatService.sendMessage({
             conversationId,
-            senderUserId: ws.userId ?? null,
+            senderUserId: ws.userId,
             senderId,
             content,
             originalLanguage,
           });
 
           broadcast(conversationId, JSON.stringify({ type: "message", conversationId, message: saved }));
+
+          setImmediate(() => {
+            scheduleInterest(conversationId, saved.id);
+          });
         } catch (err) {
           console.error("[WS] message save error:", err);
           ws.send(JSON.stringify({ type: "error", error: "메시지 저장 실패" }));

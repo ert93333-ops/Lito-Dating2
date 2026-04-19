@@ -1,0 +1,1149 @@
+================================================================
+Lito — AI Mutual Interest Signal System
+최종 설계 문서 v4
+작성일: 2026-04-19
+상태: 구현 직전 최종안
+================================================================
+
+----------------------------------------------------------------
+0. 문서 목적
+----------------------------------------------------------------
+
+본 문서는 Lito의 AI Mutual Interest Signal System을
+기존 코드베이스에 저위험·모듈형으로 통합하기 위한
+최종 백엔드 설계 문서다.
+
+이 문서는 다음을 보장하는 것을 목표로 한다.
+
+1. 기존 채팅 기능을 깨지 않는다
+2. PRS/CS 계산은 채팅 경로와 분리한다
+3. 방향성(viewer-based) 스코어링을 강제한다
+4. 권한/프라이버시 누출을 막는다
+5. LLM 장애 시에도 Layer 1(rule-based) 결과는 항상 동작한다
+6. 스냅샷 저장/조회/히스토리/성능/보안 기준을 명확히 한다
+
+중요:
+- 이 시스템은 love score가 아니다
+- 이 시스템은 certainty engine이 아니다
+- 이 시스템은 probabilistic interaction signal system이다
+- 최종 점수는 설명 가능하고 confidence-aware 해야 한다
+- 점수보다 권한, 프라이버시, 데이터 무결성이 우선이다
+
+
+----------------------------------------------------------------
+1. 현재 코드베이스 인벤토리
+----------------------------------------------------------------
+
+[실제 존재하는 파일]
+
+artifacts/api-server/src/
+  ws.ts                          WebSocket 게이트웨이 (JWT 인증, 룸 관리)
+  lib/prsScoring.ts              순수 함수 엔진, PRS 0-100
+  infra/openai.ts                OpenAI 클라이언트 싱글톤
+  infra/analytics.ts             텔레메트리 (in-memory)
+  middleware/auth.ts             requireAuth / optionalAuth (Bearer JWT)
+  modules/chat/chat.service.ts   sendMessage / getMessages / deleteUserMessages
+  modules/chat/chat.repository.ts Drizzle 쿼리 (chatMessages 테이블)
+  modules/interest/interest.service.ts  computePrs (LLM 오케스트레이터)
+  modules/interest/interest.router.ts   POST /api/ai/prs (현재 public 성격)
+
+lib/db/src/schema/
+  chatMessages.ts                conversationId VARCHAR(100), senderUserId INTEGER?
+  matches.ts                     user1Id / user2Id pair, UNIQUE 제약
+  conversationMembers.ts         없음
+  conversationParticipants.ts    없음
+
+[현재 구조상 핵심 발견 사항]
+
+항목
+- chat_messages.conversationId 와 matches 사이에 FK가 없다
+- authoritative participant source가 없다
+- senderUserId가 NULL로 저장될 가능성이 있다
+- POST /api/ai/prs는 서버가 클라이언트 featureWindow를 신뢰하던 레거시 성격이다
+- WS 룸 조인 시 conversation participant 검증이 없다
+- featureWindow.myUserId / partnerUserId 를 서버가 강제하지 않으면 위조가 가능하다
+- PRS/CS는 내부적으로 0-100 기준을 사용하고 있다
+
+[현재 PRS 흐름]
+
+클라이언트가 featureWindow 직접 조립
+  -> POST /api/ai/prs
+  -> interest.service.ts
+  -> LLM + prsScoring.ts
+  -> 응답 반환
+  -> DB 저장 없음
+  -> 히스토리 없음
+  -> 방향성/권한 검증 불완전
+
+
+----------------------------------------------------------------
+2. 최종 판단 요약
+----------------------------------------------------------------
+
+현재 상태에서 바로 AI Mutual Interest Signal System을
+프로덕션 기능으로 노출하는 것은 불가하다.
+
+이유:
+- WS room join 권한 검증 부재
+- senderUserId NULL 쓰기 가능성
+- authoritative conversation membership 부재
+- public PRS route가 client-supplied featureWindow를 신뢰하는 구조
+
+따라서 본 문서는 다음 두 단계로 나눈다.
+
+Phase 0: 보안/권한/무결성 선행 보강
+Phase 1: AI Interest Signal 기능 구현
+
+판정:
+- Phase 0 완료 전: NO-GO
+- Phase 0 완료 후: GO FOR IMPLEMENTATION
+
+
+----------------------------------------------------------------
+3. 선행 백엔드 보안 / 권한 보강 (P0)
+----------------------------------------------------------------
+
+[P0-1. WebSocket room join authorization]
+
+문제:
+- JWT 인증이 있어도, conversation participant 검증 없이
+  raw conversationId만으로 룸 조인이 가능하면
+  타인이 대화방 메시지나 PRS 업데이트를 수신할 수 있다.
+
+필수 정책:
+- authenticated user가 해당 conversation의 검증된 participant일 때만
+  room join 허용
+- unauthorized join 시 즉시 거부
+- 보안 로그 기록
+- AI Interest Signal 활성화보다 먼저 수정
+
+[P0-2. Authenticated-only message writes]
+
+문제:
+- 신규 메시지가 senderUserId NULL로 저장되면
+  방향성 스코어링, participant 판별, 데이터 신뢰성이 흔들린다.
+
+필수 정책:
+- 신규 chat_messages 저장 시 senderUserId NULL 금지
+- 인증 없는 메시지 쓰기는 애플리케이션 레벨에서 즉시 reject
+- 레거시 NULL rows는 별도 정리 후, 단계적으로 DB 제약 강화
+- 가능하면 최종적으로 senderUserId NOT NULL 마이그레이션 검토
+
+[P0-3. Authoritative participant source 도입]
+
+문제:
+- 현재 participant를 distinct senderUserId로만 추론하면
+  접근 권한 검증, 방향성 계산, room join authz의 기준이 불안정하다.
+
+필수 정책:
+- conversation_participants 테이블을 additive migration으로 도입
+- 이 테이블을 participant source of truth로 사용
+- 용도:
+  1) WS room join authorization
+  2) GET /api/ai/prs 접근 검증
+  3) worker participant source
+  4) viewer/partner 방향성 계산 기준
+
+[P0-4. Legacy PRS route lockdown]
+
+문제:
+- POST /api/ai/prs가 client-supplied featureWindow를 받는 구조는
+  서버 중심 점수 시스템과 충돌한다.
+
+필수 정책:
+- public production route로 유지하지 않는다
+- internal-only / admin-only / test-only 로 격리하거나 제거
+- 서버는 client-supplied featureWindow, myUserId, partnerUserId를 신뢰하지 않는다
+
+[P0-5. 권한 검증 기준]
+
+금지:
+- latest_interest_snapshots 행 존재 여부로 conversation 접근 권한 검증
+
+허용:
+- conversation_participants 기반 검증
+- 또는 향후 authoritative conversations / conversation_members 구조 기반 검증
+
+
+----------------------------------------------------------------
+4. 영향 파일 목록
+----------------------------------------------------------------
+
+[신규 생성]
+
+lib/db/src/schema/conversationParticipants.ts
+  authoritative participant source
+
+lib/db/src/schema/interestSnapshots.ts
+  AI 히스토리 스냅샷 (append-only)
+
+lib/db/src/schema/latestInterestSnapshots.ts
+  AI 최신 스냅샷 (fast read, upsert)
+
+artifacts/api-server/src/modules/interest/feature.extractor.ts
+  서버 사이드 featureWindow 생성
+
+artifacts/api-server/src/modules/interest/interest.repository.ts
+  snapshot read/write
+
+artifacts/api-server/src/modules/interest/interest.worker.ts
+  async worker (debounce + idempotency + retry + circuit breaker)
+
+artifacts/api-server/src/modules/interest/llm.circuit.ts
+  LLM 전용 circuit breaker singleton
+
+[수정 대상]
+
+lib/db/src/schema/index.ts
+  신규 스키마 export 추가
+
+artifacts/api-server/src/ws.ts
+  1) room join authorization 추가
+  2) authenticated-only message write 보강
+  3) message store 이후 setImmediate(schedule) 연결
+  4) viewer-scoped prs_update delivery 추가
+
+artifacts/api-server/src/modules/interest/interest.router.ts
+  1) requireAuth 적용
+  2) GET latest/history endpoints 추가
+  3) 레거시 POST /api/ai/prs 봉쇄 or internal화
+
+[조건부 수정 대상 - 실제 파일 경로는 구현 시 확인]
+
+- conversation 생성/매칭 확정 시 participant를 seed하는 엔트리포인트
+- 기존 conversation bootstrap 지점
+- 필요 시 admin/test 라우트
+
+[가능하면 그대로 유지]
+
+modules/chat/chat.repository.ts
+  읽기 재사용 중심
+
+lib/prsScoring.ts
+  순수 함수 엔진 유지
+
+lib/prsCoaching.ts
+  순수 코칭 엔진 유지
+
+infra/openai.ts
+  싱글톤 유지
+
+[주의]
+chat.service.ts는 원칙상 기능 변경 최소화.
+다만 senderUserId NULL 차단을 ws 진입점에서 완전히 해결할 수 없다면
+최소한의 application guard 추가는 허용한다.
+
+
+----------------------------------------------------------------
+5. 최종 아키텍처 제안
+----------------------------------------------------------------
+
+[상위 구조]
+
+Chat path:
+  WS/HTTP message receive
+    -> auth / membership check
+    -> message store
+    -> normal chat broadcast
+    -> return immediately
+
+Interest path:
+  setImmediate(...)
+    -> interest.worker.schedule(conversationId, latestMessageId)
+    -> feature extraction
+    -> directional scoring
+    -> snapshot persistence
+    -> viewer-scoped delivery
+
+[원칙]
+
+1. 채팅 경로와 scoring 경로는 완전히 분리
+2. scoring은 async only
+3. same conversation, different viewer => different snapshot
+4. Layer 1 always on
+5. Layer 2 optional
+6. DB는 history + latest split
+7. 권한 검증은 participant source 기준
+8. WS delivery도 viewer-scoped
+
+[Layer 구조]
+
+Layer 0: Security and membership gate
+- requireAuth / ws.userId
+- participant membership verification
+- unauthorized request/room join reject
+
+Layer 1: Rule-based scoring
+- deterministic
+- no LLM dependency
+- must always run
+- low confidence state 포함
+
+Layer 2: Optional LLM semantic enrichment
+- warmth / authenticity / linguistic matching / semantic cues 보강
+- 실패 시 Layer 1 유지
+
+
+----------------------------------------------------------------
+6. 데이터 흐름
+----------------------------------------------------------------
+
+[메시지 저장 플로우]
+
+WS "message"
+  -> verify ws.userId exists
+  -> verify ws.userId is participant of conversationId
+  -> chatService.sendMessage(...)
+  -> normal chat broadcast to authorized room members
+  -> setImmediate(() => interestWorker.schedule(conversationId, savedMessage.id))
+
+[백그라운드 플로우]
+
+interestWorker.schedule(conversationId, latestMessageId)
+  -> debounce 30s
+  -> run(conversationId, latestMessageId)
+
+run(...)
+  -> acquire single-instance in-memory execution guard
+  -> read participants from conversation_participants
+  -> read last snapshots for both viewers
+  -> read recent messages (max 50)
+  -> for each viewerUserId in participants:
+       analyseOneDirection(conversationId, viewerUserId, messages)
+  -> release guard
+  -> if pendingRun true, rerun once
+
+analyseOneDirection(...)
+  1. featureExtractor(messages, viewerUserId, partnerUserId)
+  2. Layer 1 snapshot compute
+  3. dedup check
+  4. if meaningful change:
+       insert history snapshot
+       upsert latest snapshot
+       optional immediate viewer-scoped push
+  5. if LLM allowed:
+       Layer 2 enrichment
+       recompute snapshot
+       material-change check
+       if meaningful:
+         insert history
+         upsert latest
+         viewer-scoped push
+  6. on failure:
+       keep Layer 1
+       log only
+       no exception propagation to chat path
+
+
+----------------------------------------------------------------
+7. 스키마 제안
+----------------------------------------------------------------
+
+[A. conversation_participants — P0 필수]
+
+목적:
+- participant source of truth
+- room join authorization
+- interest access control
+- worker participant source
+
+컬럼                      타입              제약
+------------------------------------------------------
+conversation_id           VARCHAR(100)      NOT NULL
+user_id                   INTEGER           NOT NULL
+membership_source         VARCHAR(30)       NOT NULL DEFAULT 'system'
+joined_at                 TIMESTAMPTZ       NOT NULL DEFAULT NOW()
+created_at                TIMESTAMPTZ       NOT NULL DEFAULT NOW()
+
+PRIMARY KEY:
+  (conversation_id, user_id)
+
+인덱스:
+  idx_cp_user_conv ON (user_id, conversation_id)
+
+권장 값:
+membership_source:
+  - conversation_create
+  - match_accept
+  - backfill_chat
+  - admin_fix
+  - system
+
+비고:
+- MVP에서는 단순 PK 구조로 충분
+- 향후 role / status / left_at 확장 가능
+
+[B. interest_snapshots — history, append-only]
+
+컬럼                      타입              단위/제약
+------------------------------------------------------
+id                        SERIAL            PK
+conversation_id           VARCHAR(100)      NOT NULL
+viewer_user_id            INTEGER           NOT NULL
+partner_user_id           INTEGER           NOT NULL
+prs_score                 REAL              NOT NULL, 0-100
+confidence_score          REAL              NOT NULL, 0-100
+stage                     VARCHAR(20)       NOT NULL
+low_confidence_state      VARCHAR(50)       NULL
+reason_codes              JSONB             NOT NULL DEFAULT '[]'
+coaching_codes            JSONB             NOT NULL DEFAULT '[]'
+coaching_payload          JSONB             NOT NULL DEFAULT '{}'
+feature_breakdown         JSONB             NOT NULL DEFAULT '{}'
+penalty_breakdown         JSONB             NOT NULL DEFAULT '{}'
+llm_enriched              BOOLEAN           NOT NULL DEFAULT FALSE
+model_version             VARCHAR(20)       NOT NULL DEFAULT 'v1.1.0'
+message_count             INTEGER           NOT NULL
+source_message_id_min     INTEGER           NULL
+source_message_id_max     INTEGER           NULL
+computed_at               TIMESTAMPTZ       NOT NULL
+created_at                TIMESTAMPTZ       NOT NULL DEFAULT NOW()
+
+인덱스:
+  idx_is_conv_viewer      ON (conversation_id, viewer_user_id)
+  idx_is_conv_time        ON (conversation_id, created_at DESC)
+  idx_is_viewer_time      ON (viewer_user_id, created_at DESC)
+
+규칙:
+- INSERT only
+- UPDATE/DELETE 없음
+- raw message text 저장 없음
+- canonical reason/coaching codes만 저장
+- localized copy는 DB에 저장하지 않고 런타임 템플릿에서 생성 권장
+
+보존 정책:
+- viewer별 conversation당 최대 200건 또는
+- N일 초과 snapshot archival/cleanup (MVP 이후 batch)
+
+[C. latest_interest_snapshots — fast read]
+
+컬럼                      타입              단위/제약
+------------------------------------------------------
+id                        SERIAL            PK
+conversation_id           VARCHAR(100)      NOT NULL
+viewer_user_id            INTEGER           NOT NULL
+partner_user_id           INTEGER           NOT NULL
+prs_score                 REAL              NOT NULL, 0-100
+confidence_score          REAL              NOT NULL, 0-100
+stage                     VARCHAR(20)       NOT NULL
+low_confidence_state      VARCHAR(50)       NULL
+reason_codes              JSONB             NOT NULL DEFAULT '[]'
+coaching_codes            JSONB             NOT NULL DEFAULT '[]'
+coaching_payload          JSONB             NOT NULL DEFAULT '{}'
+feature_breakdown         JSONB             NOT NULL DEFAULT '{}'
+penalty_breakdown         JSONB             NOT NULL DEFAULT '{}'
+llm_enriched              BOOLEAN           NOT NULL DEFAULT FALSE
+model_version             VARCHAR(20)       NOT NULL DEFAULT 'v1.1.0'
+message_count             INTEGER           NOT NULL
+snapshot_id               INTEGER           NOT NULL
+computed_at               TIMESTAMPTZ       NOT NULL
+updated_at                TIMESTAMPTZ       NOT NULL DEFAULT NOW()
+
+UNIQUE:
+  (conversation_id, viewer_user_id)
+
+인덱스:
+  idx_lis_viewer ON (viewer_user_id)
+
+규칙:
+- ON CONFLICT DO UPDATE
+- 단, identical payload면 unnecessary write 생략 가능
+
+[D. interest_feature_cache — P1]
+
+목적:
+- incremental feature extraction
+- full recomputation 방지
+
+컬럼                      타입              설명
+------------------------------------------------------
+conversation_id           VARCHAR(100)      NOT NULL
+viewer_user_id            INTEGER           NOT NULL
+partner_user_id           INTEGER           NOT NULL
+last_processed_message_id INTEGER           NOT NULL
+cached_feature_window     JSONB             NOT NULL
+model_version             VARCHAR(20)       NOT NULL
+computed_at               TIMESTAMPTZ       NOT NULL
+
+UNIQUE:
+  (conversation_id, viewer_user_id)
+
+비고:
+- MVP에서는 미구현 가능
+- 초기에는 최신 50건 전체 재계산 허용
+- scale 시 도입
+
+[E. chat_messages 보조 인덱스 요구사항]
+
+chat_messages에 아래 인덱스를 보장한다:
+- (conversation_id, created_at DESC)
+- (conversation_id, sender_user_id, created_at DESC)
+- soft delete가 있다면 deleted row 제외 partial index 고려
+
+[F. 점수 단위 일관성]
+
+- prs_score: DB/API/UI 모두 0-100
+- confidence_score: DB/API/UI 모두 0-100
+- low_confidence_state: canonical string code
+- warmth/authenticity/semantic internals: 0-1 가능, 외부 노출/저장 불필요
+
+
+----------------------------------------------------------------
+8. Directional Scoring 설계
+----------------------------------------------------------------
+
+핵심 정의:
+- viewer = 이 점수를 보는 사용자
+- partner = viewer의 상대방
+- PRS = partner가 viewer에게 얼마나 receptive한가
+
+예:
+- viewer=A, partner=B -> PRS_AB
+- viewer=B, partner=A -> PRS_BA
+
+동일 conversation이라도 서로 다를 수 있다.
+
+[역할 분류]
+
+msg.senderUserId == viewerUserId     -> role = "me"
+msg.senderUserId == partnerUserId    -> role = "partner"
+msg.senderUserId is NULL or unknown  -> 분석 제외 or unknown bucket
+
+[participant source]
+
+정식 source:
+- conversation_participants
+
+금지:
+- authz를 distinct senderUserId로 대체
+
+예외적 임시 backfill:
+- 기존 conversation_participants 없는 레거시 conversation에 한해
+  non-null distinct senderUserId 2명으로 best-effort backfill 가능
+- membership_source='backfill_chat'로 표시
+- backfill 불가 시 AI feature 비활성화 유지
+
+[데이터 부족 처리]
+
+partner turn이 거의 없거나 0이면:
+- PRS는 neutral 근처로 shrink
+- confidence는 낮게
+- low_confidence_state='not_enough_data'
+- UI는 hard score 숨김
+
+
+----------------------------------------------------------------
+9. Feature Extraction 및 스코어링 파이프라인
+----------------------------------------------------------------
+
+[MVP 입력]
+- 최근 메시지 최대 50건
+- viewerUserId, partnerUserId
+- 번역/언어 정보가 있으면 포함
+- system/deleted/non-user 메시지는 제외
+
+[Layer 1]
+- deterministic
+- rule-based
+- no LLM
+- always available
+
+계산:
+1. Responsiveness
+2. Reciprocity
+3. Linguistic Matching proxy
+4. Temporal Engagement
+5. Warmth/Other-focus/Authenticity proxy
+6. Progression
+7. Penalty signals
+8. Stage detection
+9. PRS 0-100
+10. CS 0-100
+11. reason codes
+12. coaching codes
+
+[Layer 2]
+- optional semantic enrichment only
+- LLM output은 feature 보강용
+- final PRS/CS는 deterministic engine이 계산
+- malformed output / timeout / rate-limit 시 Layer 1 유지
+
+[50-message window의 한계]
+
+MVP에서 최신 50건 기반 분석은 windowed proxy다.
+아래 항목은 full-history measure가 아니다.
+
+- baseline-adjusted reply speed
+- reinitiation/session accuracy
+- long-term reciprocity calibration
+- long inactivity distortion
+- translation reliability trend
+
+이 한계는 문서와 UI 정책에 반영한다.
+
+
+----------------------------------------------------------------
+10. 비동기 워커 설계
+----------------------------------------------------------------
+
+[workerState]
+
+Map<conversationId, {
+  timerId,
+  isRunning,
+  pendingRun,
+  latestMessageId,
+  lastSnapshotAt,
+  lastLlmCallAt
+}>
+
+[스케줄링]
+
+schedule(conversationId, latestMessageId):
+  clearTimeout(existingTimer)
+  state.latestMessageId = latestMessageId
+  state.timerId = setTimeout(run, 30000)
+
+[run 진입 규칙]
+
+1. isRunning=true 이면 pendingRun=true 후 종료
+2. 마지막 meaningful snapshot이 너무 최근이면 skip
+3. latestMessageId가 이전 실행과 동일하고 source range 변화가 없으면 skip
+4. LLM rate limit hit 시 Layer 1 only 실행
+
+[job identity]
+
+jobKey = (conversationId, latestMessageId, modelVersion)
+
+의미:
+- 동일 메시지 범위에 대한 중복 실행 무해화
+- stale result detection 가능
+
+[Layer 2 retry/backoff]
+
+- 시도 1 실패 -> 1초 + jitter
+- 시도 2 실패 -> 2초 + jitter
+- 시도 3 실패 -> 포기
+- jitter는 ±300ms
+- Layer 1에는 retry 없음
+
+[LLM circuit breaker]
+
+상태:
+- CLOSED
+- OPEN
+- HALF_OPEN
+
+전환:
+- 3회 연속 실패 -> OPEN
+- 60초 후 -> HALF_OPEN
+- HALF_OPEN 1회 성공 -> CLOSED
+- HALF_OPEN 실패 -> OPEN
+
+[멀티 인스턴스 주의]
+
+현재 설계는 단일 인스턴스 MVP 전제다.
+in-memory debounce/guard/circuit breaker는 멀티 인스턴스에서 불완전하다.
+
+향후 업그레이드 경로:
+- Redis SET NX PX 분산 락
+- pg-boss / BullMQ / Redis queue
+- distributed rate-limit state
+
+replit.md 또는 운영 문서에 명시.
+
+
+----------------------------------------------------------------
+11. 스냅샷 중복 방지 및 캐싱
+----------------------------------------------------------------
+
+[Dedup 기준]
+
+새 history snapshot INSERT 전 아래를 모두 비교:
+
+- abs(prs_score delta) < 3
+- stage unchanged
+- low_confidence_state unchanged
+- reason_codes hash unchanged
+- coaching_codes hash unchanged
+- coaching_payload hash unchanged
+- llm_enriched identical
+- feature/penalty breakdown material change 없음
+
+위 조건을 모두 만족하면:
+- history INSERT 생략
+- latest UPSERT도 생략 가능
+
+[예외]
+- llm_enriched false -> true 전환은 의미 있는 변화로 간주
+- 초기 snapshot 부재 시 무조건 저장
+- stage 변경은 무조건 저장
+
+[Canonical hashing 규칙]
+
+reason/coaching hash 계산 전:
+1. sort
+2. deduplicate
+3. deterministic JSON serialization
+4. SHA-256
+
+[Layer1 -> Layer2 이중 업데이트 노이즈 제어]
+
+기본 규칙:
+- Layer 1은 빠르게 저장
+- Layer 2는 material change가 있을 때만 push
+
+material change 예시:
+- abs(prs delta) >= 5
+- low_confidence_state changed
+- stage changed
+- llm_enriched false -> true 이고 reason/coaching 개선 있음
+
+추가 UX smoothing:
+- Layer 2가 2~3초 grace window 안에 완료되면
+  Layer 1 즉시 push를 suppress하고 Layer 2만 보낼 수 있다
+- Layer 2가 늦거나 실패하면 Layer 1을 즉시 보낸다
+
+[Incremental cache]
+
+MVP:
+- latest 50건 전체 재계산 허용
+- 현재 예상 부하에서는 acceptable
+
+P1:
+- interest_feature_cache 도입
+- last_processed_message_id 이후 신규 메시지만 반영
+- out-of-order / deletion 발생 시 cache invalidate
+
+
+----------------------------------------------------------------
+12. API / WS 설계
+----------------------------------------------------------------
+
+[HTTP API]
+
+1) GET /api/ai/prs/:conversationId
+- 인증 필수
+- viewerUserId는 req.user.userId에서 파생
+- conversation_participants membership 검증
+- latest_interest_snapshots 조회
+
+2) GET /api/ai/prs/:conversationId/history
+- 인증 필수
+- viewerUserId는 서버 auth 기준
+- conversation_participants membership 검증
+- interest_snapshots history 조회
+
+3) POST /api/ai/prs
+- production public route로 사용 금지
+- internal/test/admin 용도로만 유지하거나 제거
+- client-supplied featureWindow를 서버 truth로 사용 금지
+
+[WS delivery]
+
+joinRoom(conversationId):
+- authenticated socket only
+- conversation_participants membership 검증 통과 시에만 join
+
+prs_update:
+- room 전체 broadcast 금지
+- viewer-scoped delivery
+- ws.userId == viewerUserId 인 소켓에만 전송
+
+payload 예시:
+{
+  type: "prs_update",
+  conversationId: "...",
+  snapshot: {
+    prsScore: 68,
+    confidenceScore: 74,
+    stage: "discovery",
+    lowConfidenceState: null,
+    reasonCodes: [...],
+    coachingCodes: [...],
+    llmEnriched: true,
+    computedAt: "..."
+  }
+}
+
+주의:
+- payload에 viewerUserId를 넣을 수는 있지만
+  권한 판단은 서버-side socket identity로만 한다
+- 클라이언트 viewerUserId는 보조 검증용일 뿐 source of truth가 아님
+
+
+----------------------------------------------------------------
+13. 보안 및 프라이버시 검토
+----------------------------------------------------------------
+
+[Auth source of truth]
+
+HTTP:
+- req.user.userId
+
+WS:
+- JWT 검증 후 ws.userId
+
+금지:
+- client query/body 의 viewerUserId를 source of truth로 사용
+
+[Access control]
+
+권한 확인은 반드시:
+- conversation_participants 에 (conversation_id, user_id) 존재 여부
+
+금지:
+- latest_interest_snapshots 존재 여부
+- distinct senderUserId 추론
+
+[PII minimization]
+
+DB snapshot에 저장 금지:
+- raw message text
+- full translated text
+- message embeddings raw dump
+- LLM raw prompt/response 전체
+
+저장 허용:
+- canonical reason codes
+- canonical coaching codes
+- feature/penalty aggregate values
+- source_message_id range
+- llm_enriched flag
+- model_version
+
+[프라이버시 보호]
+
+- PRS_AB 를 B에게 전달하지 않는다
+- PRS_BA 를 A에게 전달하지 않는다
+- 상대 방향 score를 유추할 수 있는 admin/debug API를 production 사용자에게 노출하지 않는다
+
+
+----------------------------------------------------------------
+14. 장애 모드 분석
+----------------------------------------------------------------
+
+[A. 방향성 프라이버시 누출]
+위험:
+- room-wide broadcast 시 상대 방향 snapshot 노출
+완화:
+- viewer-scoped WS delivery
+- server-side socket identity filter
+
+[B. 인증 우회]
+위험:
+- client-supplied viewerUserId / featureWindow 신뢰
+완화:
+- requireAuth
+- server-derived viewer identity
+- legacy route lockdown
+
+[C. participant source 부정확]
+위험:
+- distinct sender 추론은 권한 검증에 부적합
+완화:
+- conversation_participants 도입
+- 레거시 백필은 임시 수단
+
+[D. senderUserId NULL]
+위험:
+- 방향성 계산 불능 / 데이터 무결성 훼손
+완화:
+- authenticated-only writes
+- legacy cleanup 후 NOT NULL 검토
+
+[E. score unit mismatch]
+위험:
+- 0..1 vs 0..100 혼선
+완화:
+- prs_score / confidence_score 모두 외부 저장/응답 0..100 통일
+
+[F. LLM hard dependency]
+위험:
+- LLM 실패 시 전체 기능 중단
+완화:
+- Layer 1 always on
+- Layer 2 optional
+- circuit breaker + retry
+
+[G. duplicate async execution]
+위험:
+- burst message로 중복 job
+완화:
+- debounce
+- isRunning/pendingRun
+- job identity
+
+[H. multi-instance unsafe state]
+위험:
+- in-memory state가 인스턴스별로 분리됨
+완화:
+- MVP single-instance 명시
+- distributed lock/queue는 차후
+
+[I. snapshot explosion]
+위험:
+- snapshot 과다 적재
+완화:
+- dedup
+- retention
+- latest/history split
+
+[J. full recomputation cost]
+위험:
+- 매번 전체 재계산
+완화:
+- MVP는 50건 제한
+- scale 시 feature cache 도입
+
+[K. wrong viewer delivery]
+위험:
+- 잘못된 유저에게 snapshot 전송
+완화:
+- socket userId filter
+- GET auth check
+
+[L. PII over-storage]
+위험:
+- raw text 저장
+완화:
+- codes + aggregates only
+
+[M. double-update noise]
+위험:
+- Layer1 직후 Layer2 push로 UI 깜빡임
+완화:
+- material change threshold
+- grace window smoothing
+
+[N. edit/delete/out-of-order]
+위험:
+- cache 일관성 깨짐
+완화:
+- MVP: latest 50 full recompute
+- 삭제/수정 이벤트 시 후속 invalidation 훅 고려
+
+[O. legacy PRS route misuse]
+위험:
+- public compute endpoint 악용
+완화:
+- internal/test/admin only or remove
+
+[P. room join bypass]
+위험:
+- 채팅 메시지 자체 누출
+완화:
+- participant authz before join
+
+
+----------------------------------------------------------------
+15. 성능 및 비용 검토
+----------------------------------------------------------------
+
+[채팅 경로 지연]
+- 정상 채팅 저장/브로드캐스트 후 setImmediate
+- interest 계산은 chat path를 block 하지 않음
+- 목표: 체감 지연 0에 가깝게 유지
+
+[분석 1회당 예상 부하]
+- DB read:
+  1) participant lookup
+  2) last snapshot lookup
+  3) recent messages lookup(max 50)
+- DB write:
+  방향당 0~2 writes (Layer1 only, dedup 적용 시 감소)
+  방향당 최대 4 writes (Layer1 + Layer2 모두 material change 시)
+  두 방향 합산 최대 0~8 writes
+- LLM:
+  대화당 rate-limited
+  Layer 2 only
+  circuit open 시 0
+
+[저장소 증가]
+- history append-only 이므로 dedup/retention 필수
+- latest table은 stable size
+
+[초기 MVP 판단]
+- 현재 규모가 크지 않다면 latest 50 full recompute 허용 가능
+- 그러나 유저 수와 대화량이 커지면
+  feature cache와 distributed worker 도입 필요
+
+
+----------------------------------------------------------------
+16. 테스트 계획
+----------------------------------------------------------------
+
+[단위 테스트]
+
+1. low-data conversation
+  - partner turn 거의 없음
+  - low_confidence_state='not_enough_data'
+
+2. strong engagement conversation
+  - high PRS, reasonable confidence
+
+3. mixed-signal conversation
+  - mixed_signals state
+
+4. strong progression conversation
+  - stage='escalation'
+
+5. long silence + partner reinitiation
+  - reason/coaching 반영
+
+6. fast replies but generic content
+  - responsiveness 높고 authenticity 낮음
+
+7. high warmth, low progression
+  - warmth 기여, progression 제한
+
+8. oversharing penalty
+  - opening stage penalty 반영
+
+9. scam-risk override
+  - normal coaching 대신 safety direction
+
+10. KR-JP translation-heavy conversation
+  - translation limitation 반영
+
+11. directional divergence
+  - PRS_AB != PRS_BA 가능 확인
+
+12. forged viewerUserId attempt
+  - 서버 auth identity 사용, 위조 무효
+
+13. reason/coaching canonical hashing
+  - 순서만 달라도 동일 hash 유지
+
+14. snapshot dedup threshold
+  - 2점 변화는 skip, stage change는 insert
+
+15. Layer2 no-op enrichment
+  - material change 없으면 extra push 없음
+
+[통합 테스트]
+
+1. room join auth
+  - unauthorized user join reject
+
+2. authenticated-only message write
+  - senderUserId NULL write reject
+
+3. GET latest/history auth
+  - participant만 조회 가능
+
+4. WS privacy
+  - A의 snapshot이 B에게 전달되지 않음
+
+5. duplicate schedule calls
+  - 한 burst에 meaningful write 1회 수준 유지
+
+6. LLM timeout/malformed response
+  - Layer1 저장 유지
+
+7. DB write failure
+  - chat path 영향 없음
+
+8. circuit breaker
+  - 3회 실패 후 OPEN
+  - grace 이후 HALF_OPEN
+  - 성공 시 CLOSED
+
+9. legacy route lockdown
+  - public production access 불가 확인
+
+10. legacy conversation backfill path
+  - backfill 가능한 경우만 membership 생성
+
+
+----------------------------------------------------------------
+17. 구현 순서
+----------------------------------------------------------------
+
+[Phase 0 — 선행 보강, 필수]
+
+Batch 0-1: participant source
+  - conversationParticipants.ts 생성
+  - index.ts export
+  - conversation bootstrap 지점에 participant seed 연결
+
+Batch 0-2: WS 권한
+  - ws.ts room join authorization 추가
+  - senderUserId NULL write 차단
+
+Batch 0-3: legacy PRS route 봉쇄
+  - interest.router.ts requireAuth
+  - public featureWindow compute 차단/internal화
+
+Batch 0-4: 레거시 데이터 정리
+  - NULL sender rows 조사
+  - conversation_participants best-effort backfill
+  - backfill 불가 conversation 목록화
+
+[Phase 1 — AI Interest 기능 구현]
+
+Batch 1: 스냅샷 스키마
+  - interestSnapshots.ts
+  - latestInterestSnapshots.ts
+  - index.ts export
+
+Batch 2: repository + extractor
+  - interest.repository.ts
+  - feature.extractor.ts
+
+Batch 3: worker + circuit breaker
+  - interest.worker.ts
+  - llm.circuit.ts
+
+Batch 4: WS viewer-scoped prs_update
+  - ws.ts 연결
+
+Batch 5: GET latest/history API
+  - interest.router.ts
+
+[Phase 2 — 운영 보강, P1]
+
+Batch 2-1:
+  - coaching persistence 정교화
+  - snapshot retention batch
+  - feature cache
+  - distributed queue/lock 준비
+
+
+----------------------------------------------------------------
+18. Go / No-Go Decision
+----------------------------------------------------------------
+
+현재 판정:
+BLOCKED — NEEDS DESIGN FIXES TO BE IMPLEMENTED FIRST
+
+블로킹 항목:
+1. conversation_participants source 도입 전
+2. WS room join authorization 전
+3. senderUserId NULL write 차단 전
+4. legacy public PRS route 봉쇄 전
+
+이 4개가 완료되면:
+GO FOR IMPLEMENTATION
+
+AI Mutual Interest Signal 자체는 현재 v4 설계 기준으로
+저위험·단계적 구현이 가능하다.
+단, 보안/권한/무결성 선행 없이 점수 시스템부터 붙이는 것은 금지한다.
+
+
+----------------------------------------------------------------
+19. 장기 과제 (v5 이후)
+----------------------------------------------------------------
+
+1. authoritative conversations table 도입
+2. matches <-> conversation FK 정리
+3. distributed worker / queue
+4. feature cache
+5. full-history calibration
+6. translation reliability pipeline
+7. admin observability dashboard
+8. retention/archival 자동화
+
+
+================================================================
+끝
+================================================================

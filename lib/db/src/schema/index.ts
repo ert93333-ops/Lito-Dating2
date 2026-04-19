@@ -9,3 +9,6 @@ export * from "./directMessages";
 export * from "./chatMessages";
 export * from "./reports";
 export * from "./oauthAccounts";
+export * from "./conversationParticipants";
+export * from "./interestSnapshots";
+export * from "./latestInterestSnapshots";
