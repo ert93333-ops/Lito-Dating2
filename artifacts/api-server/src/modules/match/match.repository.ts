@@ -6,10 +6,57 @@
  * No business logic — only DB I/O.
  */
 
-import { and, eq, notInArray, or, sql } from "drizzle-orm";
-import { db, users, userProfiles, swipeLikes, swipePasses, matchesTable } from "@workspace/db";
+import { and, eq, inArray, notInArray, or, sql } from "drizzle-orm";
+import { db, users, userProfiles, swipeLikes, swipePasses, matchesTable, contactBlockHashes } from "@workspace/db";
 
 export const matchRepository = {
+  /**
+   * IDs of real DB users that are blocked via the contact-block system.
+   * Returns both directions:
+   *  - Users whose phone_number_hash is in my contact_block_hashes (I blocked them)
+   *  - Users who have my phone_number_hash in their contact_block_hashes (they blocked me)
+   */
+  async getContactBlockedUserIds(viewerId: number): Promise<number[]> {
+    // My phone hash (to find people who blocked me)
+    const [myRow] = await db
+      .select({ phoneNumberHash: users.phoneNumberHash })
+      .from(users)
+      .where(eq(users.id, viewerId));
+    const myHash = myRow?.phoneNumberHash ?? null;
+
+    // Hashes I've uploaded (to find people I've blocked)
+    const myBlockHashes = await db
+      .select({ phoneHash: contactBlockHashes.phoneHash })
+      .from(contactBlockHashes)
+      .where(eq(contactBlockHashes.userId, viewerId));
+    const myHashList = myBlockHashes.map((h) => h.phoneHash);
+
+    const blockedIds = new Set<number>();
+
+    // Find users whose phone_number_hash I uploaded (I blocked them)
+    if (myHashList.length > 0) {
+      const blocked = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(
+          notInArray(users.id, [viewerId]),
+          inArray(users.phoneNumberHash, myHashList)
+        ));
+      for (const r of blocked) blockedIds.add(r.id);
+    }
+
+    // Find users who have MY hash in their contact_block_hashes (they blocked me)
+    if (myHash) {
+      const blockedByOthers = await db
+        .select({ userId: contactBlockHashes.userId })
+        .from(contactBlockHashes)
+        .where(eq(contactBlockHashes.phoneHash, myHash));
+      for (const r of blockedByOthers) blockedIds.add(r.userId);
+    }
+
+    return Array.from(blockedIds);
+  },
+
   /** IDs of users that `fromUserId` has already liked. */
   async getLikedUserIds(fromUserId: number): Promise<number[]> {
     const rows = await db

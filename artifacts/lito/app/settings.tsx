@@ -215,6 +215,12 @@ export default function SettingsScreen() {
               onPress={() => {}}
             />
             <SettingRow
+              icon="phone-off"
+              label={lang === "ko" ? "연락처 차단" : "連絡先ブロック"}
+              sublabel={lang === "ko" ? "연락처에 있는 사람 숨기기" : "連絡先の人を非表示にする"}
+              onPress={() => router.push("/contact-blocks")}
+            />
+            <SettingRow
               icon="log-out"
               label={lang === "ko" ? "로그아웃" : "ログアウト"}
               onPress={() => {

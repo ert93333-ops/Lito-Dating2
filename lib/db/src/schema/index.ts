@@ -16,3 +16,4 @@ export * from "./deviceTokens";
 export * from "./notificationPreferences";
 export * from "./notificationEvents";
 export * from "./inAppNotifications";
+export * from "./contactBlockHashes";

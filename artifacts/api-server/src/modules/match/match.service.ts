@@ -82,12 +82,13 @@ export const matchService = {
    * Returns filtered + sorted ServerUser[].
    */
   async discoverForAuthUser(viewerDbId: number, filterOpts: FilterOpts): Promise<ServerUser[]> {
-    const [likedIds, passedIds] = await Promise.all([
+    const [likedIds, passedIds, contactBlockedIds] = await Promise.all([
       matchRepository.getLikedUserIds(viewerDbId),
       matchRepository.getPassedUserIds(viewerDbId),
+      matchRepository.getContactBlockedUserIds(viewerDbId),
     ]);
 
-    const excludeIds = [viewerDbId, ...likedIds, ...passedIds];
+    const excludeIds = [viewerDbId, ...likedIds, ...passedIds, ...contactBlockedIds];
     const dbRows = await matchRepository.getDiscoverPool(excludeIds);
 
     const dbServerUsers: ServerUser[] = dbRows

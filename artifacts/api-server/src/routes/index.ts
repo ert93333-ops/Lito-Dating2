@@ -23,6 +23,7 @@ import coachingRouter     from "../modules/coaching/coaching.router.js";
 import matchRouter        from "../modules/match/match.router.js";
 import reportsRouter      from "../modules/reports/reports.router.js";
 import notificationRouter from "../modules/notification/notification.router.js";
+import contactRouter      from "../modules/contact/contact.router.js";
 
 // ── Stable route files (not yet split into full modules) ─────────────────────
 import healthRouter      from "./health.js";
@@ -41,6 +42,7 @@ router.use(coachingRouter);
 router.use(matchRouter);
 router.use(reportsRouter);
 router.use(notificationRouter);
+router.use(contactRouter);
 
 // ── Infrastructure & auth routes ──────────────────────────────────────────────
 router.use(healthRouter);

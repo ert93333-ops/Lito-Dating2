@@ -7,7 +7,7 @@ type IconName =
   | "check-circle" | "chevron-down" | "chevron-left" | "chevron-right" | "chevron-up" | "circle" | "clock"
   | "compass" | "cpu" | "credit-card" | "edit-2" | "flag" | "gift" | "globe"
   | "heart" | "info" | "instagram" | "lock" | "log-out" | "mail" | "map-pin"
-  | "message-circle" | "more-vertical" | "phone" | "refresh-cw" | "send" | "settings" | "shield"
+  | "message-circle" | "more-vertical" | "phone" | "phone-off" | "refresh-cw" | "send" | "settings" | "shield"
   | "slash" | "sliders" | "star" | "trash-2" | "unlock" | "upload" | "user" | "user-check"
   | "plus" | "x" | "x-circle" | "zap";
 
@@ -202,6 +202,7 @@ function Icon({ name, size = 24, color = "#000", style }: FIconProps) {
       </>
     ),
     "phone": <Path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.61 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.58 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" {...s} />,
+    "phone-off": <><Path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.42 19.42 0 0 1 3.07 8.67a2 2 0 0 1 2-2.18H8a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" {...s} /><Line x1="23" y1="1" x2="1" y2="23" {...s} /></>,
     "plus": (
       <>
         <Line x1="12" y1="5" x2="12" y2="19" {...s} />
