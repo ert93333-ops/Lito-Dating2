@@ -267,7 +267,7 @@ function DiscoverCard({
         photoKey={user.photos[0]}
         size={CARD_WIDTH}
         borderRadius={0}
-        style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
+        style={{ width: CARD_WIDTH, flex: 1 }}
       />
 
       {/* Report button — top-right corner, only on top card */}
@@ -409,7 +409,7 @@ const cardStyles = StyleSheet.create({
     borderRadius: 24,
     overflow: "hidden",
     width: CARD_WIDTH,
-    height: CARD_HEIGHT,
+    flex: 1,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.18,
     shadowRadius: 28,
@@ -663,6 +663,7 @@ function BackgroundCardWrapper({
           top: 0,
           left: 0,
           right: 0,
+          bottom: 0,
           alignItems: "center",
           zIndex: 10 - idx,
         },
@@ -934,7 +935,8 @@ export default function DiscoverScreen() {
       )}
 
       {/* ── Card stack ─────────────────────────────────────────────────── */}
-      <View style={[styles.stack, { top: 14, bottom: TAB_BAR_H + 8 }]}>
+      <View style={{ flex: 1, paddingHorizontal: 8, paddingTop: 8, paddingBottom: TAB_BAR_H + 8 }}>
+      <View style={styles.stack}>
         {filteredUsers.slice(0, 3).map((user, idx) => {
           const isTop = idx === 0;
           const card = (
@@ -978,6 +980,7 @@ export default function DiscoverScreen() {
             </BackgroundCardWrapper>
           );
         })}
+      </View>
       </View>
 
 
@@ -1243,10 +1246,7 @@ const styles = StyleSheet.create({
 
   // ── Card stack ────────────────────────────────────────────────────────────
   stack: {
-    position: "absolute",
-    top: 0,
-    left: 8,
-    right: 8,
+    flex: 1,
     alignItems: "center",
   },
   stackItem: {
@@ -1254,6 +1254,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
+    bottom: 0,
     alignItems: "center",
   },
 
