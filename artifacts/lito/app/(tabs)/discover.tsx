@@ -126,8 +126,8 @@ function TranslatedBio({ user, viewerLang }: { user: User; viewerLang: "ko" | "j
 
 // ─── Card geometry ────────────────────────────────────────────────────────────
 const { width, height } = Dimensions.get("window");
-const CARD_WIDTH = width - 88;
-const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.72, height * 0.72);
+const CARD_WIDTH = width - 16;
+const CARD_HEIGHT = height * 0.80;
 const SWIPE_THRESHOLD = 72;
 const MAX_ROTATION = 4; // degrees — restrained, premium
 
@@ -137,17 +137,21 @@ function DiscoverCard({
   user,
   onLike,
   onPass,
+  onSuperLike,
   onReport,
   isTop,
   swipeProgress,
+  superLikesLeft,
 }: {
   user: User;
   onLike: () => void;
   onPass: () => void;
+  onSuperLike: () => void;
   onReport?: () => void;
   isTop: boolean;
   stackIndex: number;
   swipeProgress: SharedValue<number>;
+  superLikesLeft: number;
 }) {
   const colors = useColors();
   const { profile } = useApp();
@@ -309,6 +313,30 @@ function DiscoverCard({
         style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
+
+      {/* ── Action buttons — bottom-right of card ───────────────────────── */}
+      {isTop && (
+        <View style={cardStyles.cardActions}>
+          <ActionButton onPress={onPass} hapticStyle="light">
+            <View style={cardStyles.cardBtn}>
+              <FIcon name="x" size={20} color="rgba(255,255,255,0.92)" />
+            </View>
+          </ActionButton>
+          <ActionButton onPress={onSuperLike} hapticStyle="medium">
+            <View style={[
+              cardStyles.cardBtn,
+              { backgroundColor: superLikesLeft > 0 ? "rgba(255,218,60,0.22)" : "rgba(255,255,255,0.12)" },
+            ]}>
+              <FIcon name="star" size={18} color={superLikesLeft > 0 ? "#FFD43B" : "rgba(255,255,255,0.45)"} />
+            </View>
+          </ActionButton>
+          <ActionButton onPress={onLike} hapticStyle="medium">
+            <View style={cardStyles.cardBtnMain}>
+              <FIcon name="heart" size={22} color="#fff" />
+            </View>
+          </ActionButton>
+        </View>
+      )}
 
       {/* ── Info overlay — floats over gradient ─────────────────────────── */}
       <View style={cardStyles.info}>
@@ -543,6 +571,44 @@ const cardStyles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.28)",
+  },
+
+  // ── Card action buttons — bottom-right overlay ───────────────────────────
+  cardActions: {
+    position: "absolute",
+    right: 14,
+    bottom: 100,
+    gap: 12,
+    alignItems: "center",
+    zIndex: 30,
+  },
+  cardBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  cardBtnMain: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#D85870",
+    shadowColor: "#D85870",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    elevation: 10,
   },
 
   // Bio text — white on dark, small and quiet
@@ -868,7 +934,7 @@ export default function DiscoverScreen() {
       )}
 
       {/* ── Card stack ─────────────────────────────────────────────────── */}
-      <View style={[styles.stack, { bottom: TAB_BAR_H + 20 }]}>
+      <View style={[styles.stack, { bottom: TAB_BAR_H + 8 }]}>
         {filteredUsers.slice(0, 3).map((user, idx) => {
           const isTop = idx === 0;
           const card = (
@@ -877,6 +943,7 @@ export default function DiscoverScreen() {
               user={user}
               onLike={() => handleLike(user.id)}
               onPass={() => handlePass(user.id)}
+              onSuperLike={() => handleSuperLike(user.id)}
               onReport={isTop ? () => router.push({
                 pathname: "/report-user" as any,
                 params: { userId: user.id, nickname: user.nickname },
@@ -884,6 +951,7 @@ export default function DiscoverScreen() {
               isTop={isTop}
               stackIndex={idx}
               swipeProgress={swipeProgress}
+              superLikesLeft={superLikesLeft}
             />
           );
 
@@ -912,48 +980,6 @@ export default function DiscoverScreen() {
         })}
       </View>
 
-      {/* ── Side action column — right of card ──────────────────────────── */}
-      {filteredUsers.length > 0 && (
-        <View style={[styles.sideActionCol, { bottom: TAB_BAR_H + 80 }]}>
-          <ActionButton
-            onPress={() => filteredUsers[0] && handlePass(filteredUsers[0].id)}
-            hapticStyle="light"
-          >
-            <View style={[styles.sideBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <FIcon name="x" size={20} color={colors.charcoalMid} />
-            </View>
-          </ActionButton>
-
-          <ActionButton
-            onPress={() => filteredUsers[0] && handleSuperLike(filteredUsers[0].id)}
-            hapticStyle="medium"
-          >
-            <View style={[
-              styles.sideBtn,
-              {
-                backgroundColor: superLikesLeft > 0 ? "#FFFBEA" : colors.muted,
-                borderColor: superLikesLeft > 0 ? "#E8B400" : "transparent",
-              },
-            ]}>
-              <FIcon name="star" size={18} color={superLikesLeft > 0 ? "#E8B400" : colors.charcoalFaint} />
-              {superLikesLeft < 3 && superLikesLeft > 0 && (
-                <View style={styles.sideBtnBadge}>
-                  <Text style={styles.sideBtnBadgeText}>{superLikesLeft}</Text>
-                </View>
-              )}
-            </View>
-          </ActionButton>
-
-          <ActionButton
-            onPress={() => filteredUsers[0] && handleLike(filteredUsers[0].id)}
-            hapticStyle="medium"
-          >
-            <View style={[styles.sideBtnMain, { backgroundColor: colors.rose, shadowColor: colors.rose }]}>
-              <FIcon name="heart" size={22} color="#fff" />
-            </View>
-          </ActionButton>
-        </View>
-      )}
 
       {/* ── Filter Sheet ───────────────────────────────────────────────── */}
       <Modal visible={showFilterSheet} transparent animationType="slide">
@@ -1219,8 +1245,8 @@ const styles = StyleSheet.create({
   stack: {
     position: "absolute",
     top: 0,
-    left: 16,
-    right: 80,
+    left: 8,
+    right: 8,
     alignItems: "center",
   },
   stackItem: {
