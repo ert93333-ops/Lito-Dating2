@@ -94,18 +94,25 @@ router.get("/ai/prs/:conversationId/history", requireAuth, async (req, res) => {
   }
 });
 
-// ── POST /api/ai/prs (INTERNAL / TEST ONLY) ───────────────────────────────────
+// ── POST /api/ai/prs (INTERNAL / TEST ONLY — blocked in production) ───────────
 
 /**
  * Legacy pull endpoint — accepts a client-provided featureWindow.
  *
  * IMPORTANT:
  *  - This endpoint is NOT for production client use.
+ *  - Blocked entirely in production (NODE_ENV === "production" → 404).
  *  - myUserId/partnerUserId from featureWindow are NOT trusted from client.
  *  - The authenticated userId is used as myUserId.
  *  - Rate-limited. Requires authentication.
  */
-router.post("/ai/prs", requireAuth, aiRateLimit, async (req, res) => {
+router.post("/ai/prs", (req, res, next) => {
+  if (process.env["NODE_ENV"] === "production") {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  next();
+}, requireAuth, aiRateLimit, async (req, res) => {
   try {
     const { featureWindow, viewerLang } = req.body as {
       featureWindow: Record<string, unknown>;
@@ -156,17 +163,19 @@ router.post("/ai/prs", requireAuth, aiRateLimit, async (req, res) => {
 });
 
 // ── Admin / Debug endpoints ────────────────────────────────────────────────────
+// All admin routes require authentication. Production deployments should
+// additionally gate these behind an internal network boundary.
 
-router.get("/admin/prs/aggregates", (_req, res) => {
+router.get("/admin/prs/aggregates", requireAuth, (_req, res) => {
   res.json(getAggregates());
 });
 
-router.get("/admin/prs/events", (req, res) => {
+router.get("/admin/prs/events", requireAuth, (req, res) => {
   const n = Math.min(Number(req.query.n ?? 50), 200);
   res.json({ events: getRecentEvents(n) });
 });
 
-router.get("/admin/ai/rate-limits", (_req, res) => {
+router.get("/admin/ai/rate-limits", requireAuth, (_req, res) => {
   res.json(getAiRateLimitStats());
 });
 

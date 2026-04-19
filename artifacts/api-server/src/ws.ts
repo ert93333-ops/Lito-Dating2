@@ -246,6 +246,16 @@ export function setupWebSocket(wss: WebSocketServer) {
 
         if (!conversationId || !content || !senderId) return;
 
+        // Room membership guard — sender must have completed a "join" handshake.
+        // This prevents writing to conversations the socket never authorized into.
+        if (!ws.conversations.has(conversationId)) {
+          ws.send(JSON.stringify({
+            type: "error",
+            error: "채팅방에 먼저 입장해야 합니다.",
+          }));
+          return;
+        }
+
         try {
           const saved = await chatService.sendMessage({
             conversationId,
