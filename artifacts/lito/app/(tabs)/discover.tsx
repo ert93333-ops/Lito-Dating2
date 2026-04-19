@@ -934,7 +934,7 @@ export default function DiscoverScreen() {
       )}
 
       {/* ── Card stack ─────────────────────────────────────────────────── */}
-      <View style={[styles.stack, { bottom: TAB_BAR_H + 8 }]}>
+      <View style={[styles.stack, { top: 14, bottom: TAB_BAR_H + 8 }]}>
         {filteredUsers.slice(0, 3).map((user, idx) => {
           const isTop = idx === 0;
           const card = (
