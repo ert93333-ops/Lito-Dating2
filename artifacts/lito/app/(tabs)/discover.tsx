@@ -125,8 +125,8 @@ function TranslatedBio({ user, viewerLang }: { user: User; viewerLang: "ko" | "j
 
 // ─── Card geometry ────────────────────────────────────────────────────────────
 const { width, height } = Dimensions.get("window");
-const CARD_WIDTH = width - 32;
-const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.62, height * 0.72);
+const CARD_WIDTH = width - 88;
+const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.72, height * 0.72);
 const SWIPE_THRESHOLD = 72;
 const MAX_ROTATION = 4; // degrees — restrained, premium
 
@@ -136,19 +136,15 @@ function DiscoverCard({
   user,
   onLike,
   onPass,
-  onSuperLike,
   onReport,
   isTop,
-  superLikesLeft,
 }: {
   user: User;
   onLike: () => void;
   onPass: () => void;
-  onSuperLike: () => void;
   onReport?: () => void;
   isTop: boolean;
   stackIndex: number;
-  superLikesLeft: number;
 }) {
   const colors = useColors();
   const { profile } = useApp();
@@ -291,30 +287,6 @@ function DiscoverCard({
         pointerEvents="none"
       />
 
-      {/* ── Floating action buttons (right side, only on top card) ─────── */}
-      {isTop && (
-        <View style={cardStyles.floatingActions}>
-          <ActionButton onPress={onPass} hapticStyle="light">
-            <View style={cardStyles.floatBtn}>
-              <FIcon name="x" size={22} color="rgba(80,80,80,0.85)" />
-            </View>
-          </ActionButton>
-          <ActionButton onPress={onSuperLike} hapticStyle="medium">
-            <View style={[
-              cardStyles.floatBtn,
-              { backgroundColor: superLikesLeft > 0 ? "rgba(255,210,80,0.18)" : "rgba(255,255,255,0.14)" },
-            ]}>
-              <FIcon name="star" size={20} color={superLikesLeft > 0 ? "#E8B400" : "rgba(255,255,255,0.45)"} />
-            </View>
-          </ActionButton>
-          <ActionButton onPress={onLike} hapticStyle="medium">
-            <View style={cardStyles.floatBtnMain}>
-              <FIcon name="heart" size={26} color="#fff" />
-            </View>
-          </ActionButton>
-        </View>
-      )}
-
       {/* ── Info overlay — floats over gradient ─────────────────────────── */}
       <View style={cardStyles.info}>
         {/* Name / age / flag / verified */}
@@ -431,10 +403,10 @@ const cardStyles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 20,
-    paddingTop: 28,
-    paddingBottom: 20,
-    gap: 9,
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 18,
+    gap: 7,
   },
 
   // Name row
@@ -442,19 +414,19 @@ const cardStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flexWrap: "wrap",
-    gap: 7,
+    gap: 6,
   },
   name: {
     fontFamily: "Inter_700Bold",
-    fontSize: 26,
+    fontSize: 22,
     color: "#fff",
-    textShadowColor: "rgba(0,0,0,0.35)",
+    textShadowColor: "rgba(0,0,0,0.4)",
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 5,
+    textShadowRadius: 6,
   },
   age: {
     fontFamily: "Inter_400Regular",
-    fontSize: 22,
+    fontSize: 18,
     color: "rgba(255,255,255,0.82)",
   },
   verifiedBadge: {
@@ -548,44 +520,6 @@ const cardStyles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.28)",
-  },
-
-  // Floating vertical action buttons (right side of card)
-  floatingActions: {
-    position: "absolute",
-    right: 16,
-    bottom: 110,
-    gap: 14,
-    alignItems: "center",
-    zIndex: 30,
-  },
-  floatBtn: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.18)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.28)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  floatBtnMain: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#D85870",
-    shadowColor: "#D85870",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.42,
-    shadowRadius: 14,
-    elevation: 10,
   },
 
   // Bio text — white on dark, small and quiet
@@ -863,7 +797,6 @@ export default function DiscoverScreen() {
       <View style={[styles.stack, { bottom: TAB_BAR_H + 20 }]}>
         {filteredUsers.slice(0, 3).map((user, idx) => {
           const isTop = idx === 0;
-          // Background cards: scale down, push back
           const scale = 1 - idx * 0.03;
           const translateY = idx * 13;
           const opacity = 1 - idx * 0.16;
@@ -883,19 +816,60 @@ export default function DiscoverScreen() {
                 user={user}
                 onLike={() => handleLike(user.id)}
                 onPass={() => handlePass(user.id)}
-                onSuperLike={() => handleSuperLike(user.id)}
                 onReport={isTop ? () => router.push({
                   pathname: "/report-user" as any,
                   params: { userId: user.id, nickname: user.nickname },
                 }) : undefined}
                 isTop={isTop}
                 stackIndex={idx}
-                superLikesLeft={superLikesLeft}
               />
             </View>
           );
         })}
       </View>
+
+      {/* ── Side action column — right of card ──────────────────────────── */}
+      {filteredUsers.length > 0 && (
+        <View style={[styles.sideActionCol, { bottom: TAB_BAR_H + 80 }]}>
+          <ActionButton
+            onPress={() => filteredUsers[0] && handlePass(filteredUsers[0].id)}
+            hapticStyle="light"
+          >
+            <View style={[styles.sideBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <FIcon name="x" size={20} color={colors.charcoalMid} />
+            </View>
+          </ActionButton>
+
+          <ActionButton
+            onPress={() => filteredUsers[0] && handleSuperLike(filteredUsers[0].id)}
+            hapticStyle="medium"
+          >
+            <View style={[
+              styles.sideBtn,
+              {
+                backgroundColor: superLikesLeft > 0 ? "#FFFBEA" : colors.muted,
+                borderColor: superLikesLeft > 0 ? "#E8B400" : "transparent",
+              },
+            ]}>
+              <FIcon name="star" size={18} color={superLikesLeft > 0 ? "#E8B400" : colors.charcoalFaint} />
+              {superLikesLeft < 3 && superLikesLeft > 0 && (
+                <View style={styles.sideBtnBadge}>
+                  <Text style={styles.sideBtnBadgeText}>{superLikesLeft}</Text>
+                </View>
+              )}
+            </View>
+          </ActionButton>
+
+          <ActionButton
+            onPress={() => filteredUsers[0] && handleLike(filteredUsers[0].id)}
+            hapticStyle="medium"
+          >
+            <View style={[styles.sideBtnMain, { backgroundColor: colors.rose, shadowColor: colors.rose }]}>
+              <FIcon name="heart" size={22} color="#fff" />
+            </View>
+          </ActionButton>
+        </View>
+      )}
 
       {/* ── Filter Sheet ───────────────────────────────────────────────── */}
       <Modal visible={showFilterSheet} transparent animationType="slide">
@@ -1162,7 +1136,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     left: 16,
-    right: 16,
+    right: 80,
     alignItems: "center",
   },
   stackItem: {
@@ -1173,17 +1147,54 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // ── Action buttons (kept for any potential future use) ───────────────────
-  _unused_actionBtnMain: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+  // ── Side action column (right of card) ───────────────────────────────────
+  sideActionCol: {
+    position: "absolute",
+    right: 10,
+    gap: 14,
+    alignItems: "center",
+    zIndex: 20,
+  },
+  sideBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  sideBtnMain: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: "center",
     justifyContent: "center",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.32,
-    shadowRadius: 18,
-    elevation: 12,
+    shadowOpacity: 0.36,
+    shadowRadius: 14,
+    elevation: 10,
+  },
+  sideBtnBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#E8B400",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  sideBtnBadgeText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 9,
+    color: "#fff",
   },
 
   // ── Empty state ───────────────────────────────────────────────────────────
