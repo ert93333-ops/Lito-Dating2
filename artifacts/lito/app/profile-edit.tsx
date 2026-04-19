@@ -76,6 +76,7 @@ export default function ProfileEditScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
+  const [gender, setGender] = useState<"male" | "female" | "other" | undefined>(profile.gender);
   const [nickname, setNickname] = useState(profile.nickname);
   const [age, setAge] = useState(String(profile.age));
   const [intro, setIntro] = useState(profile.introI18n?.[lang] ?? profile.intro ?? "");
@@ -144,6 +145,7 @@ export default function ProfileEditScreen() {
     const updates: Parameters<typeof updateProfile>[0] = {
       nickname: nickname.trim(),
       age: !isNaN(parsedAge) && parsedAge >= 18 && parsedAge <= 99 ? parsedAge : profile.age,
+      gender,
       bio: bio.trim() || profile.bio,
       interests: selectedInterests.length > 0 ? selectedInterests : profile.interests,
     };
@@ -274,6 +276,42 @@ export default function ProfileEditScreen() {
           <Text style={[s.sectionLabel, { color: colors.charcoalLight }]}>
             {lang === "ko" ? "기본 정보" : "基本情報"}
           </Text>
+
+          {/* Gender */}
+          <View style={s.field}>
+            <Text style={[s.fieldLabel, { color: colors.charcoalMid }]}>
+              {lang === "ko" ? "성별" : "性別"}
+            </Text>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              {(["male", "female", "other"] as const).map((g) => {
+                const label = g === "male"
+                  ? (lang === "ko" ? "남성" : "男性")
+                  : g === "female"
+                  ? (lang === "ko" ? "여성" : "女性")
+                  : (lang === "ko" ? "기타" : "その他");
+                const selected = gender === g;
+                return (
+                  <TouchableOpacity
+                    key={g}
+                    onPress={() => { setGender(g); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                    style={[
+                      s.genderBtn,
+                      {
+                        flex: 1,
+                        borderColor: selected ? colors.rose : colors.border,
+                        backgroundColor: selected ? colors.roseLight : colors.muted,
+                      },
+                    ]}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[s.genderBtnText, { color: selected ? colors.rose : colors.charcoalMid }]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
 
           <View style={s.field}>
             <Text style={[s.fieldLabel, { color: colors.charcoalMid }]}>
@@ -602,6 +640,18 @@ const s = StyleSheet.create({
   photoSavedNoteText: {
     fontFamily: "Inter_500Medium",
     fontSize: 12,
+  },
+
+  genderBtn: {
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  genderBtnText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
   },
 
   // ── Form fields ──────────────────────────────────────────────────────────

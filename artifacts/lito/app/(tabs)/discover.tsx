@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
+  Alert,
   Dimensions,
   Modal,
   Platform,
@@ -592,7 +593,7 @@ function ActionButton({ onPress, hapticStyle = "light", style, children }: Actio
 export default function DiscoverScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { discoverUsers, discoverLoading, newMatch, dismissMatch, refetchDiscover, likeUser, passUser, profile, diagnosisStatus } = useApp();
+  const { discoverUsers, discoverLoading, newMatch, dismissMatch, refetchDiscover, likeUser, passUser, superLikeUser, superLikesLeft, profile, diagnosisStatus } = useApp();
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [filterCountry, setFilterCountry] = useState<"all" | "KR" | "JP">("all");
   const [filterLevel, setFilterLevel] = useState<"all" | "beginner" | "intermediate" | "advanced">("all");
@@ -605,6 +606,16 @@ export default function DiscoverScreen() {
 
   const handleLike = (userId: string) => { setTimeout(() => likeUser(userId), 240); };
   const handlePass = (userId: string) => { setTimeout(() => passUser(userId), 240); };
+  const handleSuperLike = (userId: string) => {
+    if (superLikesLeft <= 0) {
+      Alert.alert(
+        isKo ? "슈퍼 라이크 소진" : "スーパーライク使用済み",
+        isKo ? "오늘 슈퍼 라이크를 모두 사용했어요.\nPlus/Premium으로 업그레이드하면 무제한이에요!" : "本日のスーパーライクを使い切りました。\nPlus/Premiumにアップグレードすると無制限になります！"
+      );
+      return;
+    }
+    setTimeout(() => superLikeUser(userId), 240);
+  };
 
   const isKo = profile.language === "ko";
 
@@ -848,15 +859,23 @@ export default function DiscoverScreen() {
           </View>
         </ActionButton>
 
-        {/* Super like — Light haptic */}
-        <ActionButton onPress={() => {}} hapticStyle="light">
+        {/* Super like — star button with remaining count */}
+        <ActionButton
+          onPress={() => filteredUsers[0] && handleSuperLike(filteredUsers[0].id)}
+          hapticStyle="medium"
+        >
           <View
             style={[
               styles.actionBtn,
-              { backgroundColor: colors.goldLight, borderColor: "transparent" },
+              { backgroundColor: superLikesLeft > 0 ? colors.goldLight : colors.muted, borderColor: "transparent" },
             ]}
           >
-            <FIcon name="star" size={20} color={colors.gold} />
+            <FIcon name="star" size={20} color={superLikesLeft > 0 ? colors.gold : colors.charcoalFaint} />
+            {superLikesLeft < 3 && (
+              <View style={{ position: "absolute", top: -4, right: -4, backgroundColor: colors.gold, borderRadius: 8, minWidth: 16, height: 16, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 }}>
+                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 9, color: "#fff" }}>{superLikesLeft}</Text>
+              </View>
+            )}
           </View>
         </ActionButton>
       </View>

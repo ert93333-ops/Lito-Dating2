@@ -114,6 +114,7 @@ export default function ProfileSetupScreen() {
   const [photoUploading, setPhotoUploading] = useState<Record<string, boolean>>({});
 
   // Step 2 — Identity
+  const [gender, setGender] = useState<"male" | "female" | "other" | null>(null);
   const [nickname, setNickname] = useState("");
   const [age, setAge] = useState("");
   const [intro, setIntro] = useState("");
@@ -222,6 +223,7 @@ export default function ProfileSetupScreen() {
     const updates = {
       nickname: nickname.trim() || profile.nickname || "User",
       age: parsedAge >= 18 && parsedAge <= 99 ? parsedAge : profile.age ?? 25,
+      gender: gender ?? undefined,
       country: profile.country,
       language: lang,
       intro: trimmedIntro || "",
@@ -515,6 +517,43 @@ export default function ProfileSetupScreen() {
               ? "상대방에게 보여질 프로필을 만들어봐요"
               : "相手に見せるプロフィールを作りましょう"}
           </Text>
+
+          {/* Gender selection */}
+          <View style={s.field}>
+            <Text style={[s.fieldLabel, { color: colors.charcoalMid }]}>
+              {lang === "ko" ? "성별" : "性別"}
+            </Text>
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
+              {(["male", "female", "other"] as const).map((g) => {
+                const label = g === "male"
+                  ? (lang === "ko" ? "남성" : "男性")
+                  : g === "female"
+                  ? (lang === "ko" ? "여성" : "女性")
+                  : (lang === "ko" ? "기타" : "その他");
+                const selected = gender === g;
+                return (
+                  <TouchableOpacity
+                    key={g}
+                    onPress={() => { setGender(g); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                    style={[
+                      s.genderBtn,
+                      {
+                        flex: 1,
+                        borderColor: selected ? colors.rose : colors.border,
+                        backgroundColor: selected ? colors.roseLight : colors.muted,
+                      },
+                    ]}
+                    activeOpacity={0.75}
+                  >
+                    <FIcon name="user" size={16} color={selected ? colors.rose : colors.charcoalMid} />
+                    <Text style={[s.genderBtnText, { color: selected ? colors.rose : colors.charcoalMid }]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
 
           {/* Nickname field */}
           <View style={s.field}>
@@ -812,6 +851,20 @@ const s = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 32,
     flex: 1,
+  },
+
+  // Gender buttons
+  genderBtn: {
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+  },
+  genderBtnText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
   },
 
   // Fields

@@ -216,6 +216,7 @@ export interface User {
   id: string;
   nickname: string;
   age: number;
+  gender?: "male" | "female" | "other";
   country: "KR" | "JP";
   language: "ko" | "ja";
   city?: string;
@@ -273,6 +274,7 @@ export interface MyProfile {
   id: string;
   nickname: string;
   age: number;
+  gender?: "male" | "female" | "other";
   country: "KR" | "JP";
   language: "ko" | "ja";
   intro?: string;

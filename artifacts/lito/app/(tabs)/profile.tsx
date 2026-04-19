@@ -102,6 +102,22 @@ export default function ProfileScreen() {
           <View style={styles.heroNameRow}>
             <Text style={styles.heroName}>{profile.nickname}</Text>
             <Text style={styles.heroAge}>{profile.age}</Text>
+            {profile.gender && (
+              <View style={styles.genderPill}>
+                <FIcon
+                  name="user"
+                  size={11}
+                  color="rgba(255,255,255,0.9)"
+                />
+                <Text style={styles.genderPillText}>
+                  {profile.gender === "male"
+                    ? (lang === "ko" ? "남성" : "男性")
+                    : profile.gender === "female"
+                    ? (lang === "ko" ? "여성" : "女性")
+                    : (lang === "ko" ? "기타" : "その他")}
+                </Text>
+              </View>
+            )}
             <CountryFlag country={profile.country} size={20} />
           </View>
           {(profile.introI18n?.[lang] ?? profile.intro) ? (
@@ -127,12 +143,15 @@ export default function ProfileScreen() {
               {lang === "ko" ? "신뢰 & 프로필 강도" : "信頼 & プロフィール強度"}
             </Text>
             <Text style={[styles.trustSub, { color: colors.charcoalLight }]}>
-              {lang === "ko"
-                ? `${profile.photos.length}장의 사진`
-                : `写真${profile.photos.length}枚`}
-              {profile.bio
-                ? lang === "ko" ? " · 소개 완료" : " · 自己紹介あり"
-                : ""}
+              {(() => {
+                const parts: string[] = [];
+                const photoCount = profile.photos.length;
+                if (photoCount > 0) parts.push(lang === "ko" ? `사진 ${photoCount}장` : `写真${photoCount}枚`);
+                if (profile.gender) parts.push(lang === "ko" ? "성별 설정" : "性別設定済");
+                if (profile.bio) parts.push(lang === "ko" ? "소개 완료" : "自己紹介あり");
+                if (profile.interests?.length) parts.push(lang === "ko" ? `관심사 ${profile.interests.length}개` : `興味${profile.interests.length}個`);
+                return parts.length > 0 ? parts.join(" · ") : (lang === "ko" ? "프로필을 완성해봐요" : "プロフィールを完成させましょう");
+              })()}
             </Text>
           </View>
           <FIcon name="chevron-right" size={15} color={colors.charcoalLight} />
@@ -159,23 +178,20 @@ export default function ProfileScreen() {
         </View>
 
         {/* Strength bar (profile completeness + trust combined) */}
-        <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
-          <View
-            style={[
-              styles.barFill,
-              {
-                backgroundColor: colors.rose,
-                width: `${Math.min(
-                  100,
-                  (profile.photos.length > 0 ? 25 : 0) +
-                    (profile.bio ? 20 : 0) +
-                    (profile.interests?.length ? 15 : 0) +
-                    computeTrustScore(profile.trustProfile) * 0.4
-                )}%` as any,
-              },
-            ]}
-          />
-        </View>
+        {(() => {
+          const photoScore = profile.photos.length >= 3 ? 25 : profile.photos.length === 2 ? 20 : profile.photos.length === 1 ? 12 : 0;
+          const genderScore = profile.gender ? 10 : 0;
+          const bioScore = profile.bio ? 15 : 0;
+          const interestScore = (profile.interests?.length ?? 0) >= 3 ? 15 : (profile.interests?.length ?? 0) > 0 ? 8 : 0;
+          const nickScore = profile.nickname && profile.nickname !== "User" ? 5 : 0;
+          const trustScore = computeTrustScore(profile.trustProfile) * 0.3;
+          const total = Math.min(100, photoScore + genderScore + bioScore + interestScore + nickScore + trustScore);
+          return (
+            <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
+              <View style={[styles.barFill, { backgroundColor: colors.rose, width: `${total}%` as any }]} />
+            </View>
+          );
+        })()}
       </TouchableOpacity>
 
       {/* ── 사진 없음 경고 배너 ───────────────────────────────────────────── */}
@@ -550,6 +566,20 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 22,
     color: "rgba(255,255,255,0.82)",
+  },
+  genderPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  genderPillText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 11,
+    color: "rgba(255,255,255,0.9)",
   },
   heroIntro: {
     fontFamily: "Inter_400Regular",

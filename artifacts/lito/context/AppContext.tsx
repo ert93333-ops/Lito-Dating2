@@ -130,6 +130,8 @@ interface AppContextType {
   login: (token: string) => void;
   logout: () => void;
   likeUser: (userId: string) => void;
+  superLikeUser: (userId: string) => void;
+  superLikesLeft: number;
   passUser: (userId: string) => void;
   blockUser: (userId: string) => void;
   sendMessage: (conversationId: string, text: string) => void;
@@ -588,6 +590,59 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // ── Super Like — limited (3/day free, unlimited premium) ─────────────────
+  const SUPER_LIKES_PER_DAY = 3;
+  const [superLikesLeft, setSuperLikesLeft] = useState(SUPER_LIKES_PER_DAY);
+
+  const superLikeUser = useCallback(async (userId: string) => {
+    setSuperLikesLeft((prev) => Math.max(0, prev - 1));
+    // Remove from deck
+    setDiscoverUsers((prev) => prev.filter((u) => u.id !== userId));
+
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (tokenRef.current) headers["Authorization"] = `Bearer ${tokenRef.current}`;
+      const res = await fetch(`${API_BASE}/api/users/${userId}/like`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ viewerId: "me", superLike: true }),
+      });
+      if (!res.ok) return;
+      const data = await res.json() as {
+        liked: boolean;
+        matched: boolean;
+        matchId: string | null;
+        matchedUser: ServerUser | null;
+      };
+      if (data.matched && data.matchedUser) {
+        const matchedAppUser = serverUserToAppUser(data.matchedUser);
+        setNewMatch(matchedAppUser);
+        setToast({
+          id: `match_${matchedAppUser.id}_${Date.now()}`,
+          title: "새로운 매치!",
+          body: `${matchedAppUser.nickname}님과 매칭되었어요`,
+          type: "match",
+        });
+        const newMatchEntry: Match = {
+          id: data.matchId ?? `match_${userId}_${Date.now()}`,
+          userId: matchedAppUser.id,
+          user: matchedAppUser,
+          matchedAt: new Date().toISOString(),
+          isNew: true,
+        };
+        setMatches((prev) => [newMatchEntry, ...prev]);
+        const convId = `conv_${userId}`;
+        setConversations((prev) => {
+          if (prev.some((c) => c.user.id === userId)) return prev;
+          return [{ id: convId, matchId: newMatchEntry.id, user: matchedAppUser, lastMessage: undefined, unreadCount: 0, translationEnabled: true, externalUnlocked: matchedAppUser.isAI ?? false }, ...prev];
+        });
+        setMessages((prev) => ({ ...prev, [convId]: [] }));
+      }
+    } catch (err) {
+      console.warn("[AppContext] superLikeUser API error:", err);
+    }
+  }, []);
+
   // ── Pass user — calls API ─────────────────────────────────────────────────
   const passUser = useCallback(async (userId: string) => {
     setDiscoverUsers((prev) => prev.filter((u) => u.id !== userId));
@@ -858,6 +913,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         login,
         logout,
         likeUser,
+        superLikeUser,
+        superLikesLeft,
         passUser,
         blockUser,
         sendMessage,
