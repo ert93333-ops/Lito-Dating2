@@ -14,6 +14,7 @@
  * as direct route files until they grow large enough to warrant a full module.
  */
 
+import path from "path";
 import { Router, type IRouter } from "express";
 
 // ── Modular routers ────────────────────────────────────────────────────────────
@@ -51,5 +52,10 @@ router.use(storageRouter);
 router.use(socialAuthRouter);
 router.use(oauthCallbackRouter);
 router.use(legalRouter);
+
+router.get("/download/lito-docs", (_req, res) => {
+  const filePath = path.resolve(process.cwd(), "../../lito_docs_all.docx");
+  res.download(filePath, "lito_docs_all.docx");
+});
 
 export default router;
