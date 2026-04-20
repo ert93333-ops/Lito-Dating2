@@ -89,3 +89,9 @@ id = "YikSDjc5RJtg-1eVfgQhI"
 uri = "file://attached_assets/lito_interest_signal_design_v3.txt"
 type = "text"
 title = "AI Interest Signal System 설계 문서 v3"
+
+[[outputs]]
+id = "5pdGJMJujee5UjsEDgCOY"
+uri = "file://lito_docs.tar.gz"
+type = "unspecified"
+title = "lito_docs.tar.gz — docs 전체 압축본"
