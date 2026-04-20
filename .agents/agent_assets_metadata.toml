@@ -95,3 +95,9 @@ id = "5pdGJMJujee5UjsEDgCOY"
 uri = "file://lito_docs.tar.gz"
 type = "unspecified"
 title = "lito_docs.tar.gz — docs 전체 압축본"
+
+[[outputs]]
+id = "Q5FqrQ-2gD4PpoMx6sFg2"
+uri = "file://lito_docs_all.md"
+type = "text"
+title = "lito_docs_all.md — 13개 파일 전체 모음"
