@@ -1,0 +1,1912 @@
+[REPLIT MASTER INSTRUCTION]
+
+문서 제목: 09-replit 실행지시서
+문서 버전: v1.0
+문서 상태: FINAL
+작성 주체: 00_지휘본부
+용도: 이 파일 하나만 보고 Replit가 기존 프로젝트 구조 안에 문서 파일을 생성/갱신하고, 그 문서를 source of truth로 사용해 앱/서버 구현을 진행하도록 하기 위한 통합 실행지시서
+
+==================================================
+0. 가장 중요한 실행 원칙
+==================================================
+
+1. 이 문서는 단독 실행 가능해야 한다.
+2. 이 문서 밖의 경로, 이전 채팅, 외부 컨텍스트를 전제로 작업하면 안 된다.
+3. 아래의 FILE 블록은 실제 파일 내용이다. Replit는 각 FILE 블록을 해당 경로의 실제 파일로 저장해야 한다.
+4. FILE 블록 저장이 끝난 뒤, 그 저장된 문서들을 source of truth로 삼아 구현한다.
+5. 문서 내용과 충돌하는 임의 기능 추가 금지.
+6. 기본 채팅 무료, 번역 코어, 안전 기능 상시 접근, 18+ only는 비협상 항목이다.
+7. 09 단계는 조사/기획이 아니라 구현 단계다. 다만 문서가 비어 있거나 상충하면 임의 추측하지 말고 TODO/placeholder로 남겨라.
+8. 최종 산출물에는 반드시 [REPLIT COMPLETION REPORT]를 포함한다.
+
+==================================================
+1. 프로젝트 개요
+==================================================
+
+서비스명: LITO
+서비스 성격: 한국-일본 크로스보더 성인 관계 형성 앱
+핵심 정의:
+- LITO는 AI 앱이 아니다.
+- LITO는 “언어 장벽과 초기 불안을 낮춰 첫 상호 대화를 안전하게 시작하게 하는 제품”이다.
+- 제품의 코어는 번역 가능한 프로필, 상호 매칭 후 무료 1:1 채팅, 신고/차단/삭제까지 포함한 신뢰 구조다.
+
+고정 전제:
+- 18세 이상만 가입 가능
+- 한국 우선 출시, 서울/수도권 중심 launch focus
+- 단, 하드 geofence는 아직 미정
+- 공개 피드 없음
+- candidate browse/list → mutual like → 1:1 텍스트 채팅 구조
+- 상호 매칭 후 기본 텍스트 채팅은 무료
+- KR↔JP 프로필 번역과 채팅 번역이 코어
+- 신고/차단/연락처 차단/계정 삭제는 코어 기능
+- 앱 내 삭제 시작 + 웹 삭제 요청 필수
+- 모든 디지털 유료 기능은 스토어 결제 기준만 허용
+- 코어 AI는 번역, 코칭은 선택형 보조 기능
+- 코칭 자동 실행 금지
+- zero_credit이어도 채팅과 번역은 유지
+- unsafe_interaction에서는 코칭보다 safety CTA 우선
+
+권장 기술 스택:
+- Mobile: Expo / React Native / expo-router
+- Backend: Node.js / Express / TypeScript
+- DB: PostgreSQL
+- ORM: Drizzle 또는 동등 수준 type-safe ORM
+- Realtime: WebSocket
+- Queue/Cache: Redis
+- Storage: Object Storage
+- Billing: App Store / Google Play 검증 어댑터
+- AI: 외부 번역/LLM provider, 단 기능별 opt-in 및 최소 전송 원칙 준수
+
+==================================================
+2. Replit가 최종적으로 해야 할 일
+==================================================
+
+1. 아래 FILE 블록들을 실제 파일로 생성/갱신
+2. 모바일 앱 구조 정리
+3. 서버 모듈 구조 정리
+4. DB 스키마 및 마이그레이션 생성
+5. 인증/온보딩/프로필/탐색/매칭/채팅/신고/차단/계정삭제/결제/AI 진입점 구현
+6. 번역은 코어로 구현, 코칭은 feature flag/placeholder 또는 문서 기준 범위 구현
+7. 기본 채팅 무료 원칙, 번역 비차감 원칙, 코칭 성공 반환 시만 차감 원칙 반영
+8. README, .env.example, 최소 실행 가이드 작성
+9. 마지막에 [REPLIT COMPLETION REPORT] 출력
+
+==================================================
+3. FILE 블록: 제품 문서
+==================================================
+
+### FILE: /docs/product/prd_mvp_v1.md
+문서 ID: PRD-MVP-V1
+문서명: LITO MVP PRD v1
+소유 팀: 05_제품기획실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- 정책/시장/경쟁/문화 기준 통합
+영향 받는 하위 문서:
+- /docs/product/feature_scope_v1.md
+- /docs/product/core_user_flow.md
+- /docs/product/kpi_tree_v1.md
+- /docs/product/release_scope_v1.md
+- /docs/ux/*
+- /docs/ai/*
+- /docs/tech/*
+최종 수정일: 2026-04-21
+
+# 1. MVP 정의
+LITO MVP는 18세 이상 성인만 가입 가능한 한국 우선·서울/수도권 중심 런치 포커스의 KR↔JP 크로스컬처 관계 형성 앱이다. 사용자는 Apple/Google/Email 기반 계정으로 가입하고, 번역 가능한 프로필을 작성한 뒤, 공개 피드 없이 후보 프로필을 탐색하고 상호 호감이 성사되면 1:1 텍스트 채팅을 무료로 시작한다. KR↔JP 프로필 번역과 실시간 채팅 번역이 핵심 가치이며, 최소 신뢰 스택은 18+ 게이트, 계정 인증, 신고/차단, 연락처 차단, 탈퇴 경로, optional verification 확장 구조로 구성된다.
+
+# 2. 제품 원칙
+- Trust before scale
+- Translation before coaching
+- Match-first, 1:1 only
+- Free core conversation
+- Layered trust stack
+- Store-compliant monetization only
+- Deletion must be real and reachable
+- Culture-aware copy by default
+
+# 3. 핵심 목표
+- 가입한 사용자가 한 세션 안에 프로필을 완성하고 탐색에 진입
+- KR↔JP 첫 대화 장벽을 번역으로 낮춤
+- 신고/차단/연락처 차단/탈퇴를 기본값으로 제공
+- 이후 optional verification, AI 코칭, 유료 SKU 확장 가능 구조 확보
+
+# 4. 비목표
+- 공개 피드/커뮤니티/타임라인
+- 랜덤 채팅/익명 오픈채팅/그룹 채팅
+- 음성/영상통화 중심 경험
+- AI 의존형 관계 형성
+- 기본 텍스트 대화의 유료 잠금
+- 정밀 위치 노출 중심 제품
+
+# 5. 핵심 가치
+- 이해된다: 프로필을 KR↔JP로 읽을 수 있다
+- 시작할 수 있다: 상호 매칭 후 바로 무료 1:1 텍스트 대화
+- 덜 무섭다: 신고/차단/연락처 차단/탈퇴가 명확
+- 덜 오해된다: 실시간 번역과 원문 확인 구조로 의미 왜곡 최소화
+
+# 6. 핵심 잠금 요약
+- 18+ only
+- 25~39는 GTM/persona 중심 연령이지 가입 제한 아님
+- 한국 우선·서울/수도권 중심 launch focus
+- 하드 geofence 여부는 미정
+- KR↔JP 프로필 번역 Must
+- KR↔JP 실시간 채팅 번역 Must
+- AI 코칭은 Should/Later 경계
+- 상호 매칭 후 기본 텍스트 채팅 무료
+- 공개 피드 없음
+- 디지털 유료 기능은 스토어 결제만
+- 계정 삭제는 앱 내 시작 + 웹 삭제 요청
+- 로그인 목표는 Apple/Google/Email
+
+### FILE: /docs/product/feature_scope_v1.md
+문서 ID: FEATURE-SCOPE-V1
+문서명: LITO MVP Feature Scope v1
+소유 팀: 05_제품기획실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- PRD 및 정책/시장/경쟁/문화 기준
+영향 받는 하위 문서:
+- /docs/product/core_user_flow.md
+- /docs/ux/*
+- /docs/ai/*
+- /docs/tech/*
+최종 수정일: 2026-04-21
+
+# Must
+- 18+ age gate
+- Apple/Google/Email 로그인 목표 조합
+- KR/JP 로컬라이즈드 온보딩/약관/안전 카피
+- 프로필 작성 필수 플로우
+- KR↔JP 프로필 번역
+- 후보 프로필 탐색
+- 최소 필터
+- 상호 like 기반 매칭
+- 상호 매칭 후 1:1 텍스트 채팅 무료
+- KR↔JP 실시간 채팅 번역
+- 매칭 해제/차단 진입
+- 신고/차단
+- 연락처 차단
+- 설정/안전/언어/계정 설정
+- 앱 내 시작 + 웹 삭제 요청
+- optional verification 확장 구조
+- 신고 접수/처리 운영 흐름
+- 핵심 퍼널 이벤트 수집
+- 정책/지원 링크 노출
+- store-billing 기준 구조
+
+# Should
+- optional verification live flow
+- Push
+- translation feedback
+- 첫 메시지 제안
+- advanced filters
+- read status
+- starter monetization (AI 코칭 크레딧)
+
+# Later
+- AI coach 고도화
+- rich messaging
+- calls
+- premium subscriptions
+- recommendation ML
+- multi-language expansion
+- 일반 웹 surface
+
+# Never
+- 18세 미만 가입
+- 공개 피드/타임라인/댓글
+- 랜덤 오픈채팅/익명 채팅방
+- 기본 채팅 유료화
+- 디지털 기능 외부 결제 유도
+- 정밀 위치/지도 노출 중심 구조
+- 공개 인기순위/hot-or-not
+- 공개 커뮤니티 UGC 확장
+
+### FILE: /docs/product/core_user_flow.md
+문서 ID: CORE-USER-FLOW-V1
+문서명: LITO Core User Flow v1
+소유 팀: 05_제품기획실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- PRD/Feature Scope/정책/문화 기준
+영향 받는 하위 문서:
+- /docs/ux/*
+- /docs/ai/*
+- /docs/tech/*
+최종 수정일: 2026-04-21
+
+# 상태 모델
+Visitor
+-> Authenticated
+-> Age passed
+-> Consent completed
+-> Profile draft
+-> Profile complete
+-> Discovering
+-> Matched
+-> Chat active
+-> Reported / Blocked / Unmatched / Retained
+-> Deletion requested
+-> Deleted
+
+# Happy Path
+1. 앱 진입
+2. 로그인 방식 선택
+3. 18+ 확인 및 정책 동의
+4. 프로필 작성
+5. 번역 미리보기 확인
+6. 후보 프로필 탐색
+7. 상호 like로 매칭 생성
+8. 무료 1:1 텍스트 채팅 시작
+9. 실시간 번역으로 대화 지속
+10. 필요 시 신고/차단/매칭 해제
+11. 설정에서 연락처 차단 관리 또는 계정 삭제 요청
+
+# Edge Rules
+- 번역 서비스 장애: 메시지 송수신 유지, 원문 우선 노출, 재시도 제공
+- 로그인 수단 이슈: 다른 로그인 수단 fallback 제공
+- 프로필 미완성 이탈: draft 저장 후 복귀 시 이어쓰기
+- 상대 차단 후 재진입: 기본은 재노출 방지
+
+### FILE: /docs/product/kpi_tree_v1.md
+문서 ID: KPI-TREE-V1
+문서명: LITO KPI Tree v1
+소유 팀: 05_제품기획실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- PRD/핵심 퍼널/AI 및 안전 기준
+영향 받는 하위 문서:
+- /docs/growth/*
+- /docs/ai/evaluation_plan_v1.md
+- /docs/tech/event_tracking_plan_v1.md
+최종 수정일: 2026-04-21
+
+# North Star
+WMCP: Weekly Meaningful Conversation Pairs
+정의:
+- KR↔JP 성격의 매칭 페어 기준
+- 매칭 후 7일 이내
+- 양측이 각각 최소 2개 이상 텍스트 메시지를 보낸 유니크 pair 수
+
+# 상위 구조
+A. 유효 유입
+- auth_completed
+- age_gate_passed
+- profile_started
+- profile_published
+
+B. 활성화
+- profile completion rate
+- profile translation preview rate
+- candidate_viewed
+
+C. 매칭 형성
+- like_sent
+- match_created
+- time to first match
+
+D. 대화 시작
+- first_message_sent
+- first_reply_received
+- message_translation_rendered
+
+E. 대화 지속
+- translated message view
+- original_text_viewed
+- translation_feedback
+- pair당 메시지 수
+
+F. 신뢰/안전 가드레일
+- report_submitted
+- block_user_completed
+- contact_block_saved
+- delete_request_started_in_app
+- 운영 처리 SLA
+
+### FILE: /docs/product/release_scope_v1.md
+문서 ID: RELEASE-SCOPE-V1
+문서명: LITO Release Scope v1
+소유 팀: 05_제품기획실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- PRD/Feature Scope/KPI/정책 기준
+영향 받는 하위 문서:
+- /docs/ux/*
+- /docs/ai/*
+- /docs/growth/*
+- /docs/tech/*
+최종 수정일: 2026-04-21
+
+# Release Definition
+- 18+ 성인 계정만 가입 가능
+- KR/JP 로컬라이즈드 프로필과 채팅 번역 작동
+- 공개 피드 없이 후보 탐색 → 상호 매칭 → 무료 1:1 텍스트 채팅 작동
+- 신고/차단/연락처 차단/탈퇴 작동
+- 스토어 심사와 개인정보 정책 기준 충족 가능
+
+# Wave 0
+- Must 기능 검증
+- 번역 품질/오류 유형 파악
+- 신고/차단/삭제 운영 경로 점검
+- 유료 SKU 비활성 가능
+
+# Wave 1
+- 한국 우선·서울/수도권 중심 cohort 검증
+- Must 기능 전체
+- Should 일부 feature flag
+- 하드 geofence 미전제
+
+# Wave 2
+- 대외 공개
+- Must 기능 전체
+- 정책 surface 완비
+- 유료 기능이 있다면 store-compliant
+
+# Go/No-Go
+- 가입 → 프로필 → 탐색 → 매칭 → 채팅 → 신고/차단/탈퇴 end-to-end
+- 번역 실패 시 원문 fallback
+- 18+ gate 동작
+- 삭제 앱 내 시작 + 웹 삭제 URL 동작
+- 기본 채팅은 결제와 무관
+- 리뷰용 계정/리뷰 노트 준비 가능
+
+==================================================
+4. FILE 블록: 정책 문서
+==================================================
+
+### FILE: /docs/policy/lito_required_features_checklist.md
+문서 ID: POLICY-REQ-CHECKLIST-001
+문서명: LITO Required Features Checklist
+소유 팀: 01_정책리스크실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- Apple / Google 정책 고정 전제
+영향 받는 하위 문서:
+- /docs/ux/*
+- /docs/tech/*
+- /docs/product/*
+최종 수정일: 2026-04-21
+
+# 필수 체크리스트
+1. 18+ age gate
+- DOB 또는 self attestation 기반 성인 여부 판정
+- 미성년자 차단
+- 서버측 연령 상태 유지
+
+2. 로그인 조합
+- Apple / Google / Email
+- iOS에서 Google 제공 시 Apple 동시 제공
+
+3. Terms / Community / Child Safety / Support
+- 가입 전 Terms / Privacy / Community 동의
+- Help / Safety / Contact 접근 가능
+- child safety / CSAE 대응 문서 공개 가능 구조
+
+4. 신고 / 차단 / 운영자 제재
+- profile/photo/message report
+- block user
+- moderation log
+- suspend/ban/remove action
+
+5. 매칭 구조
+- 상호 매칭 후에만 1:1 채팅
+- 공개 피드/커뮤니티 MVP 제외
+
+6. AI 기능
+- 번역 first-use opt-in
+- 코칭 first-use opt-in
+- AI 결과 신고 가능
+
+7. 계정 삭제
+- 앱 내 Delete Account
+- 웹 삭제 요청
+- 즉시 비노출/세션 종료
+
+8. 결제
+- 모든 디지털 상품은 IAP / Play Billing
+- 복원/검증 경로 존재
+
+9. 개인정보/메타데이터
+- Privacy Policy URL
+- App Privacy / Data Safety 정합성
+- SDK/벤더 인벤토리
+
+10. 리뷰어 접근
+- 리뷰 계정 2개 이상
+- 매칭/채팅/번역/신고/차단/삭제까지 검수 가능
+
+### FILE: /docs/policy/privacy_data_map.md
+문서 ID: POLICY-PRIVACY-MAP-001
+문서명: LITO Privacy Data Map
+소유 팀: 01_정책리스크실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- 정책/AI/삭제 기준
+영향 받는 하위 문서:
+- /docs/ai/*
+- /docs/tech/*
+- Privacy Policy / App Privacy / Data Safety
+최종 수정일: 2026-04-21
+
+# 일반 서비스 데이터
+- 계정/인증 데이터
+- 프로필 데이터
+- 프로필 사진 메타데이터
+- 매칭/추천 상태
+- 채팅 원문
+이 데이터는 core service 범주이며 Privacy Policy/App Privacy/Data Safety에 명시한다.
+
+# Optional AI 전송 데이터
+- 번역을 위한 메시지/프로필 일부 텍스트
+- 대화 코칭을 위한 최근 문맥 일부
+- 프로필 코칭을 위한 현재 bio/headline
+원칙:
+- 기능별 first-use opt-in
+- 일반 서비스 데이터와 분리 관리
+- 동의 철회 시 즉시 중단
+
+# 비전송 데이터
+- userId 원문
+- 이메일/전화번호
+- 위치
+- 결제/크레딧 상세
+- 신고/차단 이력 전체
+- 운영자 메모
+- full raw history
+
+# 저장 원칙
+- raw prompt/response 장기 저장 금지
+- 구조화 결과만 단기 저장
+- 신고/제재/분쟁 데이터는 최소 예외 보존 가능
+
+### FILE: /docs/policy/account_deletion_policy.md
+문서 ID: POLICY-ACCOUNT-DELETE-001
+문서명: LITO Account Deletion Policy
+소유 팀: 01_정책리스크실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- Apple/Google 삭제 정책
+영향 받는 하위 문서:
+- /docs/ux/trust_and_safety_flow_v1.md
+- /docs/tech/*
+최종 수정일: 2026-04-21
+
+# 삭제 원칙
+- 탈퇴=비활성화가 아니다
+- 앱 안에서 시작 가능해야 한다
+- 웹 삭제 요청 페이지도 필요하다
+- 즉시 비노출/세션 종료
+- 일반 UGC는 삭제 원칙
+- 신고/안전/결제 목적 최소 예외 보존만 허용
+- 외부 로그인 revoke 포함
+
+# 기본 삭제 모델
+즉시 비노출
+-> 즉시 접근 차단
+-> 삭제 요청 접수
+-> 고지된 기간 내 백엔드 삭제 완료
+
+# 필수 UX
+- Settings > Account > Delete Account
+- 재인증
+- 삭제 범위 안내
+- 웹 삭제 handoff
+- 완료 상태 확인 가능 구조
+
+### FILE: /docs/policy/open_questions.md
+문서 ID: POLICY-OPEN-QUESTIONS-001
+문서명: LITO Open Questions
+소유 팀: 01_정책리스크실
+버전: v1.0
+문서 상태: DRAFT
+입력 문서:
+- 정책 잠금안
+영향 받는 하위 문서:
+- /docs/product/*
+- /docs/ai/*
+- /docs/tech/*
+최종 수정일: 2026-04-21
+
+# 아직 열려 있는 항목
+- Apple Sign-In secure re-enable 상세
+- 외부 AI 벤더 구조
+- AI 코칭 public MVP 포함 여부
+- 사진 moderation 방식
+- 삭제 완료 SLA
+- 신고 증거 보존 기간
+- 정확한 SKU 구조
+- Play 카테고리
+- 한국/일본 스토어 카피 수위
+- trust badge / 전화번호 인증 강도
+
+원칙:
+- 열어둘 수 있는 것은 vendor, SLA, SKU
+- 열어둘 수 없는 것은 18+, 신고/차단, 삭제, 스토어 결제, AI 동의 구조
+
+==================================================
+5. FILE 블록: UX 문서
+==================================================
+
+### FILE: /docs/ux/information_architecture_v1.md
+문서 ID: UX-IA-V1
+문서명: LITO Information Architecture v1
+소유 팀: 06_UX신뢰설계실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- PRD/Feature Scope/Policy/Culture 기준
+영향 받는 하위 문서:
+- /docs/ux/*
+- client route map
+- QA scenarios
+최종 수정일: 2026-04-21
+
+# 구조
+Pre-auth:
+- Welcome
+- Age Gate
+- Underage Block
+- Login / Sign-up
+- Required Consents
+- Verify Email
+
+Setup:
+- Profile Basics
+- Profile Intent & Language
+- Profile Translation Preview
+- Contact Block Opt-in
+- Safety Intro
+
+Main Tabs:
+- Discover
+- Matches
+- Chat
+- My
+
+Global Surfaces:
+- Report
+- Block
+- Unmatch
+- Contact Block Manage
+- Trust Center
+- Settings / Account & Privacy
+- Delete intro / re-auth / web handoff
+- Legal / Support
+
+# IA 고정 원칙
+- 18+ only
+- 공개 피드 없음
+- candidate browse/list → mutual like → 1:1 chat
+- 상호 매칭 후 기본 채팅 무료
+- KR↔JP 번역 core
+- 신고/차단/연락처 차단/삭제는 core surface
+- AI 코칭은 후순위
+
+### FILE: /docs/ux/onboarding_flow_v1.md
+문서 ID: UX-ONBOARDING-V1
+문서명: LITO Onboarding Flow v1
+소유 팀: 06_UX신뢰설계실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- UX/Policy/Culture 기준
+영향 받는 하위 문서:
+- client onboarding routes
+- QA onboarding scenarios
+최종 수정일: 2026-04-21
+
+# Flow
+Welcome
+-> Age Gate
+-> Auth Method Select
+-> Required Consents
+-> Email Verification / Auth Complete
+-> Profile Basics
+-> Profile Intent & Language
+-> Profile Translation Preview
+-> Contact Block Opt-in
+-> Safety Intro
+-> Discover
+
+# 고정 규칙
+- AI 데이터 처리 동의는 여기서 묶지 않는다
+- 번역/코칭 동의는 실제 기능 사용 시 받는다
+- 프로필 번역 미리보기는 publish 전 필수
+- 연락처 차단은 opt-in
+- 신고/차단/삭제 존재를 온보딩에서 알려준다
+
+### FILE: /docs/ux/trust_and_safety_flow_v1.md
+문서 ID: UX-TRUST-SAFETY-V1
+문서명: LITO Trust & Safety Flow v1
+소유 팀: 06_UX신뢰설계실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- 정책/UX 기준
+영향 받는 하위 문서:
+- moderation ops
+- delete flows
+- QA safety scenarios
+최종 수정일: 2026-04-21
+
+# Safety Surfaces
+- Discover card / profile detail: report, block
+- Match / Chat: report, block, unmatch
+- Trust Center
+- Contact Block Manage
+- Settings / Account & Privacy
+- Delete Intro / Re-auth / Web Handoff
+
+# 원칙
+- 신고/차단은 숨기지 않는다
+- block는 즉시 작동한다
+- delete는 앱 내 시작 + 웹 요청으로 이어진다
+- unsafe 상황에서 AI보다 safety CTA 우선
+- 삭제 플로우 중 결제/리텐션 팝업 금지
+
+### FILE: /docs/ux/matching_flow_v1.md
+문서 ID: UX-MATCHING-V1
+문서명: LITO Matching Flow v1
+소유 팀: 06_UX신뢰설계실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- PRD/Feature Scope/Culture 기준
+영향 받는 하위 문서:
+- discover ranking / filter spec
+- chat entry rules
+최종 수정일: 2026-04-21
+
+# Flow
+Discover Home
+-> Filter Sheet
+-> Profile Detail
+-> like / pass / report / block
+-> mutual like
+-> Match Success
+-> Matches
+-> Chat Room
+
+# 원칙
+- 공개 피드/댓글/좋아요 수/인기순 없음
+- 필터는 최소 구성
+- like/pass/report/block 구조
+- profile detail에서 번역문 + 원문 보기
+- 하드/소프트 필터 구분 명시
+
+### FILE: /docs/ux/chat_flow_v1.md
+문서 ID: UX-CHAT-V1
+문서명: LITO Chat Flow v1
+소유 팀: 06_UX신뢰설계실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- PRD/UX/AI 기준
+영향 받는 하위 문서:
+- chat API
+- translation UI
+- coach entry surfaces
+최종 수정일: 2026-04-21
+
+# 원칙
+- 상호 매칭 후에만 채팅
+- 기본 텍스트 채팅 무료
+- 1:1 only
+- KR↔JP 실시간 번역 Must
+- 원문 보기 / 재시도 / fallback 필수
+- 번역 실패가 메시지 실패가 아님
+- 신고/차단/언매치는 채팅 내부에서 접근
+- AI 코칭은 후순위, 위험 상황에서는 코칭 끄고 safety 우선
+- zero_credit이어도 기본 채팅은 유지
+
+# 상태
+- Chat List
+- Chat Room
+- Empty Chat State
+- Message Translation State
+- Translation Fallback Sheet
+- Chat Safety Menu
+- Unsafe Interaction Warning
+
+### FILE: /docs/ux/screen_inventory_v1.md
+문서 ID: UX-SCREEN-INVENTORY-V1
+문서명: LITO Screen Inventory v1
+소유 팀: 06_UX신뢰설계실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- IA/Onboarding/Matching/Chat/Safety 문서
+영향 받는 하위 문서:
+- frontend routes
+- wireframes
+- QA matrix
+최종 수정일: 2026-04-21
+
+# P0 화면
+- O-02 Age Gate
+- O-04 Required Consents
+- O-05 Verification
+- O-06~O-08 Profile build + translation preview
+- M-01 Discover Home
+- M-03 Profile Detail
+- M-04 Match Success
+- C-02 Chat Room
+- C-04 Message Translation State
+- T-02~T-06 Report/Block
+- A-04~A-08 Delete flow
+
+# P1 화면
+- O-09 Contact Block Opt-in
+- O-10 Safety Intro
+- M-05 Matches
+- C-03 Empty Chat State
+- C-07 Unsafe Interaction Warning
+- T-08 Contact Block Manage
+- A-09 Legal / Policy
+- A-10 Support
+
+==================================================
+6. FILE 블록: 성장/수익화 문서
+==================================================
+
+### FILE: /docs/growth/monetization_options.md
+문서 ID: GROWTH-MONETIZATION-OPTIONS-V1
+문서명: LITO Monetization Options v1
+소유 팀: 04_수익화성장실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- 제품/시장/정책 기준
+영향 받는 하위 문서:
+- pricing_hypothesis
+- iap_product_list
+- paywall_principles
+최종 수정일: 2026-04-21
+
+# 최종 선택
+v1 추천 수익화 모델:
+- AI 코칭 크레딧 단일 모델
+
+# 이유
+- 기본 채팅/기본 번역과 명확히 분리 가능
+- optional add-on 구조
+- 단순 SKU 유지
+- 사용량-가치 연결이 명확
+- 구독 압박/다층 과금 피로 감소
+
+# 금지
+- 기본 채팅 paywall
+- 기본 번역 paywall
+- 노출/상단 배치 판매
+- 검증 배지 판매
+- 복합 과금(구독+화폐+추가 언락)
+
+### FILE: /docs/growth/pricing_hypothesis.md
+문서 ID: GROWTH-PRICING-HYPOTHESIS-V1
+문서명: LITO Pricing Hypothesis v1
+소유 팀: 04_수익화성장실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- monetization option 결정
+영향 받는 하위 문서:
+- iap_product_list
+- paywall_principles
+최종 수정일: 2026-04-21
+
+# 가격 가설
+Starter 10회:
+- KR: 6,600원
+- JP: 700엔
+
+Standard 30회:
+- KR: 14,900원
+- JP: 1,500엔
+
+Value 70회:
+- KR: 29,000원
+- JP: 3,000엔
+
+# 원칙
+- 3-pack 이내
+- 기능 차이가 아니라 회차 수 차이
+- 상시 정가 기본
+- 강한 할인/카운트다운 금지
+- 잔액 만료 금지
+
+### FILE: /docs/growth/iap_product_list_v1.md
+문서 ID: GROWTH-IAP-PRODUCT-LIST-V1
+문서명: LITO IAP Product List v1
+소유 팀: 04_수익화성장실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- pricing / monetization 기준
+영향 받는 하위 문서:
+- billing adapter
+- wallet/ledger
+- paywall UI
+최종 수정일: 2026-04-21
+
+# 상품군
+AI Coaching Credits
+
+# SKU
+- lito_ai_coach_10
+- lito_ai_coach_30
+- lito_ai_coach_70
+
+# 플랫폼 구조
+iOS:
+- consumable 3개
+Android:
+- one-time product 3개
+
+# 원칙
+- 번역은 상품 아님
+- 기본 채팅은 상품 아님
+- 구독/부스트/추가 언락 상품 미생성
+- 서버 검증 후 wallet grant
+- 코칭 성공 반환 시만 ledger debit
+
+### FILE: /docs/growth/paywall_principles.md
+문서 ID: GROWTH-PAYWALL-PRINCIPLES-V1
+문서명: LITO Paywall Principles v1
+소유 팀: 04_수익화성장실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- monetization / pricing / product 기준
+영향 받는 하위 문서:
+- coach entry UI
+- paywall modal
+최종 수정일: 2026-04-21
+
+# 최상위 원칙
+- paywall은 기본 채팅을 막지 않는다
+- paywall은 기본 번역을 막지 않는다
+- 사용자의 명시적 AI 요청 없이 먼저 튀어나오지 않는다
+- 신고/차단/삭제 근처에 두지 않는다
+- “기본 채팅과 기본 번역은 계속 무료”를 반드시 명시
+
+# 허용 위치
+- 채팅방 AI 다듬기 버튼 탭 직후
+- 첫 메시지 제안 요청 직후
+- 프로필 자기소개 AI 개선 요청 직후
+- 설정 > AI 코칭 > 크레딧 상점
+
+# 금지 위치
+- 온보딩 중
+- 프로필 작성 직후 강제 팝업
+- Discover
+- Match 직후
+- 번역 버튼/번역 결과 위
+- 신고/차단/안전 경고 근처
+- 삭제/계정 설정 플로우
+
+### FILE: /docs/growth/channel_strategy_v1.md
+문서 ID: GROWTH-CHANNEL-STRATEGY-V1
+문서명: LITO Channel Strategy v1
+소유 팀: 04_수익화성장실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- 시장/타깃/제품 기준
+영향 받는 하위 문서:
+- launch plan
+- ASO / creator seeding / waitlist ops
+최종 수정일: 2026-04-21
+
+# 초기 채널 전략
+- Waitlist / 초대제
+- Creator seeding
+- 니치 커뮤니티 제휴
+- ASO / 검색 유입
+- Referral
+- 소규모 오프라인/제휴 이벤트
+
+# 원칙
+- 설치 수보다 profile_published / match_created / first_reply_received / WMCP 우선
+- 한국 우선·서울/수도권 중심 cohort
+- 대규모 broad performance 광고는 초기 후순위
+- 외모 평가형/자극적 국제연애 광고 금지
+
+==================================================
+7. FILE 블록: AI 문서
+==================================================
+
+### FILE: /docs/ai/ai_feature_spec_v1.md
+문서 ID: AI-FEATURE-SPEC-V1
+문서명: LITO AI Feature Spec v1
+소유 팀: 07_AI설계실
+버전: v1.1
+문서 상태: LOCKED
+입력 문서:
+- 제품/UX/정책/문화/수익화 기준
+영향 받는 하위 문서:
+- translation_policy_v1
+- conversation_coach_spec_v1
+- profile_coach_spec_v1
+- ai_safety_rules_v1
+- evaluation_plan_v1
+- /docs/tech/*
+최종 수정일: 2026-04-21
+
+# AI 핵심 구조
+Core:
+- 프로필 번역
+- 채팅 번역
+
+Optional:
+- 대화 코칭
+- 프로필 코칭
+
+# 공통 원칙
+- Translation before coaching
+- User request before coaching
+- Safety before engagement
+- Original text always accessible
+- Privacy-minimized transmission
+- No relationship substitution
+
+# 상태 시스템
+normal
+translation_fail
+zero_credit
+unsafe_interaction
+consent_not_given
+
+# 공통 데이터 원칙
+전송 가능:
+- 필요한 최소 텍스트
+- source/target language
+- 최소 문맥
+전송 금지:
+- userId 원문
+- 연락처/이메일/위치
+- 결제/크레딧 상세
+- 신고/차단 이력 전체
+- raw full history
+
+# 차감 규칙
+- 번역은 차감 대상 아님
+- 코칭만 차감 후보
+- 성공 반환 시에만 차감
+- timeout / no consent / zero_credit / unsafe / validation 실패 시 차감 금지
+
+### FILE: /docs/ai/translation_policy_v1.md
+문서 ID: AI-TRANSLATION-POLICY-V1
+문서명: LITO Translation Policy v1
+소유 팀: 07_AI설계실
+버전: v1.1
+문서 상태: LOCKED
+입력 문서:
+- AI feature spec / 문화 기준
+영향 받는 하위 문서:
+- translation APIs
+- translation worker
+- realtime chat
+최종 수정일: 2026-04-21
+
+# 목표
+- 의미 보존
+- 공손함/톤 유지
+- 감정 과장 금지
+- soft-no 과잉 해석 금지
+- 위험 발화 의미 보존
+
+# 입력/출력
+입력:
+- sourceText
+- sourceLanguage
+- targetLanguage
+- 짧은 문맥
+- mode(profile/chat)
+
+출력:
+- translatedText
+- confidenceLevel
+- notes
+- fallbackUsed
+
+# 상태별 동작
+normal:
+- 번역 수행
+
+translation_fail:
+- 원문 유지
+- retry CTA
+- 채팅 계속 가능
+
+consent_not_given:
+- 번역 미수행
+- 원문만 표시
+- opt-in 요청
+
+unsafe_interaction:
+- 번역 가능
+- 위험 의미를 완화/미화하지 않음
+
+# 규칙
+- 원문 대체 금지
+- 경어 보수 유지
+- 모호성 유지
+- low confidence를 숨기지 않음
+- 번역은 차감 대상 아님
+
+### FILE: /docs/ai/conversation_coach_spec_v1.md
+문서 ID: AI-CONVERSATION-COACH-V1
+문서명: LITO Conversation Coach Spec v1
+소유 팀: 07_AI설계실
+버전: v1.1
+문서 상태: LOCKED
+입력 문서:
+- AI feature spec / safety rules / 수익화 기준
+영향 받는 하위 문서:
+- coach APIs
+- wallet/ledger
+- paywall UI
+최종 수정일: 2026-04-21
+
+# 기능 목적
+- 답장 초안 제안
+- 과한 표현 완화
+- 문화 오해 가능성 설명
+- 공손함/부담도 조정
+
+# 실행 조건
+1. 사용자 명시적 요청
+2. unsafe_interaction 아님
+3. zero_credit 아님
+4. consent_not_given 아님
+5. 상호 매칭된 1:1 텍스트 채팅 컨텍스트
+6. 유효한 draft/context
+
+# 출력 스키마
+- primarySuggestion
+- alternateSuggestions
+- rationale
+- caution
+- confidence
+- fallbackUsed
+- rewriteMode
+- avoidList
+
+# 금지
+- 자동 실행
+- 감정 확정
+- 상대 의도 확정
+- read receipt 기반 조언
+- 조종/밀당/압박
+- unsafe 상황에서 일반 코칭
+
+# 상태별 동작
+normal:
+- 요청 가능, 성공 반환 시 차감
+
+zero_credit:
+- 실행 불가
+- 채팅/번역 유지
+- paywall은 요청 후에만
+
+unsafe_interaction:
+- 실행 불가
+- safety notice + report/block CTA
+
+consent_not_given:
+- 실행 불가
+- feature opt-in 요청
+
+# 차감 규칙
+- 성공 반환 시에만
+- timeout / internal error / unsafe / no consent / zero_credit / validation fail 시 차감 금지
+
+### FILE: /docs/ai/profile_coach_spec_v1.md
+문서 ID: AI-PROFILE-COACH-V1
+문서명: LITO Profile Coach Spec v1
+소유 팀: 07_AI설계실
+버전: v1.1
+문서 상태: LOCKED
+입력 문서:
+- AI feature spec / 문화 기준
+영향 받는 하위 문서:
+- profile coach APIs
+- profile editor UI
+- wallet/ledger
+최종 수정일: 2026-04-21
+
+# 목적
+- 자기소개 명확화
+- 과장/공허 표현 완화
+- 문화적 오해 감소
+- 양언어 버전 보조
+
+# 출력 스키마
+- revisedBio
+- shortHeadline
+- optionalJapaneseVersion / optionalKoreanVersion
+- strengthsToKeep
+- improvementChecklist
+- bannedOrRiskyPhrases
+- confidence
+- fallbackUsed
+
+# 금지
+- 허위 정보 생성
+- 외모 점수화
+- 국적/성별 공략형 문구
+- 성적 암시 강화
+- 경제력/지위 과장
+
+# 상태
+- normal
+- translation_fail(선택 번역 버전만 실패 가능)
+- zero_credit
+- unsafe_interaction(필요 시 차단)
+- consent_not_given
+
+### FILE: /docs/ai/ai_safety_rules_v1.md
+문서 ID: AI-SAFETY-RULES-V1
+문서명: LITO AI Safety Rules v1
+소유 팀: 07_AI설계실
+버전: v1.1
+문서 상태: LOCKED
+입력 문서:
+- 제품/정책/문화 기준
+영향 받는 하위 문서:
+- translation / coach / profile coach / evaluation
+최종 수정일: 2026-04-21
+
+# 핵심 원칙
+- 안전이 대화 성공보다 우선
+- AI는 설득/압박/조작 도구가 아님
+- high-severity는 보수적 처리
+- 위험 신호 시 safety CTA 우선
+
+# 위험 클래스
+- money_request
+- investment_crypto
+- off_platform_push
+- sexual_coercion
+- harassment
+- self_harm_risk
+- minor_risk
+- identity_fraud_risk
+
+# 기능별 규칙
+번역:
+- 위험 의미를 순화하지 않음
+
+대화 코칭:
+- unsafe_interaction이면 일반 코칭 중단
+
+프로필 코칭:
+- 미성년/외부연락/성적 암시/공략 카피 제거
+
+# 상태별 차단
+normal
+translation_fail
+zero_credit
+unsafe_interaction
+consent_not_given
+
+# 운영 규칙
+- high-risk는 사람 검토 또는 기능 제한 우선
+- AI 결과는 신고 가능
+- 안전 regression set 통과 전 rollout 금지
+
+### FILE: /docs/ai/evaluation_plan_v1.md
+문서 ID: AI-EVALUATION-PLAN-V1
+문서명: LITO AI Evaluation Plan v1
+소유 팀: 07_AI설계실
+버전: v1.1
+문서 상태: LOCKED
+입력 문서:
+- KPI / AI / safety / privacy 기준
+영향 받는 하위 문서:
+- analytics / release gates / model rollout checks
+최종 수정일: 2026-04-21
+
+# 평가 원칙
+- high-severity safety 위반 0 tolerance
+- 번역은 코칭보다 먼저 품질 게이트 통과
+- privacy transmission audit 별도
+- fallback 안정성 독립 게이트
+- alpha / beta / public gate 구분
+
+# 기능별 오프라인 평가
+번역:
+- 의미 정확도
+- 공손함/경어 보존
+- soft-no 처리
+- 위험 표현 보존
+
+대화 코칭:
+- 자연성
+- 유용성
+- 비조작성
+- 안전성
+- confidence 적절성
+
+프로필 코칭:
+- 신뢰성
+- 과장 제거
+- banned/risky phrase 탐지
+- 허위 생성 억제
+
+# safety regression set
+- money_request
+- investment_crypto
+- off_platform_push
+- sexual_coercion
+- harassment
+- self_harm_risk
+- minor_risk
+- identity_fraud_risk
+
+# 온라인 지표
+- message_translation_rendered
+- original_text_viewed
+- translation_feedback_submitted
+- coach_opened
+- coach_request_completed
+- coach_blocked_unsafe
+- coach_blocked_zero_credit
+- coach_blocked_no_consent
+- profile_coach_saved
+- ai_output_reported
+
+# fallback/복원력
+- timeout -> retry
+- translation_fail -> original 유지
+- unsafe/no consent/zero credit -> 차감 없이 종료
+- fallbackUsed 기록
+
+# 출시 게이트
+Alpha:
+- 번역 fallback 정상
+- no consent / zero credit / unsafe 차단 정상
+
+Closed Beta:
+- translation success 목표치
+- consent/unsafe/credit 처리 정상
+- privacy audit 통과
+- safety regression set 통과
+
+Public:
+- high-severity 0 tolerance
+- analytics 수집 안정
+- 운영 리포트 체계 구동
+
+==================================================
+8. FILE 블록: 기술 문서
+==================================================
+
+### FILE: /docs/tech/system_architecture_v1.md
+문서 ID: LITO-TECH-SYS-001
+문서명: System Architecture v1
+소유 팀: 08_기술설계실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- 제품/UX/정책/AI/수익화 기준
+영향 받는 하위 문서:
+- database schema
+- api surface
+- realtime chat spec
+- event tracking plan
+- admin tool scope
+최종 수정일: 2026-04-21
+
+# 상위 구조
+Mobile App
+-> API Server
+-> PostgreSQL
+-> Redis
+-> Worker
+-> Object Storage
+-> External AI Provider
+-> Billing Verification Adapter
+-> Admin Tool
+-> Analytics Sink
+
+# 원칙
+- 모듈형 모노리스 + 비동기 워커
+- 서버 authoritative
+- consent/credit/unsafe 서버 최종 재검증
+- 번역 실패 ≠ 채팅 실패
+- raw prompt/response 장기 저장 금지
+- delete = request + async jobs
+
+# 권장 모듈
+- auth
+- onboarding
+- profiles
+- discover
+- matches
+- chat
+- translations
+- ai_consents
+- ai_coach
+- safety
+- moderation
+- billing
+- deletion
+- admin
+- analytics
+
+# 핵심 흐름
+- auth/session
+- profile draft / translation preview / publish
+- discover / like / pass / match create
+- chat send -> ack -> broadcast -> translation async
+- coach request -> server gate -> provider -> validate -> debit
+- delete start -> hide -> revoke -> purge
+
+### FILE: /docs/tech/database_schema_v1.md
+문서 ID: LITO-TECH-DB-001
+문서명: Database Schema v1
+소유 팀: 08_기술설계실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- 시스템/AI/삭제/수익화 기준
+영향 받는 하위 문서:
+- migrations
+- ORM schema
+- API validators
+최종 수정일: 2026-04-21
+
+# 핵심 엔터티
+- users
+- auth_identities
+- policy_acceptances
+- user_verifications
+- profiles
+- profile_photos
+- profile_translations
+- discovery_actions
+- matches
+- conversations
+- conversation_members
+- conversation_risk_flags
+- messages
+- message_receipts
+- message_translations
+- ai_consents
+- ai_request_logs
+- ai_outputs
+- reports
+- report_evidence
+- blocks
+- contact_blocks
+- iap_purchases
+- entitlements
+- credit_wallets
+- ai_ledger
+- delete_requests
+- delete_jobs
+- delete_events
+- moderation_actions
+- admin_audit_logs
+
+# 핵심 규칙
+- age gate/adult flag는 users 최상위
+- consent는 translation / conversation_coach / profile_coach 기능별 분리
+- message와 translation 분리
+- report evidence 최소 보존 구조
+- delete_request와 delete_completed 분리
+- AI 결과 신고 가능 구조
+- source of truth는 ai_ledger, wallet.balance_cache는 조회 최적화용
+
+### FILE: /docs/tech/api_surface_v1.md
+문서 ID: LITO-TECH-API-001
+문서명: API Surface v1
+소유 팀: 08_기술설계실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- 제품/UX/AI/결제/삭제 기준
+영향 받는 하위 문서:
+- client SDK
+- request/response validators
+- WebSocket contract
+최종 수정일: 2026-04-21
+
+# 공통 응답
+성공:
+{ ok: true, data: {...}, request_id: "..." }
+
+실패:
+{
+  ok: false,
+  error: {
+    code: "STRING_CODE",
+    message: "...",
+    block_reason: "optional"
+  },
+  request_id: "..."
+}
+
+# 핵심 API 범위
+Auth:
+- POST /v1/auth/apple
+- POST /v1/auth/google
+- POST /v1/auth/email/request-code
+- POST /v1/auth/email/verify-code
+- GET /v1/auth/session
+- POST /v1/auth/logout
+
+Onboarding/Policy:
+- POST /v1/onboarding/age-gate
+- POST /v1/onboarding/required-consents
+
+Profile:
+- GET /v1/me/profile
+- PUT /v1/me/profile
+- POST /v1/me/profile/photos
+- POST /v1/me/profile/translation-preview
+- POST /v1/me/profile/publish
+- GET /v1/profiles/{public_id}
+
+Discover/Matches:
+- GET /v1/discover/candidates
+- POST /v1/discover/actions
+- GET /v1/matches
+- POST /v1/matches/{match_id}/unmatch
+
+Chat:
+- GET /v1/conversations
+- GET /v1/conversations/{conversation_id}/messages
+- POST /v1/conversations/{conversation_id}/messages
+- POST /v1/conversations/{conversation_id}/read
+- POST /v1/messages/{message_id}/translation-retry
+- GET /v1/messages/{message_id}/original
+
+Translation / Consent:
+- POST /v1/ai/consents/translation/grant
+- POST /v1/translations/profile
+- POST /v1/translations/message
+
+Conversation Coach:
+- POST /v1/ai/consents/conversation-coach/grant
+- POST /v1/ai/conversation-coach
+
+Profile Coach:
+- POST /v1/ai/consents/profile-coach/grant
+- POST /v1/ai/profile-coach
+- POST /v1/ai/profile-coach/{coach_output_id}/save
+
+Safety:
+- POST /v1/reports
+- POST /v1/blocks
+- GET /v1/blocks
+- DELETE /v1/blocks/{target_user_public_id}
+
+Contact Block:
+- POST /v1/contact-blocks/import
+- GET /v1/contact-blocks
+- DELETE /v1/contact-blocks/{id}
+
+Deletion:
+- POST /v1/account-deletion/start
+- POST /v1/account-deletion/reauth
+- POST /v1/account-deletion/web-handoff
+- GET /public/account-deletion/confirm
+- POST /public/account-deletion/submit
+- GET /v1/account-deletion/status
+
+Billing:
+- GET /v1/billing/products
+- POST /v1/billing/purchases/verify
+- GET /v1/billing/wallet
+- GET /v1/billing/ledger
+
+Policy/Support:
+- GET /v1/policies/bootstrap
+- GET /v1/support/links
+
+# block_reason examples
+- coach_blocked_no_consent
+- coach_blocked_zero_credit
+- coach_blocked_unsafe
+- conversation_blocked
+- conversation_unmatched
+- conversation_deletion_locked
+- account_deletion_pending
+- consent_not_given
+- translation_fail
+
+### FILE: /docs/tech/realtime_chat_spec_v1.md
+문서 ID: LITO-TECH-RTC-001
+문서명: Realtime Chat Spec v1
+소유 팀: 08_기술설계실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- chat/translation/AI/safety 기준
+영향 받는 하위 문서:
+- WebSocket types
+- message service
+- translation worker
+최종 수정일: 2026-04-21
+
+# 핵심 원칙
+- message_sent 성공과 translation_render 성공은 별개
+- 원문 먼저, 번역은 비동기 보조 레이어
+- client_message_id idempotency
+- conversation 단위 server_seq ordering
+- reconnect backfill
+- offline outbox
+- block 후 즉시 접근 차단
+- delete 후 신규 송수신 금지
+- unsafe_interaction에서는 번역 유지, 코칭 차단
+
+# client -> server events
+- chat.subscribe
+- chat.send_message
+- chat.mark_read
+- chat.retry_translation
+
+# server -> client events
+- chat.subscribed
+- chat.backfill
+- chat.message_accepted
+- chat.message_created
+- chat.translation_updated
+- chat.receipt_updated
+- chat.conversation_locked
+- chat.safety_state_updated
+
+# 상태
+message:
+- local_draft
+- queued_offline
+- sending
+- accepted
+- delivered
+- read
+- failed_terminal
+
+translation:
+- pending
+- success
+- failed
+- consent_required
+
+### FILE: /docs/tech/event_tracking_plan_v1.md
+문서 ID: LITO-TECH-EVT-001
+문서명: Event Tracking Plan v1
+소유 팀: 08_기술설계실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- KPI / AI / safety / billing / deletion 기준
+영향 받는 하위 문서:
+- analytics schema
+- server event emitter
+- dashboards
+최종 수정일: 2026-04-21
+
+# 핵심 이벤트
+제품 퍼널:
+- auth_completed
+- age_gate_passed
+- required_consents_completed
+- profile_draft_saved
+- profile_translation_preview_requested
+- profile_published
+- candidate_viewed
+- candidate_action_submitted
+- match_created
+- first_message_sent
+- first_reply_received
+
+Trust & Safety:
+- report_submitted
+- block_user_completed
+- contact_block_imported
+- conversation_risk_flagged
+- moderation_action_applied
+
+AI:
+- ai_consent_prompt_viewed
+- ai_consent_accepted
+- ai_consent_declined
+- ai_consent_revoked
+- translation_requested
+- message_translation_rendered
+- translation_retry
+- original_text_viewed
+- translation_failed
+- coach_opened
+- coach_request_started
+- coach_request_completed
+- coach_blocked_unsafe
+- coach_blocked_zero_credit
+- coach_blocked_no_consent
+- profile_coach_opened
+- profile_coach_saved
+- ai_output_reported
+
+Billing:
+- paywall_viewed
+- billing_purchase_started
+- billing_purchase_verified
+- billing_purchase_failed
+- wallet_balance_viewed
+- ledger_entry_created
+
+Deletion:
+- delete_request_started_in_app
+- delete_web_flow_opened
+- delete_request_submitted
+- delete_processing_started
+- delete_completed
+- delete_failed
+
+# 원칙
+- raw message text / raw prompt / raw response analytics 금지
+- server canonical event 우선
+- WMCP 계산이 가능한 event chain 유지
+
+### FILE: /docs/tech/admin_tool_scope_v1.md
+문서 ID: LITO-TECH-ADMIN-001
+문서명: Admin Tool Scope v1
+소유 팀: 08_기술설계실
+버전: v1.0
+문서 상태: LOCKED
+입력 문서:
+- safety / deletion / billing / privacy 기준
+영향 받는 하위 문서:
+- admin UI IA
+- RBAC config
+- moderation runbook
+- deletion ops runbook
+최종 수정일: 2026-04-21
+
+# 역할
+- support_agent
+- moderator
+- safety_specialist
+- privacy_ops
+- billing_support
+- admin_supervisor
+
+# 신고 큐
+- suspected_minor_queue
+- scam_queue
+- harassment_queue
+- identity_fraud_queue
+- generic_misconduct_queue
+- ai_output_queue
+
+# 우선순위
+critical:
+- suspected minor
+- explicit scam
+- identity fraud high signal
+- severe sexual coercion
+
+high:
+- harassment 반복
+- repeated pressure
+- off-platform coercion
+
+normal:
+- generic misconduct
+- low confidence identity concern
+- tone complaint
+
+# 사용자 상세
+- account status
+- visibility_status
+- age_gate_passed
+- policy acceptance
+- ai consent status
+- profile snapshot
+- open reports / prior reports
+- block history
+- contact block count (원본 연락처 아님)
+- active conversation risk flags
+- deletion state
+- wallet / recent purchases summary
+
+# 운영 원칙
+- raw prompt 장기 노출 금지
+- 신고 증거 최소 열람
+- AI safety review는 redacted excerpt 중심
+- delete job retry / state tracking 가능
+- admin action audit log 필수
+
+==================================================
+9. 문서 저장 후 구현 지시
+==================================================
+
+이제부터는 위 FILE 블록을 실제 파일로 저장한 뒤 구현을 시작한다.
+
+구현 우선순위:
+1. auth / onboarding / profiles
+2. discover / matches
+3. conversations / chat / translation
+4. reports / blocks / contact blocks
+5. ai consents / conversation coach / profile coach
+6. billing / wallet / ledger
+7. deletion pipeline
+8. admin tool / audit
+9. analytics hardening
+
+필수 구현 범위:
+- 앱 라우팅과 핵심 화면 뼈대
+- API 라우트
+- DB 스키마와 마이그레이션
+- WebSocket 채팅 흐름
+- 번역 worker
+- coach gate (feature flag 가능)
+- delete web handoff 포함
+- billing verification placeholder or implementation depending current stack
+- admin read path 최소 범위
+
+허용되는 placeholder:
+- Apple secure re-enable unresolved인 부분
+- 일부 store sandbox wiring
+- optional verification live flow
+- public paywall polished UI
+- advanced analytics dashboard visualization
+
+placeholder 불가:
+- 18+ gate
+- mutual match gate
+- free basic chat
+- translation/original/fallback 구조
+- report/block
+- delete app start + web handoff
+- consent separation
+- zero_credit/unsafe/no_consent server gate
+- ledger-based debit model skeleton
+
+==================================================
+10. 구현 규칙
+==================================================
+
+1. message와 translation은 반드시 분리 구현한다.
+2. 번역 실패는 메시지 전송 실패로 처리하면 안 된다.
+3. coach debit은 성공 반환 후 원자적으로 처리한다.
+4. unsafe_interaction이면 coach 차단, safety CTA 우선이다.
+5. consent_not_given이면 외부 AI 호출 금지다.
+6. zero_credit이어도 채팅과 번역은 유지한다.
+7. delete_request 시작 시 즉시 비노출/세션 종료를 반영한다.
+8. contact block은 원문 연락처 대신 hash 기반으로 저장한다.
+9. raw prompt/response 장기 저장 금지다.
+10. admin tool은 최소권한/감사로그 원칙을 지킨다.
+
+==================================================
+11. 폴더/모듈 구조 권장안
+==================================================
+
+루트 예시:
+
+/app
+  /routes
+  /screens
+  /components
+  /hooks
+  /stores
+  /services
+  /features
+/server
+  /src
+    /modules
+      /auth
+      /onboarding
+      /profiles
+      /discover
+      /matches
+      /chat
+      /translations
+      /ai_consents
+      /ai_coach
+      /safety
+      /moderation
+      /billing
+      /deletion
+      /admin
+      /analytics
+    /workers
+      /translation
+      /deletion
+      /analytics
+    /db
+      /schema
+      /migrations
+      /queries
+    /lib
+      /auth
+      /ws
+      /storage
+      /billing
+      /ai
+      /queue
+      /events
+/docs
+  /product
+  /policy
+  /ux
+  /ai
+  /tech
+  /growth
+  /handoff
+README.md
+.env.example
+
+==================================================
+12. .env.example에 반드시 포함할 것
+==================================================
+
+- DATABASE_URL
+- REDIS_URL
+- SESSION_SECRET
+- JWT_REFRESH_SECRET
+- EXTERNAL_AI_API_KEY
+- APPLE_CLIENT_ID
+- APPLE_TEAM_ID
+- APPLE_KEY_ID
+- APPLE_PRIVATE_KEY
+- GOOGLE_CLIENT_ID
+- GOOGLE_CLIENT_SECRET
+- EMAIL_PROVIDER_API_KEY
+- STORAGE_BUCKET
+- STORAGE_REGION
+- BILLING_APPLE_SHARED_SECRET or equivalent
+- BILLING_GOOGLE_SERVICE_ACCOUNT_JSON or equivalent
+- ANALYTICS_WRITE_KEY
+- WEB_DELETE_BASE_URL
+- CONTACT_HASH_SALT
+
+==================================================
+13. 반드시 남겨야 할 산출물
+==================================================
+
+1. 실제 생성/수정된 파일들
+2. DB migration 파일
+3. README.md
+4. .env.example
+5. 최소 실행 방법
+6. 남은 TODO 목록
+7. [REPLIT COMPLETION REPORT]
+
+==================================================
+14. 최종 완료 보고 형식
+==================================================
+
+[REPLIT COMPLETION REPORT]
+
+1. 작업 ID:
+2. 작업 목표:
+3. 생성/수정된 파일:
+4. 구현된 기능:
+5. 미완료/보류:
+6. 에러/이슈:
+7. 실행 방법:
+8. 테스트 결과:
+9. 다음 작업 제안:
+
+==================================================
+15. 공통 하단 규칙
+==================================================
+
+1. 이 문서 바깥 파일을 전제로 구현하지 말 것.
+2. 위 FILE 블록들을 먼저 실제 파일로 저장한 후 구현할 것.
+3. 임의 기능 추가 금지.
+4. 기본 채팅 무료, 번역 코어, 신고/차단/삭제 상시 접근, 18+ only는 비협상 항목이다.
+5. 09는 구현 단계이며, 구현 불가능한 부분은 추측해서 왜곡하지 말고 TODO/placeholder로 남길 것.
+6. 다운로드가 안 되더라도 이 문서 전문만 복붙하면 실행 가능해야 한다.

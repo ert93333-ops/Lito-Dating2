@@ -25,6 +25,11 @@ import matchRouter        from "../modules/match/match.router.js";
 import reportsRouter      from "../modules/reports/reports.router.js";
 import notificationRouter from "../modules/notification/notification.router.js";
 import contactRouter      from "../modules/contact/contact.router.js";
+import onboardingRouter   from "../modules/onboarding/onboarding.router.js";
+import aiConsentsRouter   from "../modules/ai_consents/ai_consents.router.js";
+import billingRouter      from "../modules/billing/billing.router.js";
+import deletionRouter     from "../modules/deletion/deletion.router.js";
+import translationsRouter from "../modules/translations/translations.router.js";
 
 // ── Stable route files (not yet split into full modules) ─────────────────────
 import healthRouter      from "./health.js";
@@ -44,6 +49,13 @@ router.use(matchRouter);
 router.use(reportsRouter);
 router.use(notificationRouter);
 router.use(contactRouter);
+
+// ── v1 모듈 (MASTER INSTRUCTION 기준 신규) ────────────────────────────────────
+router.use(onboardingRouter);
+router.use(aiConsentsRouter);
+router.use(billingRouter);
+router.use(deletionRouter);
+router.use(translationsRouter);
 
 // ── Infrastructure & auth routes ──────────────────────────────────────────────
 router.use(healthRouter);
