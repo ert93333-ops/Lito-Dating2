@@ -29,12 +29,12 @@ function isValidFeatureType(ft: string): ft is FeatureType {
 }
 
 async function grantConsent(userId: number, featureType: FeatureType) {
-  const existing = await db.query.aiConsents?.findFirst?.({
-    where: and(
+  const [existing] = await db.select().from(aiConsents)
+    .where(and(
       eq(aiConsents.userId, userId),
       eq(aiConsents.featureType, featureType)
-    )
-  });
+    ))
+    .limit(1);
 
   const now = new Date();
   if (existing) {
@@ -54,7 +54,7 @@ async function grantConsent(userId: number, featureType: FeatureType) {
 
 router.post("/v1/ai/consents/translation/grant", requireAuth, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     await grantConsent(userId, "translation");
     res.json({ ok: true, data: { featureType: "translation", granted: true } });
   } catch (err) {
@@ -65,7 +65,7 @@ router.post("/v1/ai/consents/translation/grant", requireAuth, async (req, res) =
 
 router.post("/v1/ai/consents/conversation-coach/grant", requireAuth, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     await grantConsent(userId, "conversation_coach");
     res.json({ ok: true, data: { featureType: "conversation_coach", granted: true } });
   } catch (err) {
@@ -76,7 +76,7 @@ router.post("/v1/ai/consents/conversation-coach/grant", requireAuth, async (req,
 
 router.post("/v1/ai/consents/profile-coach/grant", requireAuth, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     await grantConsent(userId, "profile_coach");
     res.json({ ok: true, data: { featureType: "profile_coach", granted: true } });
   } catch (err) {
@@ -87,7 +87,7 @@ router.post("/v1/ai/consents/profile-coach/grant", requireAuth, async (req, res)
 
 router.get("/v1/ai/consents", requireAuth, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     const rows = await db.select().from(aiConsents).where(eq(aiConsents.userId, userId));
     const result: Record<string, boolean> = {
       translation: false,
@@ -106,7 +106,7 @@ router.get("/v1/ai/consents", requireAuth, async (req, res) => {
 
 router.post("/v1/ai/consents/:featureType/revoke", requireAuth, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     const { featureType } = req.params;
 
     if (!isValidFeatureType(featureType)) {

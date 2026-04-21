@@ -3,6 +3,7 @@ import { WebSocketServer } from "ws";
 import app from "./app";
 import { setupWebSocket } from "./ws";
 import { logger } from "./lib/logger";
+import { startDeletionWorker } from "./modules/deletion/deletion.worker.js";
 
 const rawPort = process.env["PORT"];
 
@@ -32,3 +33,6 @@ server.listen(port, (err?: Error) => {
   }
   logger.info({ port }, "Server listening");
 });
+
+// 삭제 워커 시작 (30초 폴링)
+startDeletionWorker(30_000);

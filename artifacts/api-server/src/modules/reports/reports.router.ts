@@ -10,6 +10,8 @@ import { and, eq, desc, sql } from "drizzle-orm";
 import { db, userReports, userBlocks, userProfiles } from "@workspace/db";
 import { requireAuth } from "../../middleware/auth.js";
 import { logger } from "../../lib/logger.js";
+import { trackEvent } from "../../infra/canonicalAnalytics.js";
+import { broadcastSafetyStateUpdated } from "../../infra/wsBroadcaster.js";
 
 const router = Router();
 
@@ -95,6 +97,26 @@ router.post("/reports", requireAuth, async (req, res) => {
     }
 
     logger.info({ reporterId, reportedUserId, category, referenceId }, "Report submitted");
+
+    // canonical analytics + safety WS 이벤트
+    void trackEvent({
+      eventName: "report_submitted",
+      actorId: reporterId,
+      targetId: reportedUserId,
+      props: { category, referenceId },
+    });
+
+    if (referenceId && /^\d+$/.test(referenceId)) {
+      setImmediate(() => {
+        broadcastSafetyStateUpdated({
+          conversationId: referenceId,
+          affectedUserId: reportedUserId,
+          safetyEvent: "report_submitted",
+          details: { category },
+        });
+      });
+    }
+
     res.status(201).json({ success: true, referenceId });
   } catch (err) {
     logger.error({ err }, "Failed to submit report");
@@ -126,6 +148,13 @@ router.post("/blocks", requireAuth, async (req, res) => {
       .onConflictDoNothing();
 
     logger.info({ blockerId, blockedUserId }, "User blocked");
+
+    void trackEvent({
+      eventName: "block_user_completed",
+      actorId: blockerId,
+      targetId: blockedUserId,
+    });
+
     res.status(201).json({ success: true });
   } catch (err) {
     logger.error({ err }, "Failed to block user");

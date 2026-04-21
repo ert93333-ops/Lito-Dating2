@@ -30,6 +30,8 @@ import aiConsentsRouter   from "../modules/ai_consents/ai_consents.router.js";
 import billingRouter      from "../modules/billing/billing.router.js";
 import deletionRouter     from "../modules/deletion/deletion.router.js";
 import translationsRouter from "../modules/translations/translations.router.js";
+import profileCoachRouter from "../modules/profile_coach/profile_coach.router.js";
+import adminRouter        from "../modules/admin/admin.router.js";
 
 // ── Stable route files (not yet split into full modules) ─────────────────────
 import healthRouter      from "./health.js";
@@ -56,6 +58,8 @@ router.use(aiConsentsRouter);
 router.use(billingRouter);
 router.use(deletionRouter);
 router.use(translationsRouter);
+router.use(profileCoachRouter);
+router.use(adminRouter);
 
 // ── Infrastructure & auth routes ──────────────────────────────────────────────
 router.use(healthRouter);

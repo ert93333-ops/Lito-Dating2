@@ -19,6 +19,8 @@ import { Router } from "express";
 import { eq } from "drizzle-orm";
 import { db, users, deleteRequests, deleteEvents } from "@workspace/db";
 import { requireAuth } from "../../middleware/auth.js";
+import { trackEvent } from "../../infra/canonicalAnalytics.js";
+import { processPendingDeletions } from "./deletion.worker.js";
 
 const router = Router();
 
@@ -32,7 +34,7 @@ const WEB_DELETE_BASE_URL = process.env.WEB_DELETE_BASE_URL || "https://litodate
  */
 router.post("/v1/account-deletion/start", requireAuth, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     const { reason } = req.body;
 
     const existing = await db.select().from(deleteRequests)
@@ -71,6 +73,8 @@ router.post("/v1/account-deletion/start", requireAuth, async (req, res) => {
       occurredAt: now,
     });
 
+    void trackEvent({ eventName: "delete_request_started_in_app", actorId: userId, props: { deleteRequestId: request.id } });
+
     res.json({
       ok: true,
       data: {
@@ -94,7 +98,7 @@ router.post("/v1/account-deletion/start", requireAuth, async (req, res) => {
  */
 router.post("/v1/account-deletion/reauth", requireAuth, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     const request = await db.select().from(deleteRequests)
       .where(eq(deleteRequests.userId, userId))
       .limit(1);
@@ -128,7 +132,7 @@ router.post("/v1/account-deletion/reauth", requireAuth, async (req, res) => {
  */
 router.post("/v1/account-deletion/web-handoff", requireAuth, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
 
     const [request] = await db.select().from(deleteRequests)
       .where(eq(deleteRequests.userId, userId))
@@ -153,6 +157,8 @@ router.post("/v1/account-deletion/web-handoff", requireAuth, async (req, res) =>
       eventType: "delete_web_flow_opened",
       occurredAt: now,
     });
+
+    void trackEvent({ eventName: "delete_web_flow_opened", actorId: userId, props: { deleteRequestId: request.id } });
 
     const webUrl = `${WEB_DELETE_BASE_URL}?token=${Buffer.from(String(request.id)).toString("base64")}`;
 
@@ -229,6 +235,15 @@ router.post("/public/account-deletion/submit", async (req, res) => {
       occurredAt: now,
     });
 
+    void trackEvent({ eventName: "delete_request_submitted", actorId: request.userId, props: { deleteRequestId: requestId } });
+
+    // 비동기 삭제 워커 즉시 실행 (setImmediate로 응답 먼저 반환)
+    setImmediate(() => {
+      processPendingDeletions().catch(err =>
+        console.error("[deletion/submit] worker trigger failed:", err)
+      );
+    });
+
     res.json({
       ok: true,
       data: {
@@ -247,7 +262,7 @@ router.post("/public/account-deletion/submit", async (req, res) => {
  */
 router.get("/v1/account-deletion/status", requireAuth, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     const [request] = await db.select().from(deleteRequests)
       .where(eq(deleteRequests.userId, userId))
       .limit(1);

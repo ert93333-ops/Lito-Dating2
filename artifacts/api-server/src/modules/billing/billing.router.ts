@@ -19,6 +19,7 @@ import { Router } from "express";
 import { eq, desc } from "drizzle-orm";
 import { db, iapPurchases, creditWallets, aiLedger } from "@workspace/db";
 import { requireAuth } from "../../middleware/auth.js";
+import { trackEvent } from "../../infra/canonicalAnalytics.js";
 
 const router = Router();
 
@@ -52,6 +53,85 @@ const CREDITS_MAP: Record<string, number> = {
   lito_ai_coach_70: 70,
 };
 
+/**
+ * Apple IAP 검증 어댑터
+ * 연동 포인트: BILLING_APPLE_SHARED_SECRET 환경변수 설정 필요
+ * Apple sandbox: https://sandbox.itunes.apple.com/verifyReceipt
+ * Apple production: https://buy.itunes.apple.com/verifyReceipt
+ *
+ * placeholder 이유: 앱스토어 계정 및 shared secret 미설정
+ * 실제 연동 시 receiptData(base64)를 Apple 서버로 POST하고
+ * status=0 && in_app[].product_id 일치 여부 확인
+ */
+async function verifyAppleReceipt(receiptData: string | undefined, productId: string): Promise<string> {
+  const sharedSecret = process.env.BILLING_APPLE_SHARED_SECRET;
+  if (!sharedSecret) {
+    console.warn("[billing/apple] BILLING_APPLE_SHARED_SECRET 미설정 — sandbox 검증 불가 (placeholder 반환)");
+    // TODO: 실제 구현 시 이 분기 제거
+    // Apple 앱스토어 심사 전 단계에서는 sandbox verify 환경 필요
+    throw new Error("APPLE_SECRET_NOT_CONFIGURED");
+  }
+
+  if (!receiptData) throw new Error("APPLE_RECEIPT_MISSING");
+
+  const url = process.env.NODE_ENV === "production"
+    ? "https://buy.itunes.apple.com/verifyReceipt"
+    : "https://sandbox.itunes.apple.com/verifyReceipt";
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ "receipt-data": receiptData, password: sharedSecret }),
+  });
+
+  const json = await resp.json() as { status: number; receipt?: { in_app?: Array<{ product_id: string }> } };
+
+  if (json.status === 21007) {
+    // production 영수증이지만 sandbox로 전송됨 — sandbox로 재검증
+    const sandboxResp = await fetch("https://sandbox.itunes.apple.com/verifyReceipt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ "receipt-data": receiptData, password: sharedSecret }),
+    });
+    const sandboxJson = await sandboxResp.json() as typeof json;
+    if (sandboxJson.status !== 0) return "invalid";
+    const match = sandboxJson.receipt?.in_app?.some(i => i.product_id === productId);
+    return match ? "verified" : "product_mismatch";
+  }
+
+  if (json.status !== 0) return "invalid";
+  const match = json.receipt?.in_app?.some(i => i.product_id === productId);
+  return match ? "verified" : "product_mismatch";
+}
+
+/**
+ * Google Play 구매 검증 어댑터
+ * 연동 포인트: BILLING_GOOGLE_SERVICE_ACCOUNT_JSON 환경변수 설정 필요
+ * Google API: https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{packageName}/purchases/products/{productId}/tokens/{purchaseToken}
+ *
+ * placeholder 이유: Google Play Console 및 서비스 계정 미설정
+ */
+async function verifyGooglePurchase(purchaseToken: string | undefined, productId: string): Promise<string> {
+  const serviceAccountJson = process.env.BILLING_GOOGLE_SERVICE_ACCOUNT_JSON;
+  if (!serviceAccountJson) {
+    console.warn("[billing/google] BILLING_GOOGLE_SERVICE_ACCOUNT_JSON 미설정 — 검증 불가 (placeholder 반환)");
+    // TODO: 실제 구현 시 googleapis 패키지로 교체
+    throw new Error("GOOGLE_SERVICE_ACCOUNT_NOT_CONFIGURED");
+  }
+
+  if (!purchaseToken) throw new Error("GOOGLE_PURCHASE_TOKEN_MISSING");
+
+  const packageName = process.env.BILLING_GOOGLE_PACKAGE_NAME ?? "app.litodate";
+
+  // TODO: googleapis JWT 인증 + products.purchases.get 호출
+  // const auth = new google.auth.GoogleAuth({ credentials: JSON.parse(serviceAccountJson), scopes: [...] });
+  // const androidPublisher = google.androidpublisher({ version: 'v3', auth });
+  // const result = await androidPublisher.purchases.products.get({ packageName, productId, token: purchaseToken });
+  // if (result.data.purchaseState === 0) return "verified";
+
+  throw new Error("GOOGLE_NOT_YET_IMPLEMENTED");
+}
+
 /** GET /api/v1/billing/products */
 router.get("/v1/billing/products", requireAuth, (req, res) => {
   res.json({ ok: true, data: { products: IAP_PRODUCTS } });
@@ -66,7 +146,7 @@ router.get("/v1/billing/products", requireAuth, (req, res) => {
  */
 router.post("/v1/billing/purchases/verify", requireAuth, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     const { platform, productId, transactionId, purchaseToken } = req.body;
 
     if (!platform || !productId || !transactionId) {
@@ -98,9 +178,38 @@ router.post("/v1/billing/purchases/verify", requireAuth, async (req, res) => {
       return;
     }
 
-    // TODO: 실제 Apple/Google 검증 API 호출
-    // 현재는 구조만 구현 (placeholder)
-    const verificationStatus = "verified"; // placeholder
+    // Apple/Google 실제 검증
+    // placeholder 이유: 앱스토어 심사 전 BILLING_APPLE_SHARED_SECRET, BILLING_GOOGLE_* 미설정
+    // 연동 포인트: platform별 분기 → 각 provider verify 함수 호출
+    let verificationStatus = "pending";
+    try {
+      if (platform === "ios") {
+        verificationStatus = await verifyAppleReceipt(req.body.receiptData, productId);
+      } else if (platform === "android") {
+        verificationStatus = await verifyGooglePurchase(req.body.purchaseToken, productId);
+      } else {
+        res.status(400).json({ ok: false, error: { code: "INVALID_PLATFORM", message: "platform은 ios 또는 android여야 합니다." } });
+        return;
+      }
+    } catch (verifyErr) {
+      console.error("[billing/purchases/verify] provider error:", verifyErr);
+      res.status(502).json({ ok: false, error: { code: "VERIFICATION_FAILED", message: "영수증 검증 실패. 잠시 후 재시도해주세요." } });
+      return;
+    }
+
+    if (verificationStatus !== "verified") {
+      await db.insert(iapPurchases).values({
+        userId,
+        platform,
+        productId,
+        transactionId,
+        purchaseToken: purchaseToken || null,
+        verificationStatus,
+        creditsGranted: 0,
+      });
+      res.status(400).json({ ok: false, error: { code: "RECEIPT_INVALID", message: "유효하지 않은 영수증입니다.", verificationStatus } });
+      return;
+    }
 
     const now = new Date();
 
@@ -156,7 +265,7 @@ router.post("/v1/billing/purchases/verify", requireAuth, async (req, res) => {
 /** GET /api/v1/billing/wallet */
 router.get("/v1/billing/wallet", requireAuth, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
 
     const [wallet] = await db.select().from(creditWallets)
       .where(eq(creditWallets.userId, userId))
@@ -181,7 +290,7 @@ router.get("/v1/billing/wallet", requireAuth, async (req, res) => {
 /** GET /api/v1/billing/ledger */
 router.get("/v1/billing/ledger", requireAuth, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
 
     const entries = await db.select().from(aiLedger)
       .where(eq(aiLedger.userId, userId))

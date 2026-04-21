@@ -1,0 +1,447 @@
+[REPLIT MASTER INSTRUCTION]
+
+문서 제목: 09-replit 2차 수정지시서 기반 실제 패치 실행지시서
+문서 버전: v1.1
+문서 상태: FINAL
+작성 주체: 00_지휘본부
+용도: 현재 Lito-Dating2 리포의 mock/placeholder 구조를 출시 가능 구조로 전환하기 위한 실제 구현 지시
+
+==================================================
+0. 현재 코드베이스 판정
+==================================================
+
+현재 리포는 아래 상태다.
+
+1. growth / monetization / profile coach / referral / analytics는 이미 client-side mock foundation이 있음
+2. upgradePlan은 mock upgrade이며 실제 store receipt 검증 구조가 아님
+3. analytics는 facade만 있고 실제 canonical server event 저장 구조가 아님
+4. admin은 mockData 기반 대시보드이며 실제 read API 연결이 아님
+5. report / safety는 client-side 흐름과 타입이 먼저 있고, 서버 저장 및 moderation queue 연동은 미완료
+6. 이번 스프린트는 UI 추가보다 server-authoritative patch가 핵심임
+
+따라서 이번 작업은
+“새 화면 만들기”가 아니라
+“기존 mock 구조를 실제 서버/검증/이벤트 구조로 교체”
+하는 것이다.
+
+==================================================
+1. 절대 목표
+==================================================
+
+아래 8개 출시 블로커를 제거하라.
+
+1. 외부 번역 provider 실제 연동
+2. Apple IAP / Google Play 구매 검증 실제 연동
+3. deletion async worker 실제 구현
+4. admin read API 실제 구현
+5. WebSocket translation_updated / safety_state_updated 실제 구현
+6. analytics canonical event emitter/store 구현
+7. profile coach 서버 구현
+8. 인증된 happy-path E2E 검증
+
+==================================================
+2. 절대 원칙
+==================================================
+
+1. 기본 채팅 무료 원칙 유지
+2. 번역 무료 유지
+3. translation paywall 금지
+4. zero_credit이어도 채팅/번역 유지
+5. 코칭은 성공 반환 시에만 차감
+6. unsafe_interaction이면 코칭보다 신고/차단 우선
+7. consent_not_given이면 외부 AI 호출 금지
+8. message와 translation 분리 유지
+9. delete는 app start + web handoff + async purge pipeline 유지
+10. raw prompt/response 장기 저장 금지
+11. 현재 mock client logic를 완전히 지우지 말고, 서버 authoritative 결과를 consume하는 구조로 바꿔라
+12. placeholder를 남기면 이유와 남은 실제 연동 포인트를 명시하라
+
+==================================================
+3. 현재 리포 기준 핵심 판단
+==================================================
+
+현재 리포에는 GrowthContext, monetization, analytics facade, profile coach UI/state, admin mock dashboard가 이미 있으므로
+이번 구현은 아래처럼 진행해야 한다.
+
+- GrowthContext는 “서버 응답 소비자”로 축소
+- billing / wallet / ledger / coach / analytics / translation 상태 판정은 서버가 담당
+- admin은 mockData 렌더링 구조를 최대한 유지하되 API fetch로 교체
+- 채팅 translation 쪽은 기존 UI/렌더링을 깨지 말고 backend event만 실제화
+- safety/reporting은 기존 타입을 서버 persistence와 queue 조회로 연결
+
+==================================================
+4. 구현 우선순위
+==================================================
+
+반드시 아래 순서로 작업하라.
+
+STEP 1. 서버 구조 파악 및 실제 통합 지점 식별
+STEP 2. analytics canonical event 레이어 먼저 고정
+STEP 3. translation provider actual integration
+STEP 4. profile coach 서버화
+STEP 5. store billing verification + wallet/ledger 반영
+STEP 6. deletion async worker
+STEP 7. admin read API 연결
+STEP 8. websocket translation/safety event 반영
+STEP 9. authenticated happy-path E2E
+STEP 10. 완료 보고서 작성
+
+==================================================
+5. 작업 지시 - 세부 구현
+==================================================
+
+--------------------------------------------------
+A. Analytics canonical event 서버화
+--------------------------------------------------
+
+목표:
+현재 client facade analytics를 서버 canonical event 기준으로 전환한다.
+
+해야 할 일:
+1. 서버에 canonical analytics ingest 레이어 추가
+2. 아래 이벤트를 enum/constant로 서버 기준 잠금
+3. 클라이언트는 track 호출 시 서버 event endpoint 또는 서버 action을 통해 기록
+4. 서버는 최소한 event_name, actor_id, target_id(optional), conversation_id(optional), props(json), created_at 저장
+5. raw prompt/response 저장 금지
+6. dev console-only analytics 남아 있으면 production path에서 제거
+7. GrowthContext / paywall / profile coach / report / delete / chat translation 관련 호출을 서버 canonical event로 연결
+
+필수 이벤트:
+- auth_completed
+- age_gate_passed
+- required_consents_completed
+- profile_translation_preview_requested
+- profile_published
+- candidate_viewed
+- match_created
+- first_message_sent
+- first_reply_received
+- translation_requested
+- message_translation_rendered
+- translation_retry
+- original_text_viewed
+- coach_opened
+- coach_request_started
+- coach_request_completed
+- coach_blocked_unsafe
+- coach_blocked_zero_credit
+- coach_blocked_no_consent
+- profile_coach_saved
+- report_submitted
+- block_user_completed
+- delete_request_started_in_app
+- delete_web_flow_opened
+- delete_request_submitted
+- delete_completed
+
+주의:
+analytics.ts 같은 기존 facade는 삭제하지 말고 server transport wrapper로 바꿔라.
+
+--------------------------------------------------
+B. Translation provider 실제 연동
+--------------------------------------------------
+
+목표:
+기존 placeholder translation path를 실제 provider adapter 구조로 연결한다.
+
+해야 할 일:
+1. callTranslationProvider 또는 동등 구현 지점 찾기
+2. provider adapter 분리
+3. timeout / retry / fallback 처리
+4. consent 없으면 provider 호출 금지
+5. message insert와 translation success를 완전히 분리
+6. status = pending / success / failed / consent_required 저장
+7. translation 실패 시 메시지 전송 실패로 간주하지 말 것
+8. 원문 조회 original_text_viewed 흐름 유지
+9. retry 이벤트와 original view 이벤트 analytics 연동
+
+필수 보장:
+- message는 살아있고 translation만 실패 가능해야 함
+- 번역은 무료
+- translation failure가 chat send failure가 되면 안 됨
+
+--------------------------------------------------
+C. Profile coach 서버 구현
+--------------------------------------------------
+
+목표:
+현재 client-side suggestion 흐름을 서버 authoritative coach API로 교체한다.
+
+구현 엔드포인트:
+- POST /v1/ai/profile-coach
+- POST /v1/ai/profile-coach/{coach_output_id}/save
+
+입력:
+- profile snapshot
+- locale / target audience context
+- consent status
+- user id
+
+서버 규칙:
+1. consent 없으면 외부 AI 호출 금지
+2. unsafe_interaction이면 blocked response 반환
+3. zero_credit이면 blocked response 반환
+4. validation 실패면 structured error 반환
+5. 성공 반환 시에만 ai_ledger debit
+6. profile에 자동 overwrite 금지
+7. save 호출 시 선택 반영만 수행
+8. raw prompt/response 장기 저장 금지
+9. 저장 시 최종 suggestion/result metadata만 최소 저장
+
+반환 형식:
+- success: suggestions[], coach_output_id, remaining_credit(optional)
+- blocked_no_consent
+- blocked_zero_credit
+- blocked_unsafe
+- validation_error
+
+클라이언트 작업:
+- GrowthContext의 refreshProfileSuggestions / accept / reject 흐름을 서버 응답 소비 구조로 수정
+- 기존 UI는 최대한 유지
+
+--------------------------------------------------
+D. Store billing 실제 검증
+--------------------------------------------------
+
+목표:
+현재 mockUpgradeToPlan 기반 흐름을 실제 receipt/purchase token 검증으로 교체한다.
+
+해야 할 일:
+1. Apple receipt verification endpoint 구현
+2. Google purchase token verification endpoint 구현
+3. iap_purchases 저장
+4. 중복 verify idempotency 보장
+5. 검증 성공 시 ai_ledger grant 반영
+6. wallet.balance_cache 갱신
+7. 구독/소모성 구분
+8. 실패 / 중복 / 취소 / 환불 상태 분기
+9. mock purchase production path 제거
+10. 기존 paywall UI는 유지하되 verify result consume 구조로 변경
+
+주의:
+- 번역을 entitlement에 묶지 말 것
+- 기본 채팅을 유료화하지 말 것
+- coach만 credit/entitlement 연동 가능
+
+--------------------------------------------------
+E. Deletion async worker 구현
+--------------------------------------------------
+
+목표:
+계정 삭제를 async job pipeline으로 완성한다.
+
+필수 상태 흐름:
+1. delete_request_started_in_app
+2. delete_web_flow_opened
+3. delete_request_submitted
+4. visibility hidden
+5. session revoke
+6. delete_jobs enqueue
+7. revoke_provider
+8. purge_profile
+9. purge_messages
+10. purge_translations
+11. purge_ai_outputs
+12. finalize_retention
+13. finalize_user
+14. delete_completed
+
+해야 할 일:
+- delete_jobs 실행기 구현
+- retry count / failed 상태 저장
+- job별 error_reason 저장
+- retention 예외와 purge 완료 분리
+- delete request list/detail admin read API에서 조회 가능하게 만들 것
+
+주의:
+delete start 즉시 user-visible content는 hidden 되어야 한다.
+
+--------------------------------------------------
+F. Admin read API 구현
+--------------------------------------------------
+
+목표:
+현재 mockData 기반 admin dashboard를 실제 read API 소비 구조로 전환한다.
+
+최소 범위:
+- report queue 조회
+- user detail 조회
+- delete request list 조회
+- delete request detail 조회
+- wallet/purchase summary 조회
+- risk flags 조회
+- moderation actions 조회
+
+구현 규칙:
+1. 기존 admin UI 구조는 최대한 유지
+2. mockData.ts는 제거하지 말고 fallback/dev seed 용도로 남겨도 됨
+3. production path는 API fetch 기준이어야 함
+4. raw prompt 장기 노출 금지
+5. 신고 증거는 최소 열람 원칙
+6. audit log 필수
+
+--------------------------------------------------
+G. WebSocket 이벤트 완성
+--------------------------------------------------
+
+목표:
+실시간 translation / safety 상태 변화를 conversation 화면에 반영한다.
+
+필수 이벤트:
+- chat.translation_updated
+- chat.safety_state_updated
+
+해야 할 일:
+1. translation status update 시 websocket publish
+2. safety state change 시 websocket publish
+3. reconnect/backfill 시 translation status 복원
+4. conversation lock 이후도 실시간 반영
+5. chat UI가 기존 translation cache/render 흐름을 유지하도록 최소 침습 patch
+
+주의:
+frontend에서 translation state를 임시 낙관적으로 fake 완료 처리하지 말 것.
+서버 authoritative 상태를 기준으로 갱신하라.
+
+==================================================
+6. 현재 mock 구조에서 반드시 교체할 것
+==================================================
+
+1. GrowthContext의 mockUpgradeToPlan → 실제 billing verify 결과 consume
+2. analytics.ts의 console-only send → server canonical ingest
+3. profile coach suggestion 생성 로직 → server profile coach response
+4. admin mockData 직접 조회 → read API fetch
+5. report flow의 client-only completion → server persistence + queue 조회
+6. translation placeholder/provider 미연동 부분 → real adapter
+7. delete placeholder/manual sequence → async worker
+
+==================================================
+7. 건드리지 말아야 할 것
+==================================================
+
+1. 번역 무료 원칙
+2. 기본 채팅 무료 원칙
+3. message / translation 분리 구조
+4. 신고/차단 접근성
+5. 기존 채팅 렌더링 UX
+6. 기존 onboarding / discovery / profile 기본 흐름
+7. pronunciation 기능 재도입 금지
+8. mock UI를 이유 없이 전면 교체 금지
+
+==================================================
+8. 테스트 지시
+==================================================
+
+이번엔 단순 API 응답 확인으로 끝내지 말고 반드시 인증된 happy-path를 남겨라.
+
+--------------------------------------------------
+A. Onboarding happy path
+--------------------------------------------------
+- 로그인
+- age gate
+- required consents
+- profile draft 저장
+- profile translation preview
+- publish
+
+--------------------------------------------------
+B. Match / Chat happy path
+--------------------------------------------------
+- 테스트 계정 2개 준비
+- mutual like
+- conversation 생성
+- message send
+- translation requested
+- translation success
+- original text view
+- translation retry
+
+--------------------------------------------------
+C. Coach happy path
+--------------------------------------------------
+- consent granted
+- credit > 0
+- coach 요청
+- 성공 반환
+- ledger debit 확인
+- save 호출 반영 확인
+
+--------------------------------------------------
+D. Coach blocked path
+--------------------------------------------------
+- no consent → coach_blocked_no_consent
+- zero credit → coach_blocked_zero_credit
+- unsafe flag → coach_blocked_unsafe
+
+--------------------------------------------------
+E. Safety path
+--------------------------------------------------
+- report submitted
+- block user completed
+- block 후 메시지 재전송 차단
+- safety_state_updated websocket 반영 확인
+
+--------------------------------------------------
+F. Deletion path
+--------------------------------------------------
+- app start
+- web handoff
+- submit
+- hidden
+- delete job enqueue
+- worker 처리
+- completed
+- admin detail 조회 가능 확인
+
+--------------------------------------------------
+G. Billing path
+--------------------------------------------------
+- verify purchase
+- wallet grant
+- ai_ledger grant
+- duplicate verify 차단
+- invalid receipt/token reject
+- entitlement 반영 확인
+
+==================================================
+9. 산출물
+==================================================
+
+반드시 아래 형식으로 제출하라.
+
+1. 실제 생성/수정된 파일 목록
+2. 구현 완료 기능 목록
+3. 미완료/보류 목록
+4. 테스트 실행 결과
+5. 남은 리스크
+6. DB/서버 구조 변경 요약
+7. mock에서 actual로 바뀐 지점 요약
+8. [REPLIT COMPLETION REPORT]
+
+==================================================
+10. 최종 완료 보고 형식
+==================================================
+
+[REPLIT COMPLETION REPORT]
+
+1. 작업 ID:
+2. 작업 목표:
+3. 생성/수정된 파일:
+4. 구현된 기능:
+5. 미완료/보류:
+6. 에러/이슈:
+7. 실행 방법:
+8. 테스트 결과:
+9. 남은 리스크:
+10. 다음 작업 제안:
+
+==================================================
+11. 추가 강제 규칙
+==================================================
+
+1. 이 문서 바깥의 숨은 전제를 만들지 말 것
+2. 구현 전에 반드시 현재 리포의 실제 파일 구조를 스캔할 것
+3. 파일명/경로를 추정하지 말고 실제 리포 기준으로 수정할 것
+4. placeholder가 남으면 남긴 이유를 파일별로 명시할 것
+5. “동작할 것 같음” 금지
+6. 실제 테스트 결과를 남길 것
+7. happy-path 검증 없이는 완료 보고 금지

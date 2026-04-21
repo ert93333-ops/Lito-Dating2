@@ -26,6 +26,7 @@ import { schedule as scheduleInterest, registerBroadcast } from "./modules/inter
 import { notificationService } from "./modules/notification/notification.service.js";
 import { db, matchesTable } from "@workspace/db";
 import { and, eq, or } from "drizzle-orm";
+import { registerRoomBroadcast } from "./infra/wsBroadcaster.js";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -166,6 +167,13 @@ async function authorizeAndSeedParticipant(
 
 export function setupWebSocket(wss: WebSocketServer) {
   registerBroadcast(broadcastToViewer);
+
+  // wsBroadcaster 레지스트리에 room broadcast 함수 등록
+  // translations, reports 등 다른 모듈이 chat.translation_updated / chat.safety_state_updated 전송 시 사용
+  registerRoomBroadcast((conversationId, payload) => {
+    const data = typeof payload === "string" ? payload : JSON.stringify(payload);
+    broadcast(conversationId, data);
+  });
 
   wss.on("connection", (rawWs: WebSocket, req: IncomingMessage) => {
     const ws = rawWs as AuthenticatedWS;

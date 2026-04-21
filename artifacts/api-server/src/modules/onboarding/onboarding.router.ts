@@ -25,7 +25,7 @@ const router = Router();
  */
 router.post("/v1/onboarding/age-gate", requireAuth, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     const { birthYear, birthMonth, birthDay } = req.body;
 
     if (!birthYear || !birthMonth || !birthDay) {
@@ -75,7 +75,7 @@ router.post("/v1/onboarding/age-gate", requireAuth, async (req, res) => {
  */
 router.post("/v1/onboarding/required-consents", requireAuth, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     const { consents } = req.body;
 
     if (!Array.isArray(consents) || consents.length === 0) {
