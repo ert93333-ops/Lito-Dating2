@@ -1,0 +1,139 @@
+================================================================
+LITO 프로젝트 현황 요약
+기준일: 2026-04-21
+================================================================
+
+[ 프로젝트 개요 ]
+- 앱명: Lito (한국-일본 데이팅 앱)
+- 도메인: litodate.app
+- 스택: Expo/React Native (모바일) + Express API 서버 + PostgreSQL
+- 주요 기능: AI 문화 매칭, 실시간 KR↔JP 번역, AI 답장 제안,
+             PRS 시스템, 신뢰 기반 연락처 잠금, 안티스캠 방어
+
+================================================================
+[ 실행 중인 워크플로우 ]
+================================================================
+
+1. artifacts/api-server: API Server     - RUNNING (port 8080)
+2. artifacts/lito: expo                 - RUNNING (모바일 앱)
+3. artifacts/admin: web                 - RUNNING (관리자 대시보드)
+4. artifacts/mockup-sandbox             - RUNNING (UI 컴포넌트 미리보기)
+
+================================================================
+[ v1.0 완료 항목 (이전 세션) ]
+================================================================
+
+- 문서: 32개 설계/구현 문서 작성
+- DB 테이블: 12개 핵심 테이블 생성
+  users, user_profiles, matches, messages, user_reports,
+  blocks, notifications, contact_requests, ai_consents,
+  credit_wallets, ai_ledger, moderation_actions,
+  conversation_risk_flags, delete_jobs
+- API 모듈: 5개
+  chat, interest(PRS), coaching, match, reports
+
+================================================================
+[ v1.1 완료 항목 (이번 세션) ]
+================================================================
+
+--- 신규 인프라 ---
+- canonicalAnalytics.ts : 26개 표준 이벤트 emitter + DB 저장
+- wsBroadcaster.ts      : WebSocket room 기반 broadcast 레지스트리
+
+--- 신규 DB 테이블 ---
+- analytics_events      : 이벤트 로그 저장
+- profile_coach_outputs : AI 코치 출력 최소 저장 (raw prompt 제외)
+
+--- 핵심 모듈 업그레이드 ---
+- translations.router   : OpenAI GPT-4o-mini 실제 번역 연동
+                          (WS broadcast + analytics 연결)
+- billing.router        : Apple/Google IAP 검증 어댑터 구조 완성
+                          (secret 미주입 상태, 구조만 완성)
+- deletion.router       : 7단계 계정 삭제 요청 처리
+- deletion.worker       : 30초 polling 비동기 purge worker
+
+--- 신규 모듈 ---
+- profile_coach.router  : AI 프로필 코치 + credit debit 연동
+- admin.router          : T&S 대시보드 읽기 API 9개 엔드포인트
+
+================================================================
+[ E2E 테스트 결과 (23개 시나리오 전체 PASS) ]
+================================================================
+
+auth/login                       PASS 200
+onboarding/age-gate              PASS 200
+onboarding/required-consents     PASS 200  (3개 동의 기록)
+ai/consents/translation/grant    PASS 200
+ai/consents/profile-coach/grant  PASS 200
+ai/consents (status 조회)        PASS 200
+translations/profile (KR->JP)    PASS 200  GPT-4o-mini 실제 번역
+billing/wallet                   PASS 200
+billing/products                 PASS 200  3개 상품 목록
+billing/ledger                   PASS 200  debit 1건 기록 확인
+profile-coach (zero_credit)      PASS 200  blocked_zero_credit 정상 차단
+profile-coach (AI 호출)          PASS 200  제안 생성 + 잔고 10->9
+profile-coach/:id/save           PASS 200
+account-deletion/start           PASS 200  pending, 즉시 비노출 처리
+account-deletion/status          PASS 200
+admin/users                      PASS 200
+admin/users/:id                  PASS 200
+admin/reports                    PASS 200
+admin/deletions                  PASS 200
+admin/risk-flags                 PASS 200
+admin/moderation-actions         PASS 200
+admin/wallet-summary/:userId     PASS 200
+admin/analytics/events           PASS 200
+
+================================================================
+[ 미완료 (설계 의도적 제외) ]
+================================================================
+
+- Apple IAP 실제 검증 : APPLE_SHARED_SECRET 환경변수 미주입
+                        -> 출시 전 secret 주입 시 즉시 활성화
+- Google IAP 실제 검증: GOOGLE_SERVICE_ACCOUNT_JSON 환경변수 미주입
+                        -> 동일
+- 계정 삭제 web UI    : JSON API만 제공, 앱에서 web handoff 처리
+- 프로필 코치 자동 저장: 설계 원칙상 사용자 명시적 save 호출만 허용
+
+================================================================
+[ 수정된 버그 목록 ]
+================================================================
+
+1. req.user?.id -> req.user?.userId (6개 모듈 전체)
+   원인: JwtPayload 타입 필드명 불일치
+   수정 파일: onboarding, ai_consents, billing, deletion,
+              translations, profile_coach 라우터
+
+2. admin.router.ts: country 컬럼 제거
+   원인: user_profiles 테이블에 country 컬럼 없음
+
+3. admin.router.ts: reports -> user_reports 테이블명 수정
+   원인: 실제 테이블명과 쿼리 불일치
+
+4. profile_coach.router.ts: db.execute 구조분해 패턴 수정 (2곳)
+   원인: db.execute()는 배열이 아닌 {rows:[]} 객체 반환
+   TypeError: (intermediate value) is not iterable 해결
+
+5. profile_coach.router.ts: field+currentValue 입력 형식 지원 추가
+   원인: 빈 profileSnapshot 전달 시 AI 제안 0건 반환
+
+================================================================
+[ 주요 리스크 ]
+================================================================
+
+- IAP secret 미주입      : 출시 전 환경변수 설정 필수 (중)
+- deletion worker polling : 고부하 시 Redis queue 전환 권장 (낮)
+- OpenAI API 과금         : 번역+코치 실제 API 연동 상태 (낮)
+- profile_coach 동시성    : debit 과정 optimistic locking 미적용 (낮)
+
+================================================================
+[ 다음 단계 (미정) ]
+================================================================
+
+- Expo 모바일 앱 화면 구현 (온보딩, 채팅, 번역, 코치 UI)
+- Apple/Google IAP secret 주입 후 실제 결제 검증 테스트
+- WebSocket 실시간 번역 클라이언트 연동
+- Admin 대시보드 프론트엔드 구현
+- 프로덕션 배포 (litodate.app)
+
+================================================================

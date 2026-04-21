@@ -107,3 +107,9 @@ id = "xqmFITJ9iP0H145AiTZm_"
 uri = "file://lito_docs_all.docx"
 type = "word_document"
 title = "LITO docs 전체 모음 (Word)"
+
+[[outputs]]
+id = "g4LSy14jFoFarswzdmPSr"
+uri = "file://lito_status_20260421.txt"
+type = "text"
+title = "Lito 프로젝트 현황 요약 (2026-04-21)"
