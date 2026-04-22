@@ -3,6 +3,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -123,19 +125,47 @@ function SuggestionCard({ suggestion }: { suggestion: ProfileSuggestion }) {
 export default function ProfileCoachScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { profileSuggestions, refreshProfileSuggestions } = useGrowth();
+  const {
+    profileSuggestions,
+    profileCoachLoading,
+    refreshProfileSuggestions,
+    consentStatus,
+    grantConsent,
+    walletBalance,
+    track,
+  } = useGrowth();
   const { lang } = useLocale();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   useEffect(() => {
-    if (profileSuggestions.length === 0) {
+    track("profile_coach_opened");
+    // 동의 미완료 시 게이트 — 코칭 자동 실행 금지
+    if (consentStatus !== null && !consentStatus.profile_coach) {
+      Alert.alert(
+        "AI 프로필 코치 동의",
+        "AI 프로필 코치를 사용하려면 AI 데이터 처리에 동의해야 합니다.",
+        [
+          { text: "취소", style: "cancel", onPress: () => router.back() },
+          {
+            text: "동의",
+            onPress: async () => {
+              const ok = await grantConsent("profile_coach");
+              if (ok && profileSuggestions.length === 0) refreshProfileSuggestions();
+            },
+          },
+        ]
+      );
+      return;
+    }
+    if (profileSuggestions.length === 0 && !profileCoachLoading) {
       refreshProfileSuggestions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const pendingCount = profileSuggestions.filter((s) => s.accepted === null).length;
+  const pendingCount = profileSuggestions.filter((s) => s.accepted === null || s.accepted === undefined).length;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -182,8 +212,27 @@ export default function ProfileCoachScreen() {
           </Text>
         </View>
 
+        {/* Wallet balance indicator */}
+        {walletBalance !== null && (
+          <View style={[styles.walletRow, { borderColor: colors.border }]}>
+            <FIcon name="credit-card" size={12} color={colors.charcoalMid} />
+            <Text style={[styles.walletText, { color: colors.charcoalMid }]}>
+              {lang === "ko"
+                ? `크레딧 잔액: ${walletBalance}`
+                : `クレジット残高: ${walletBalance}`}
+            </Text>
+          </View>
+        )}
+
         {/* Suggestions */}
-        {profileSuggestions.length === 0 ? (
+        {profileCoachLoading ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="large" color={colors.rose} />
+            <Text style={[styles.emptySub, { color: colors.charcoalLight, marginTop: 12 }]}>
+              {lang === "ko" ? "AI가 프로필을 분석하고 있어요..." : "AIがプロフィールを分析中..."}
+            </Text>
+          </View>
+        ) : profileSuggestions.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>
               {lang === "ko" ? "프로필이 잘 되어 있어요!" : "プロフィールはしっかりできています！"}
@@ -203,7 +252,8 @@ export default function ProfileCoachScreen() {
         {/* Refresh */}
         <TouchableOpacity
           style={[styles.refreshBtn, { borderColor: colors.border }]}
-          onPress={refreshProfileSuggestions}
+          onPress={() => refreshProfileSuggestions()}
+          disabled={profileCoachLoading}
         >
           <FIcon name="refresh-cw" size={14} color={colors.charcoalMid} />
           <Text style={[styles.refreshBtnText, { color: colors.charcoalMid }]}>
@@ -248,6 +298,18 @@ const styles = StyleSheet.create({
   pendingBadgeText: { fontFamily: "Inter_700Bold", fontSize: 11, color: "#fff" },
 
   scroll: { paddingHorizontal: 20, paddingTop: 16, gap: 14 },
+
+  walletRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignSelf: "flex-start",
+  },
+  walletText: { fontFamily: "Inter_400Regular", fontSize: 11 },
 
   introCard: {
     borderRadius: 16,

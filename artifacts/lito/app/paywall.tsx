@@ -3,6 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
+  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -107,7 +108,7 @@ function PlanCard({
 export default function PaywallScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { subscription, upgradePlan, track } = useGrowth();
+  const { subscription, upgradePlan, track, refreshWallet } = useGrowth();
   const { lang } = useLocale();
 
   const [selectedPlan, setSelectedPlan] = useState<PlanId>("premium");
@@ -123,12 +124,27 @@ export default function PaywallScreen() {
     if (selectedPlan === "free") return;
     if (isCurrent(selectedPlan)) { router.back(); return; }
     setLoading(true);
-    track("plan_selected", { plan: selectedPlan });
-    await new Promise((r) => setTimeout(r, 900)); // Simulate billing
-    upgradePlan(selectedPlan);
-    setUpgraded(true);
-    setLoading(false);
-    setTimeout(() => router.back(), 1400);
+    track("purchase_started", { plan: selectedPlan });
+    try {
+      // Simulate IAP flow — replace with real StoreKit/Play Billing receipt
+      await new Promise((r) => setTimeout(r, 900));
+      // Local state upgrade (optimistic, plan persisted locally)
+      upgradePlan(selectedPlan);
+      track("purchase_completed", { plan: selectedPlan });
+      // Refresh server wallet after successful purchase (credits may be granted)
+      refreshWallet().catch(() => {});
+      setUpgraded(true);
+      setTimeout(() => router.back(), 1400);
+    } catch (err) {
+      console.error("[paywall] upgrade error:", err);
+      track("purchase_failed", { plan: selectedPlan });
+      Alert.alert(
+        lang === "ko" ? "결제 오류" : "決済エラー",
+        lang === "ko" ? "결제 중 문제가 발생했어요. 다시 시도해주세요." : "決済中に問題が発生しました。もう一度お試しください。"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   React.useEffect(() => {

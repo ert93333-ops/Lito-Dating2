@@ -318,4 +318,25 @@ router.get("/v1/admin/analytics/events", adminAuth, async (req, res) => {
   }
 });
 
+/** POST /api/v1/analytics/track — 모바일 클라이언트 이벤트 포워딩 (fire-and-forget) */
+router.post("/v1/analytics/track", requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user?.userId as number;
+    const { eventName, props } = req.body;
+    if (typeof eventName !== "string" || !eventName) {
+      res.status(400).json({ ok: false, error: { code: "INVALID_INPUT" } });
+      return;
+    }
+    await trackEvent({
+      eventName: eventName as any,
+      actorId: userId,
+      props: props && typeof props === "object" ? props : {},
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[analytics/track]", err);
+    res.status(500).json({ ok: false, error: { code: "INTERNAL_ERROR" } });
+  }
+});
+
 export default router;

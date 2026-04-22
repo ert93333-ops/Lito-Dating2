@@ -829,6 +829,7 @@ export default function ChatDetailScreen() {
     conversations,
     messages,
     profile,
+    token,
     sendMessage,
     unlockExternalContact,
     requestUnlock,
@@ -844,6 +845,11 @@ export default function ChatDetailScreen() {
     consumeAiCoachCredit,
     buyAiCoachCredits,
     upgradePlan,
+    walletBalance,
+    consentStatus,
+    grantConsent,
+    refreshWallet,
+    track,
   } = useGrowth();
 
   const [showCreditsModal, setShowCreditsModal] = useState(false);
@@ -1161,52 +1167,99 @@ export default function ChatDetailScreen() {
       return;
     }
 
-    // Credit check — deduct before API call
-    const credited = consumeAiCoachCredit();
-    if (!credited) {
+    track("coach_opened");
+
+    // State machine: unsafe → no_consent → zero_credit → server call
+    // 1. No consent → show consent gate (consent + paywall 동시 노출 금지)
+    if (consentStatus !== null && !consentStatus.conversation_coach) {
+      track("coach_blocked_no_consent");
+      Alert.alert(
+        "AI 코치 이용 동의",
+        "AI 코치를 사용하려면 AI 데이터 처리에 동의해야 합니다.",
+        [
+          { text: "취소", style: "cancel" },
+          {
+            text: "동의",
+            onPress: async () => {
+              const ok = await grantConsent("conversation_coach");
+              if (ok) handleAiSuggest();
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    // 2. Server wallet gate — if balance 0 and no local credits → paywall
+    const localCredits = getAiCoachCreditsRemaining();
+    const serverBalance = walletBalance ?? 0;
+    const hasFunds = localCredits > 0 || serverBalance > 0;
+    if (!hasFunds) {
+      track("coach_blocked_zero_credit");
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setShowCreditsModal(true);
       return;
     }
 
+    // 3. Local credit deduct (optimistic) — server deduction handled by /api/ai/coach
+    consumeAiCoachCredit();
+
     setAiSuggesting(true);
+    track("coach_request_started");
     try {
       const recentMessages = convMessages.slice(-10).map((m) => ({
         sender: m.senderId === CURRENT_USER_ID ? "me" : "them",
         text: m.originalText,
       }));
-      // targetLang = the language the viewer writes in (their own language).
-      // This drives what language the reply suggestions are generated in.
-      // Do NOT use partner's country — coach suggestions are for the viewer to send.
       const targetLang = viewerLang;
-      // uiLang = same as targetLang here: drives summary, tips, and tone labels.
       const uiLang = viewerLang;
-      // Pass cached PRS snapshot as coaching context when available.
       const prsContext =
         prsCardState.status === "ready" ? prsCardState.snapshot : null;
+
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const response = await fetch(`${API_BASE}/api/ai/coach`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ messages: recentMessages, targetLang, uiLang, prsContext }),
       });
-      if (!response.ok) throw new Error(`API ${response.status}`);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        const code = (errBody as any)?.error?.code;
+        if (code === "NO_CONSENT") {
+          track("coach_blocked_no_consent");
+          Alert.alert("AI 코치", "AI 이용 동의가 필요합니다.");
+          return;
+        }
+        if (code === "ZERO_CREDIT") {
+          track("coach_blocked_zero_credit");
+          setShowCreditsModal(true);
+          return;
+        }
+        if (code === "CONTENT_UNSAFE") {
+          track("coach_blocked_unsafe");
+          Alert.alert("AI 코치", "부적절한 내용이 감지되어 코치를 제공할 수 없습니다.");
+          return;
+        }
+        throw new Error(`API ${response.status}`);
+      }
+
       const raw: any = await response.json();
-      console.log("[AI Coach] raw:", JSON.stringify(raw).slice(0, 300));
+      if (raw?.error) {
+        track("coach_request_no_charge_failure");
+        throw new Error(raw.error);
+      }
 
-      if (raw?.error) throw new Error(raw.error);
-
-      // Normalise — never trust AI response shape
       const safeData: CoachResult = {
         summary:
           typeof raw?.summary === "string" && raw.summary
             ? raw.summary
             : "대화 분석을 불러올 수 없습니다.",
         tones: Array.isArray(raw?.tones)
-          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (raw.tones as any[]).map((t: any) => ({
-              emoji: typeof t?.emoji === "string" ? t.emoji : "💬",
+          ? (raw.tones as any[]).map((t: any) => ({
+              emoji: typeof t?.emoji === "string" ? t.emoji : "",
               label: typeof t?.label === "string" ? t.label : "일반",
               suggestions: Array.isArray(t?.suggestions)
                 ? (t.suggestions as unknown[]).filter((s): s is string => typeof s === "string")
@@ -1216,14 +1269,16 @@ export default function ChatDetailScreen() {
           : [],
       };
 
-      console.log("[AI Coach] safeData — tones:", safeData.tones.length, "summary len:", safeData.summary.length);
+      track("coach_request_completed");
 
-      // Never touch the input field — open coaching popup instead
       setCoachData(safeData);
       setShowCoachSheet(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      // Refresh wallet after successful coach call
+      refreshWallet();
     } catch (err) {
       console.error("[AI Coach] error:", err);
+      track("coach_request_no_charge_failure");
       Alert.alert("AI 코치", "AI 코치를 불러오는 중 문제가 발생했어요. 다시 시도해주세요.");
     } finally {
       setAiSuggesting(false);

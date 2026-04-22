@@ -20,9 +20,16 @@ import {
   generateChemistryCard,
   generateChemistryPicks,
   generateOpeners,
-  generateProfileSuggestions,
 } from "@/services/aiMatching";
-import { trackEvent } from "@/services/analytics";
+import { trackEvent, setAnalyticsToken } from "@/services/analytics";
+import {
+  fetchWallet,
+  fetchConsentStatus,
+  grantConsentApi,
+  requestProfileCoach,
+  saveProfileCoachOutput,
+  type ConsentStatus,
+} from "@/services/coachApi";
 import {
   defaultSubscriptionState,
   getAiCoachDailyLimit,
@@ -44,11 +51,15 @@ import {
   EntitlementKey,
   OpenerSuggestion,
   PlanId,
+  ProfileField,
   ProfileSuggestion,
   ReferralState,
   SubscriptionState,
 } from "@/types/growth";
 import { User } from "@/types";
+
+// ── Trial config ───────────────────────────────────────────────────────────────
+const SHARED_TRIAL_COUNT = 3;
 
 // ── Context shape ─────────────────────────────────────────────────────────────
 
@@ -71,8 +82,10 @@ interface GrowthContextType {
 
   // Profile Coach
   profileSuggestions: ProfileSuggestion[];
-  refreshProfileSuggestions: () => void;
-  acceptSuggestion: (id: string) => void;
+  profileCoachLoading: boolean;
+  profileCoachOutputId: number | null;
+  refreshProfileSuggestions: () => Promise<void>;
+  acceptSuggestion: (id: string) => Promise<void>;
   rejectSuggestion: (id: string) => void;
 
   // Referral
@@ -82,7 +95,16 @@ interface GrowthContextType {
   claimReferralReward: (rewardId: string) => void;
   simulateReferralSuccess: () => void;
 
-  // AI Coach credits
+  // Server-authoritative wallet & consents
+  walletBalance: number | null;
+  trialRemaining: number;
+  consentStatus: ConsentStatus | null;
+  walletLoading: boolean;
+  refreshWallet: () => Promise<void>;
+  refreshConsents: () => Promise<void>;
+  grantConsent: (feature: "translation" | "conversation_coach" | "profile_coach") => Promise<boolean>;
+
+  // AI Coach credits (local fast path + server authoritative gate)
   getAiCoachCreditsRemaining: () => number;
   consumeAiCoachCredit: () => boolean;
   buyAiCoachCredits: (count: number) => void;
@@ -96,7 +118,7 @@ const GrowthContext = createContext<GrowthContextType | null>(null);
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function GrowthProvider({ children }: { children: React.ReactNode }) {
-  const { profile, discoverUsers, updateProfile } = useApp();
+  const { profile, discoverUsers, updateProfile, token } = useApp();
 
   const [subscription, setSubscription] = useState<SubscriptionState>(
     defaultSubscriptionState
@@ -104,9 +126,18 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
   const [chemistryPicks, setChemistryPicks] = useState<ChemistryPick[]>([]);
   const [chemistryCard, setChemistryCard] = useState<ChemistryCard | null>(null);
   const [profileSuggestions, setProfileSuggestions] = useState<ProfileSuggestion[]>([]);
+  const [profileCoachLoading, setProfileCoachLoading] = useState(false);
+  const [profileCoachOutputId, setProfileCoachOutputId] = useState<number | null>(null);
   const [referral, setReferral] = useState<ReferralState>(() =>
     defaultReferralState(profile.id || "user_default")
   );
+
+  // ── Server-authoritative state ────────────────────────────────────────────
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [consentStatus, setConsentStatus] = useState<ConsentStatus | null>(null);
+  // Shared trial credits — 3 total, consumed only on successful coach result
+  const [trialRemaining, setTrialRemaining] = useState(SHARED_TRIAL_COUNT);
 
   // Keep refs to avoid stale closures in callbacks
   const profileRef = useRef(profile);
@@ -114,6 +145,25 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
 
   const subscriptionRef = useRef(subscription);
   useEffect(() => { subscriptionRef.current = subscription; }, [subscription]);
+
+  const tokenRef = useRef(token);
+  useEffect(() => { tokenRef.current = token; }, [token]);
+
+  // ── Sync analytics token when login state changes ─────────────────────────
+  useEffect(() => {
+    setAnalyticsToken(token);
+  }, [token]);
+
+  // ── Bootstrap server state when token is available ────────────────────────
+  useEffect(() => {
+    if (!token) {
+      setWalletBalance(null);
+      setConsentStatus(null);
+      return;
+    }
+    fetchWallet(token).then((w) => { if (w) setWalletBalance(w.balance); });
+    fetchConsentStatus(token).then((c) => { if (c) setConsentStatus(c); });
+  }, [token]);
 
   // Generate initial chemistry picks once profile + candidates are available
   useEffect(() => {
@@ -253,25 +303,96 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
     trackEvent("chemistry_card_generated");
   }, []);
 
-  // ── Profile Coach methods ───────────────────────────────────────────────────
+  // ── Server wallet / consent methods ────────────────────────────────────────
 
-  const refreshProfileSuggestions = useCallback(() => {
-    const suggestions = generateProfileSuggestions(profileRef.current);
-    setProfileSuggestions(suggestions);
-    trackEvent("profile_coach_opened");
+  const refreshWallet = useCallback(async (): Promise<void> => {
+    const t = tokenRef.current;
+    if (!t) return;
+    setWalletLoading(true);
+    try {
+      const w = await fetchWallet(t);
+      if (w) setWalletBalance(w.balance);
+    } finally {
+      setWalletLoading(false);
+    }
   }, []);
 
-  const acceptSuggestion = useCallback((id: string) => {
+  const refreshConsents = useCallback(async (): Promise<void> => {
+    const t = tokenRef.current;
+    if (!t) return;
+    const c = await fetchConsentStatus(t);
+    if (c) setConsentStatus(c);
+  }, []);
+
+  const grantConsent = useCallback(async (
+    feature: "translation" | "conversation_coach" | "profile_coach"
+  ): Promise<boolean> => {
+    const t = tokenRef.current;
+    if (!t) return false;
+    const ok = await grantConsentApi(t, feature);
+    if (ok) {
+      setConsentStatus((prev) => prev ? { ...prev, [feature]: true } : { translation: false, conversation_coach: false, profile_coach: false, [feature]: true });
+      trackEvent("consent_granted", { feature });
+    }
+    return ok;
+  }, []);
+
+  // ── Profile Coach methods ───────────────────────────────────────────────────
+
+  const refreshProfileSuggestions = useCallback(async (): Promise<void> => {
+    const t = tokenRef.current;
+    if (!t) return;
+    setProfileCoachLoading(true);
+    setProfileCoachOutputId(null);
+    trackEvent("profile_coach_opened");
+    try {
+      const p = profileRef.current;
+      const profileSnapshot: Record<string, string> = {};
+      if (p.bio) profileSnapshot.bio = p.bio;
+      if (p.intro) profileSnapshot.intro = p.intro;
+      const locale: "ko" | "ja" = (p as any).country === "JP" ? "ja" : "ko";
+      const result = await requestProfileCoach(t, profileSnapshot, locale);
+      if (!result) return;
+      if (result.blocked) {
+        return;
+      }
+      setProfileCoachOutputId(result.coach_output_id);
+      const fieldLabels: Record<string, string> = { intro: "한 줄 소개", bio: "자기소개" };
+      const mapped: ProfileSuggestion[] = result.suggestions.map((s) => ({
+        id: String(s.id),
+        field: s.field as ProfileField,
+        label: fieldLabels[s.field] ?? s.field,
+        original: s.original ?? "",
+        suggestion: s.suggestion,
+        reason: s.reason ?? "",
+        accepted: null,
+        generatedAt: new Date().toISOString(),
+      }));
+      setProfileSuggestions(mapped);
+      trackEvent("profile_coach_saved");
+    } finally {
+      setProfileCoachLoading(false);
+    }
+  }, []);
+
+  const acceptSuggestion = useCallback(async (id: string): Promise<void> => {
+    const t = tokenRef.current;
     setProfileSuggestions((prev) =>
       prev.map((s) => {
         if (s.id !== id) return s;
-        // Apply the suggestion to the user's actual profile
         updateProfile({ [s.field]: s.suggestion } as any);
         trackEvent("profile_suggestion_accepted", { field: s.field });
         return { ...s, accepted: true };
       })
     );
-  }, [updateProfile]);
+    // Persist accepted state to server if we have an outputId
+    if (t && profileCoachOutputId !== null) {
+      const accepted = profileSuggestions
+        .filter((s) => s.id === id || s.accepted === true)
+        .map((s) => s.field);
+      await saveProfileCoachOutput(t, profileCoachOutputId, accepted).catch(() => {});
+    }
+  }, [updateProfile, profileCoachOutputId, profileSuggestions]);
 
   const rejectSuggestion = useCallback((id: string) => {
     setProfileSuggestions((prev) =>
@@ -333,6 +454,8 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
         chemistryCard,
         refreshChemistryCard,
         profileSuggestions,
+        profileCoachLoading,
+        profileCoachOutputId,
         refreshProfileSuggestions,
         acceptSuggestion,
         rejectSuggestion,
@@ -341,6 +464,13 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
         applyReferralCode,
         claimReferralReward,
         simulateReferralSuccess,
+        walletBalance,
+        trialRemaining,
+        consentStatus,
+        walletLoading,
+        refreshWallet,
+        refreshConsents,
+        grantConsent,
         getAiCoachCreditsRemaining,
         consumeAiCoachCredit,
         buyAiCoachCredits,

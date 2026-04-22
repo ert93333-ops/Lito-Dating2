@@ -1,0 +1,494 @@
+[REPLIT MASTER INSTRUCTION]
+
+문서 제목: 09-replit 모바일 AI 코칭 UI 연결 패치 실행지시서
+문서 버전: v1.1
+문서 상태: FINAL
+작성 주체: 00_지휘본부
+용도: 현재 Lito-Dating2 Expo 앱에 이미 존재하는 Growth/Paywall/Profile Coach 구조를, 서버 authoritative AI 코칭/결제/안전/분석 흐름에 실제 연결하기 위한 모바일 패치 지시서
+
+==================================================
+0. 현재 코드베이스 판정
+==================================================
+
+이 작업은 새 프로젝트 생성이 아니다.
+반드시 현재 같은 Lito-Dating2 리포를 이어서 패치한다.
+
+현재 모바일 앱에는 이미 아래가 존재한다.
+
+1. GrowthContext
+- subscription
+- AI coach credit
+- profileSuggestions
+- referral
+- analytics pass-through
+- mockUpgradeToPlan / mockAddConsumable 계열 구조 포함
+
+2. 화면/라우트
+- paywall screen
+- profile-coach screen
+- profile screen 내 membership & AI section
+- matches/discover 쪽 growth entry
+- GrowthProvider 연결 구조
+
+3. 현재 상태의 문제
+- 결제는 mock upgrade 구조가 남아 있음
+- profile coach는 local suggestion 생성 기반임
+- analytics는 facade 중심임
+- coach UX가 실제 서버 blocked state(no_consent / zero_credit / unsafe) 기준으로 잠기지 않았을 가능성이 큼
+- purchase success 이후 원래 draft/context 복구 같은 상용 UX가 아직 명확히 연결되지 않았음
+
+따라서 이번 작업의 핵심은
+“새 백엔드를 만드는 것”이 아니라
+“이미 있는 모바일 growth UI를 서버 authoritative 기능과 정확히 연결하는 것”이다.
+
+==================================================
+1. 절대 목표
+==================================================
+
+아래 6개를 모바일 앱에서 실제 동작하도록 연결하라.
+
+1. chat room의 conversation coach 진입 UX
+2. zero_credit → paywall → purchase success return UX
+3. unsafe_interaction → coach 차단 + safety CTA UX
+4. no_consent → consent sheet UX
+5. profile editor의 profile coach preview/apply UX
+6. analytics / wallet / purchase / block reason UI 반영
+
+==================================================
+2. 절대 원칙
+==================================================
+
+1. 번역은 코어다. 코칭보다 앞선다.
+2. 기본 채팅과 기본 번역은 무료다.
+3. 코칭은 선택형 보조 기능이다.
+4. 코칭 자동 실행 금지.
+5. 사용자의 명시적 요청 이후에만 coach API 호출.
+6. zero_credit이어도 채팅과 번역은 계속 가능해야 한다.
+7. unsafe_interaction이면 paywall보다 신고/차단/안내가 우선이다.
+8. no_consent 상태에서는 결제보다 동의가 먼저다.
+9. 결과는 자동 전송 금지. 항상 사용자가 선택/수정/전송해야 한다.
+10. 현재 mock client logic가 남아 있다면 지우지 말고 서버 authoritative 응답 consumer로 교체한다.
+11. 기존 Expo UI를 불필요하게 갈아엎지 말고 patch 방식으로 수정한다.
+12. 파일명/경로를 추정하지 말고 실제 리포 기준으로 수정한다.
+
+==================================================
+3. 현재 리포 기준 핵심 판단
+==================================================
+
+이번 작업에서 반드시 이렇게 판단하라.
+
+1. GrowthContext는 계속 유지하되 역할을 바꾼다.
+- 기존: mock state owner
+- 변경: server state consumer + UI convenience wrapper
+
+2. paywall.tsx는 새로 만들지 말고 실제 purchase/verify 결과를 consume하게 바꾼다.
+
+3. profile-coach.tsx는 local suggestion generator를 직접 부르지 말고
+기존 profile coach API 결과를 렌더링하는 preview/apply UI로 바꾼다.
+
+4. chat room 내 coach UX는 “대화 대리 작성”이 아니라
+사용자가 쓴 draft를 다듬는 polishing tool로만 동작시킨다.
+
+5. unsafe / no_consent / zero_credit은 하나의 공통 block modal로 합치지 말고
+각 상태별로 분리된 UI 의미를 유지한다.
+
+==================================================
+4. 구현 우선순위
+==================================================
+
+반드시 아래 순서로 작업하라.
+
+STEP 1. 현재 Expo chat room / composer / profile editor / paywall / GrowthContext / analytics wrapper 파일 스캔
+STEP 2. coach entry state machine 정리
+STEP 3. conversation coach UI 연결
+STEP 4. no_consent flow 연결
+STEP 5. zero_credit → paywall → purchase return 연결
+STEP 6. unsafe_interaction blocking UX 연결
+STEP 7. profile coach preview/apply 연결
+STEP 8. wallet/balance 표시 연결
+STEP 9. analytics event wiring
+STEP 10. 모바일 happy-path 테스트 및 완료보고
+
+==================================================
+5. 작업 지시 - 세부 구현
+==================================================
+
+--------------------------------------------------
+A. Chat Room: Conversation Coach Entry 연결
+--------------------------------------------------
+
+목표:
+사용자가 채팅방에서 draft를 쓴 뒤에만 AI 코치를 명시적으로 열 수 있게 한다.
+
+반드시 구현:
+1. Empty chat state에는 AI가 먼저 문장을 생성하지 않는다.
+2. Empty chat state에는 “첫 메시지 도움” chip만 둘 수 있다.
+3. chip 탭은 composer에 seed text를 넣을 수 있지만 coach_opened로 집계되면 안 된다.
+4. draft 길이가 최소 기준 이상일 때만 coach CTA 활성화.
+5. coach CTA 라벨은 아래 의미 안에서만 사용:
+   - 다듬기
+   - 부드럽게
+   - 더 짧게
+6. coach CTA 탭 시 상태 분기:
+   - unsafe이면 unsafe flow
+   - no consent이면 consent flow
+   - zero credit이면 zero credit flow
+   - 아니면 conversation coach request
+7. coach 결과는 bottom sheet 또는 overlay preview로 노출
+8. 결과 선택 후 composer에만 반영
+9. 자동 전송 금지
+10. 적용 후 사용자가 직접 수정 가능해야 한다
+
+핵심 의미:
+- 코칭은 대화 대리인이 아니다
+- draft polishing tool이다
+
+--------------------------------------------------
+B. Conversation Coach 상태 머신 구현
+--------------------------------------------------
+
+coach CTA 탭 시 반드시 아래 순서를 따른다.
+
+1. draft validation
+2. latest unsafe state 확인
+3. consent 확인
+4. wallet / trial / credit 확인
+5. 서버 coach request 실행
+6. result preview 노출
+7. 사용자가 선택 후 draft 적용
+8. 사용자가 직접 전송
+
+절대 금지:
+- coach button 탭 직후 자동 결제
+- coach button 탭 직후 자동 전송
+- 결과 수신 후 자동으로 composer overwrite
+- blocked 상태인데 coach 요청 강행
+
+--------------------------------------------------
+C. No Consent Flow 연결
+--------------------------------------------------
+
+목표:
+AI 기능별 first-use opt-in을 모바일 UX로 정확히 반영한다.
+
+반드시 구현:
+1. translation consent와 coach consent를 구분
+2. conversation coach와 profile coach consent도 분리 가능 구조 유지
+3. no_consent 상태에서는 paywall보다 consent sheet가 먼저
+4. consent sheet CTA:
+   - 동의하고 계속
+   - 지금은 안 함
+5. 동의 거절 후에도 기본 채팅/기본 번역은 계속 가능
+6. consent 완료 후 원래 context 복구
+7. draft / selected mode / active conversation context가 사라지면 안 된다
+8. consent 성공 후 coach 자동 재실행 금지
+9. 사용자가 다시 CTA를 눌러야 한다
+
+금지:
+- consent와 결제를 한 장에서 동시에 요구하는 것
+- consent 거절 시 draft 초기화
+- consent 성공 후 결과 자동 생성
+
+--------------------------------------------------
+D. Zero Credit → Paywall → Return Flow
+--------------------------------------------------
+
+목표:
+잔액 부족 상태에서도 사용자가 기본 채팅을 계속할 수 있게 하면서,
+필요한 경우에만 코칭 pack을 구매하도록 한다.
+
+반드시 구현:
+1. zero_credit은 coach 요청 이후에만 평가/노출
+2. zero credit sheet에는 아래 의미가 반드시 포함되어야 한다:
+   - 기본 채팅과 기본 번역은 계속 무료입니다
+3. zero credit sheet CTA:
+   - 코칭 팩 보기
+   - 그냥 채팅 계속하기
+4. paywall은 explicit coach request 이후에만 연다
+5. paywall 상품은 3개:
+   - Starter
+   - Standard
+   - Value
+6. 기본 강조 pack은 Standard
+7. 첫 사용자는 trial이 남아 있으면 trial 먼저 사용
+8. trial 규칙:
+   - 3회 shared trial
+   - success 반환 시에만 소진
+   - no expiry
+9. purchase success 후:
+   - wallet refresh
+   - purchase verification state 반영
+   - 원래 draft/context 복구
+   - coach 자동 재실행 금지
+   - 사용자가 다시 코칭 실행하기를 눌러야 함
+10. purchase failed / cancelled 후:
+   - draft 유지
+   - 그냥 채팅 계속 가능
+11. no-charge failure는 paywall로 보내지 말 것
+12. “차감되지 않았어요” 메시지를 분명히 보여줄 것
+
+금지:
+- match 직후 paywall
+- 번역 버튼 근처 paywall
+- 신고/차단/삭제 근처 paywall
+- guilt/urgency/guarantee copy
+
+--------------------------------------------------
+E. Unsafe Interaction UX 연결
+--------------------------------------------------
+
+목표:
+위험 상황에서 코칭을 차단하고 안전 surface를 최우선으로 올린다.
+
+반드시 구현:
+1. unsafe_interaction이 true이면 coach CTA 숨김 또는 비활성화
+2. safety banner/card 노출
+3. primary action:
+   - 신고하기
+4. secondary action:
+   - 차단하기
+5. tertiary action:
+   - 도움말 보기
+6. 번역 / 원문 보기 기능은 유지
+7. paywall 금지
+8. unsafe category별 표시 가능 구조 유지:
+   - money_request
+   - investment_crypto
+   - off_platform_push
+   - sexual_coercion
+   - harassment
+   - self_harm_risk
+   - minor_risk
+   - identity_fraud_risk
+9. websocket 또는 서버 상태 갱신 시 coach CTA를 즉시 내릴 수 있어야 한다
+
+금지:
+- unsafe 상황에서 답장 다듬기 계속 노출
+- unsafe 상황에서 결제 제안
+- unsafe / zero_credit / no_consent을 하나의 일반 에러 모달로 합치는 것
+
+--------------------------------------------------
+F. Profile Coach UX 연결
+--------------------------------------------------
+
+목표:
+프로필 편집에서 profile coach를 “허위 포장”이 아니라 “표현 정리” 도구로 구현한다.
+
+반드시 구현:
+1. profile coach 허용 필드:
+   - 자기소개
+   - 관심사 설명
+   - 관계 의도 설명
+   - 문화/언어 자기설명
+2. fact field에는 coach 금지:
+   - 이름
+   - 나이
+   - 위치
+   - 직업/학교 같은 사실 필드
+3. 사용자가 텍스트를 쓴 뒤에만 coach entry 활성
+4. profile coach 결과는 preview로 보여준다
+5. 원문과 AI 제안을 비교할 수 있어야 한다
+6. 자동 overwrite 금지
+7. 선택해서 적용
+8. 적용 후 직접 수정 가능
+9. profile coach 적용 후 translation preview를 다시 거치게 할 것
+10. zero_credit / no_consent는 별도 처리
+11. high-risk 계정 제한 상태면 coach 차단 가능
+
+현재 리포 반영 규칙:
+- existing profile-coach screen을 버리지 말 것
+- accept/reject UI는 최대한 유지
+- suggestion source만 local generator에서 server response로 교체
+- updateProfile 직접 반영은 “사용자 선택 이후”에만 허용
+
+--------------------------------------------------
+G. Wallet / Balance UX 연결
+--------------------------------------------------
+
+목표:
+잔액 정보는 보이되 과금 압박처럼 보이지 않게 한다.
+
+반드시 구현:
+1. wallet balance 조회 연결
+2. coach 전용 잔액/remaining count 표시 연결
+3. low balance는 작은 indicator 정도만
+4. low balance만으로 전면 paywall 금지
+5. wallet/settings에서 voluntary top-up 허용
+6. 채팅방에서는 zero_credit에서만 paywall
+7. 잔액 표시는 서버 authoritative 값 사용
+8. trial 남은 횟수와 paid credit은 구분 가능하게 할 것
+
+--------------------------------------------------
+H. Analytics Event Wiring
+--------------------------------------------------
+
+목표:
+이미 존재하는 canonical analytics emitter에 모바일 UX 이벤트를 정확히 연결한다.
+
+반드시 연결:
+- first_message_help_opened
+- first_message_seed_inserted
+- coach_entry_visible
+- coach_opened
+- coach_action_selected
+- coach_request_started
+- coach_request_completed
+- coach_result_rendered
+- coach_result_selected
+- coach_result_applied_to_draft
+- coach_result_abandoned
+- coach_blocked_no_consent
+- coach_blocked_zero_credit
+- coach_blocked_unsafe
+- paywall_viewed
+- purchase_started
+- purchase_verified
+- purchase_failed
+- purchase_cancelled
+- purchase_success_returned
+- coach_request_no_charge_failure
+- profile_coach_opened
+- profile_coach_saved
+
+규칙:
+1. coach_opened는 explicit tap에서만
+2. paywall_viewed는 explicit coach request 이후 zero_credit에서만
+3. purchase_verified는 서버 검증 성공 후
+4. coach_request_completed는 실제 결과 반환 후
+5. chip seed insert는 coach_opened로 집계 금지
+6. draft 적용만 하고 전송하지 않은 경우도 분리 집계 가능하게 유지
+
+==================================================
+6. 현재 mock 구조에서 반드시 교체할 것
+==================================================
+
+1. GrowthContext의 mockUpgradeToPlan → purchase verify 결과 consume
+2. profileSuggestions local generation → server profile coach response consume
+3. coach credit local decrement → server authoritative wallet/ledger consume
+4. trackEvent direct-only usage → canonical analytics emitter wiring
+5. purchase success UI → verify success + wallet refresh + context restore
+6. blocked 상태 처리 → 서버 응답 기준 분기 렌더링
+
+==================================================
+7. 건드리지 말아야 할 것
+==================================================
+
+1. 기본 채팅 무료 원칙
+2. 기본 번역 무료 원칙
+3. 번역 코어 경험
+4. 신고/차단 접근성
+5. 기존 Expo 화면 구조 전체 갈아엎기
+6. 코칭 자동 실행
+7. 결과 자동 전송
+8. unsafe 상황에서 상업 CTA 노출
+9. consent와 paywall 결합
+
+==================================================
+8. 구현 방식
+==================================================
+
+1. 현재 Expo 앱 구조를 먼저 스캔할 것
+2. 기존 chat composer / profile editor / paywall / analytics wrapper / wallet UI 파일을 찾아 patch할 것
+3. mock state가 남아 있으면 삭제보다 server response consumer로 교체할 것
+4. overlay 충돌 금지:
+   - 번역 fallback sheet + coach sheet 동시 노출 금지
+   - unsafe banner + paywall 동시 노출 금지
+   - delete/report/block flow와 coach paywall 충돌 금지
+5. route/navigation 파괴 금지
+6. state restore는 draft-first 원칙으로 구현할 것
+
+==================================================
+9. 필수 테스트
+==================================================
+
+반드시 모바일 앱 기준으로 실제 흐름 테스트를 남겨라.
+
+A. Conversation Coach happy path
+- draft 입력
+- coach CTA 활성
+- coach_opened
+- 결과 preview
+- 적용
+- 수동 전송
+
+B. No Consent path
+- coach CTA 탭
+- consent sheet 노출
+- 동의 후 원래 context 복귀
+- 다시 coach 실행 가능
+
+C. Zero Credit path
+- trial/paid 모두 0
+- coach CTA 탭
+- zero credit sheet
+- 그냥 채팅 계속하기 선택 시 input 유지
+- paywall 열기 가능
+
+D. Purchase success return
+- purchase 시작
+- verify success
+- wallet 반영
+- 원래 draft 복구
+- 자동 코칭 실행되지 않음
+
+E. No-charge failure
+- coach 요청 실패
+- 차감되지 않았어요 노출
+- paywall 자동 노출 안 됨
+
+F. Unsafe path
+- unsafe_interaction 상태 강제
+- coach CTA 숨김/비활성
+- safety banner 노출
+- report/block CTA 노출
+- 번역은 유지
+
+G. Profile Coach path
+- profile text 입력
+- coach preview
+- 원문 vs 제안 비교
+- 선택 반영
+- translation preview 재확인
+
+H. Analytics verification
+- coach_opened / blocked / paywall_viewed / purchase_verified / profile_coach_saved 이벤트가 canonical emitter에 정확히 기록되는지 확인
+
+==================================================
+10. 산출물
+==================================================
+
+반드시 아래 형식으로 완료 보고를 남긴다.
+
+[REPLIT COMPLETION REPORT]
+
+1. 작업 ID:
+2. 작업 목표:
+3. 생성/수정된 파일:
+4. 구현된 기능:
+5. 미완료/보류:
+6. 에러/이슈:
+7. 실행 방법:
+8. 테스트 결과:
+9. 남은 리스크:
+10. 다음 작업 제안:
+
+추가로 반드시 포함:
+- mock에서 actual로 바뀐 지점
+- 모바일 UI에서 아직 placeholder로 남은 부분
+- overlay/state restore 충돌 여부
+- 서버 authoritative 연결 완료 항목 체크리스트
+
+==================================================
+11. 추가 강제 규칙
+==================================================
+
+1. 이 문서 바깥 숨은 전제를 만들지 말 것
+2. 현재 같은 리포를 이어서 패치할 것
+3. 서버 authoritative 원칙을 깨지 말 것
+4. 코칭 자동 실행 금지
+5. 기본 채팅/기본 번역 무료 원칙을 깨지 말 것
+6. unsafe / no_consent / zero_credit을 하나의 blocked UI로 합치지 말 것
+7. purchase/coach/safety overlay를 서로 섞지 말 것
+8. 실제 모바일 happy-path 테스트 없이는 완료 보고 금지
+9. 파일명/경로를 추정하지 말고 실제 리포 기준으로 수정할 것
+10. 기존 GrowthContext와 screen route를 전면 삭제하지 말고 patch 방식으로 연결할 것
