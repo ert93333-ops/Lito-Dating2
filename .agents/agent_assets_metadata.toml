@@ -113,3 +113,9 @@ id = "g4LSy14jFoFarswzdmPSr"
 uri = "file://lito_status_20260421.txt"
 type = "text"
 title = "Lito 프로젝트 현황 요약 (2026-04-21)"
+
+[[outputs]]
+id = "0kIhEcg7axpnsh8MULBNa"
+uri = "file://lito_status_20260422.txt"
+type = "text"
+title = "Lito v1.1 작업 결과 보고서 (2026-04-22)"

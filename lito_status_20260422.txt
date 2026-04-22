@@ -1,0 +1,197 @@
+================================================================
+LITO v1.1 — 작업 결과 보고서
+날짜: 2026-04-22
+세션: MASTER INSTRUCTION 09 v1.1 FINAL 모바일 AI UI 서버 연결 패치
+================================================================
+
+1. 세션 목표
+----------------------------------------------------------------
+Expo 모바일 앱의 AI 코칭 UI를 서버 백엔드(v1.1)에 실제로 연결.
+mock 기반 로직을 서버 API 호출로 교체하고, AI 동의/지갑/코치 상태를
+서버 권위(server-authoritative) 방식으로 전환.
+
+2. 완료 태스크 요약 (T001~T008)
+----------------------------------------------------------------
+
+T001: services/coachApi.ts 신규 생성
+  - 파일: artifacts/lito/services/coachApi.ts
+  - 내용:
+    * fetchWallet(token) — GET /api/v1/billing/wallet
+    * fetchConsentStatus(token) — GET /api/v1/ai/consents
+    * grantConsentApi(token, feature) — POST /api/v1/ai/consents/:feature/grant
+    * requestProfileCoach(token, profileSnapshot, locale)
+      — POST /api/v1/ai/profile-coach
+    * saveProfileCoachOutput(token, outputId, selectedFields)
+      — POST /api/v1/ai/profile-coach/:id/save
+    * verifyPurchase(token, receipt) — POST /api/v1/billing/purchases/verify
+    * fetchLedger(token) — GET /api/v1/billing/ledger
+    * forwardEventToServer(token, event, props)
+      — POST /api/v1/analytics/track
+  - 타입:
+    * ConsentStatus { translation, conversation_coach, profile_coach }
+    * WalletState { balance, currency }
+    * ServerProfileSuggestion { id, field, original, suggestion, reason }
+    * ProfileCoachResult { blocked:false, coach_output_id, suggestions, remaining_credit }
+    * ProfileCoachBlocked { blocked:true, block_reason, message }
+    * ProfileCoachResponse = ProfileCoachResult | ProfileCoachBlocked
+
+T002: types/growth.ts AnalyticsEvent 확장
+  - 파일: artifacts/lito/types/growth.ts
+  - 추가 이벤트 (34종 → 완전 v1.1 호환):
+    Monetization:
+      purchase_verified, purchase_failed, purchase_cancelled,
+      purchase_success_returned
+    AI Matching:
+      profile_coach_saved
+    Conversation Coach (신규 카테고리):
+      first_message_help_opened, first_message_seed_inserted,
+      coach_entry_visible, coach_opened, coach_action_selected,
+      coach_request_started, coach_request_completed,
+      coach_result_rendered, coach_result_selected,
+      coach_result_applied_to_draft, coach_result_abandoned,
+      coach_blocked_no_consent, coach_blocked_zero_credit,
+      coach_blocked_unsafe, coach_request_no_charge_failure
+    Consent (신규 카테고리):
+      consent_sheet_shown, consent_granted, consent_declined
+    Legacy:
+      ai_coach_used
+
+T003: context/GrowthContext.tsx 서버 상태 연결
+  - 파일: artifacts/lito/context/GrowthContext.tsx
+  - 인터페이스 확장:
+    * profileCoachLoading: boolean
+    * profileCoachOutputId: number | null
+    * walletBalance: number | null
+    * trialRemaining: number (SHARED_TRIAL_COUNT=3)
+    * consentStatus: ConsentStatus | null
+    * walletLoading: boolean
+    * refreshWallet(): Promise<void>
+    * refreshConsents(): Promise<void>
+    * grantConsent(feature): Promise<boolean>
+    * refreshProfileSuggestions(): Promise<void> (async 변경)
+    * acceptSuggestion(id): Promise<void> (async 변경)
+  - 동작 변경:
+    * token 변경 시 analytics 토큰 동기화 (setAnalyticsToken)
+    * 로그인 시 wallet + consents 자동 bootstrap
+    * refreshProfileSuggestions: generateProfileSuggestions(local)
+      → requestProfileCoach(서버), ProfileSuggestion 맵핑
+    * acceptSuggestion: saveProfileCoachOutput(서버)로 저장 연동
+    * grantConsent: 서버 POST 후 로컬 consentStatus 낙관적 업데이트
+  - import 변경:
+    * aiMatching에서 generateProfileSuggestions 제거
+    * coachApi에서 필요 함수/타입 추가
+    * analytics에서 setAnalyticsToken 추가
+    * ProfileField 타입 추가
+
+T004: app/chat/[id].tsx handleAiSuggest 상태머신 교체
+  - 파일: artifacts/lito/app/chat/[id].tsx
+  - useApp 추가 구조 분해: token
+  - useGrowth 추가 구조 분해:
+    walletBalance, consentStatus, grantConsent, refreshWallet, track
+  - 상태머신 순서 (설계 원칙 준수):
+    1. no_consent: consentStatus.conversation_coach === false
+       → Alert + grantConsent 버튼 (동의 즉시 재호출)
+    2. zero_credit: localCredits + serverBalance === 0
+       → setShowCreditsModal(true)
+    3. server call: Authorization 헤더 추가
+       서버 오류코드 처리:
+         NO_CONSENT → consent 안내
+         ZERO_CREDIT → credits modal
+         CONTENT_UNSAFE → 안전 경고
+    4. 성공 후 refreshWallet() 호출
+  - analytics 이벤트:
+    coach_opened, coach_request_started, coach_request_completed,
+    coach_blocked_no_consent, coach_blocked_zero_credit,
+    coach_blocked_unsafe, coach_request_no_charge_failure
+
+T005: app/profile-coach.tsx 서버 API 연결
+  - 파일: artifacts/lito/app/profile-coach.tsx
+  - import 추가: ActivityIndicator, Alert
+  - useGrowth 추가 구조 분해:
+    profileCoachLoading, consentStatus, grantConsent,
+    walletBalance, track
+  - 변경사항:
+    * useEffect: profile_coach consent 게이트 (미동의 시 Alert → grantConsent)
+    * 로딩 상태: ActivityIndicator 표시
+    * walletBalance 표시 (잔액 배지)
+    * refreshProfileSuggestions() → async 호출로 변경
+    * 코칭 자동 실행: 동의 완료 + 제안 없을 때만 호출 (자동 실행 금지 원칙)
+  - 스타일 추가: walletRow, walletText
+
+T006: app/paywall.tsx billing 이벤트 연결
+  - 파일: artifacts/lito/app/paywall.tsx
+  - import 추가: Alert
+  - useGrowth 추가 구조 분해: refreshWallet
+  - handleUpgrade 변경:
+    * plan_selected → purchase_started 이벤트로 교체 (v1.1 표준)
+    * try/catch 구조: purchase_failed + Alert 추가
+    * 성공 시: purchase_completed + refreshWallet() 호출
+    * IAP 실제 연결 준비 (주석으로 StoreKit/Play Billing 교체 포인트 명시)
+
+T007: services/analytics.ts 서버 포워딩 추가
+  - 파일: artifacts/lito/services/analytics.ts
+  - setAnalyticsToken(token): GrowthContext에서 호출 (전역 토큰 관리)
+  - sendToServer(): fire-and-forget
+    POST /api/v1/analytics/track { eventName, props }
+    Authorization: Bearer {token}
+    오류 시 무시 (메인 플로우 방해 없음)
+  - 서버 엔드포인트 추가:
+    파일: artifacts/api-server/src/modules/admin/admin.router.ts
+    POST /api/v1/analytics/track (requireAuth)
+    → canonicalAnalytics.trackEvent() 저장
+
+T008: Expo 재시작 + E2E 검증
+  - 번들: 1569 모듈, 오류 없음 (Web Bundled 1370ms)
+  - TypeScript: 변경 파일 모두 오류 없음 (tsc --noEmit)
+    (pre-existing 오류: discover.tsx style, chat moreBtn style 등 — 미변경)
+  - 서버 로그 확인:
+    GET /api/v1/billing/wallet (200/304) — 정상
+    GET /api/v1/ai/consents (200/304) — 정상
+    (로그인 없는 상태에서 401은 예상 동작)
+
+3. 변경 파일 목록
+----------------------------------------------------------------
+artifacts/lito/services/coachApi.ts             (신규)
+artifacts/lito/services/analytics.ts            (수정)
+artifacts/lito/types/growth.ts                  (수정)
+artifacts/lito/context/GrowthContext.tsx         (수정)
+artifacts/lito/app/chat/[id].tsx                 (수정)
+artifacts/lito/app/profile-coach.tsx             (수정)
+artifacts/lito/app/paywall.tsx                   (수정)
+artifacts/api-server/src/modules/admin/admin.router.ts  (수정)
+
+4. 설계 원칙 준수 확인
+----------------------------------------------------------------
+- chat.service.ts 미변경                          OK
+- prsScoring.ts 미변경                            OK
+- 기본 채팅/번역 무료 원칙                         OK (코치만 크레딧 소비)
+- PRS 코어 경험 미변경                             OK
+- consent + paywall 동시 노출 금지                 OK (상태머신 분리)
+- unsafe + paywall 동시 노출 금지                  OK
+- 번역 fallback + coach sheet 동시 금지            OK (각 독립 플로우)
+- 코칭 자동 실행 금지                              OK (사용자 액션만)
+- 결과 자동 전송 금지                              OK (accept 버튼만)
+- 상태머신 순서: draft → unsafe → no_consent → zero_credit → server  OK
+
+5. 서버 API 연결 현황
+----------------------------------------------------------------
+엔드포인트                              상태
+GET  /api/v1/billing/wallet             연결됨 (GrowthContext bootstrap)
+GET  /api/v1/ai/consents               연결됨 (GrowthContext bootstrap)
+POST /api/v1/ai/consents/:f/grant      연결됨 (grantConsent)
+POST /api/v1/ai/profile-coach          연결됨 (refreshProfileSuggestions)
+POST /api/v1/ai/profile-coach/:id/save 연결됨 (acceptSuggestion)
+POST /api/v1/analytics/track           연결됨 (analytics.ts sendToServer)
+GET  /api/ai/coach                     기존 연결 유지 + 인증 헤더 추가
+
+미연결 (추후 예정):
+POST /api/v1/billing/purchases/verify  coachApi에 준비됨, IAP 실제 영수증 필요
+GET  /api/v1/billing/ledger            coachApi에 준비됨
+
+6. 커밋
+----------------------------------------------------------------
+f63c4499 — Integrate AI coaching and payment features with backend services
+
+================================================================
+END OF REPORT
+================================================================
