@@ -1,7 +1,8 @@
 import FIcon from "@/components/FIcon";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
+  Animated,
   Platform,
   ScrollView,
   StyleSheet,
@@ -21,11 +22,35 @@ import { useLocale } from "@/hooks/useLocale";
 import { computeTrustScore } from "@/types";
 import { Match } from "@/types";
 
-function MatchCard({ match }: { match: Match }) {
+function MatchCard({ match, index = 0 }: { match: Match; index?: number }) {
   const colors = useColors();
   const { lang } = useLocale();
   const { profile } = useApp();
   const trustScore = computeTrustScore(match.user.trustProfile);
+
+  // Staggered entry: fade + 14px slide-up
+  const entryOpacity   = useRef(new Animated.Value(0)).current;
+  const entryTranslate = useRef(new Animated.Value(14)).current;
+  useEffect(() => {
+    const delay = 60 + index * 70;
+    Animated.parallel([
+      Animated.timing(entryOpacity, {
+        toValue: 1,
+        duration: 280,
+        delay,
+        useNativeDriver: true,
+      }),
+      Animated.spring(entryTranslate, {
+        toValue: 0,
+        delay,
+        useNativeDriver: true,
+        damping: 22,
+        stiffness: 240,
+        mass: 0.85,
+      }),
+    ]).start();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const goToChat = (draft?: string) => {
     const convId = match.id.replace("match", "conv");
@@ -40,7 +65,13 @@ function MatchCard({ match }: { match: Match }) {
   };
 
   return (
-    <View style={[styles.matchCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
+    <Animated.View
+      style={[
+        styles.matchCard,
+        { backgroundColor: colors.white, borderColor: colors.border },
+        { opacity: entryOpacity, transform: [{ translateY: entryTranslate }] },
+      ]}
+    >
       {/* Tap photo → profile */}
       <TouchableOpacity
         onPress={goToProfile}
@@ -133,7 +164,51 @@ function MatchCard({ match }: { match: Match }) {
         </View>
 
       </View>
-    </View>
+    </Animated.View>
+  );
+}
+
+function NewMatchBubble({ match, index }: { match: Match; index: number }) {
+  const colors = useColors();
+
+  const scaleAnim   = useRef(new Animated.Value(0.6)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const delay = index * 55;
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        delay,
+        useNativeDriver: true,
+        damping: 16,
+        stiffness: 320,
+        mass: 0.75,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 180,
+        delay,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <Animated.View style={[styles.newMatchBubble, { opacity: opacityAnim, transform: [{ scale: scaleAnim }] }]}>
+      <TouchableOpacity
+        onPress={() => router.push(`/user-profile/${match.user.id}` as any)}
+        activeOpacity={0.82}
+      >
+        <View style={[styles.newMatchRing, { borderColor: colors.rose }]}>
+          <ProfileImage photoKey={match.user.photos[0]} size={64} />
+        </View>
+        <Text style={[styles.newMatchName, { color: colors.charcoal }]} numberOfLines={1}>
+          {match.user.nickname.split(" ")[0]}
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -171,19 +246,8 @@ export default function MatchesScreen() {
             {lang === "ko" ? "새 매칭" : "新しいマッチ"}
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.newMatchRow}>
-            {newMatches.map((m) => (
-              <TouchableOpacity
-                key={m.id}
-                style={styles.newMatchBubble}
-                onPress={() => router.push(`/user-profile/${m.user.id}` as any)}
-              >
-                <View style={[styles.newMatchRing, { borderColor: colors.rose }]}>
-                  <ProfileImage photoKey={m.user.photos[0]} size={64} />
-                </View>
-                <Text style={[styles.newMatchName, { color: colors.charcoal }]} numberOfLines={1}>
-                  {m.user.nickname.split(" ")[0]}
-                </Text>
-              </TouchableOpacity>
+            {newMatches.map((m, i) => (
+              <NewMatchBubble key={m.id} match={m} index={i} />
             ))}
           </ScrollView>
         </View>
@@ -194,8 +258,8 @@ export default function MatchesScreen() {
           <Text style={[styles.sectionTitle, { color: colors.charcoalMid }]}>
             {lang === "ko" ? "이전 매칭" : "過去のマッチ"}
           </Text>
-          {pastMatches.map((m) => (
-            <MatchCard key={m.id} match={m} />
+          {pastMatches.map((m, i) => (
+            <MatchCard key={m.id} match={m} index={i} />
           ))}
         </View>
       )}
