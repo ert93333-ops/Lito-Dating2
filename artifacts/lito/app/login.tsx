@@ -167,6 +167,9 @@ export default function LoginScreen() {
     }
   };
 
+  // iOS: Apple + Kakao + LINE, Android/Web: Google + Kakao + LINE
+  const isIOS = Platform.OS === "ios";
+
   // ── UI ─────────────────────────────────────────────────────────────────
   return (
     <KeyboardAvoidingView
@@ -269,30 +272,33 @@ export default function LoginScreen() {
             <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
           </View>
 
-          {/* Social buttons 2x2 */}
+          {/* Social buttons — iOS: Apple/Kakao/LINE, Android: Google/Kakao/LINE */}
           <View style={styles.socialGrid}>
-            <SocialBtn
-              label="Google"
-              bg={colors.white}
-              border="#DADCE0"
-              iconBg="#F1F3F4"
-              iconText="G"
-              iconColor="#4285F4"
-              textColor={colors.charcoal}
-              loading={socialLoading === "google"}
-              onPress={() => handleSocialLogin("google")}
-            />
-            <SocialBtn
-              label="Apple"
-              bg="#000000"
-              border="#000000"
-              iconBg="#333333"
-              iconText="A"
-              iconColor="#FFFFFF"
-              textColor="#FFFFFF"
-              loading={socialLoading === "apple"}
-              onPress={() => handleSocialLogin("apple")}
-            />
+            {isIOS ? (
+              <SocialBtn
+                label="Apple"
+                bg="#000000"
+                border="#000000"
+                iconBg="#333333"
+                iconText="A"
+                iconColor="#FFFFFF"
+                textColor="#FFFFFF"
+                loading={socialLoading === "apple"}
+                onPress={() => handleSocialLogin("apple")}
+              />
+            ) : (
+              <SocialBtn
+                label="Google"
+                bg={colors.white}
+                border="#DADCE0"
+                iconBg="#F1F3F4"
+                iconText="G"
+                iconColor="#4285F4"
+                textColor={colors.charcoal}
+                loading={socialLoading === "google"}
+                onPress={() => handleSocialLogin("google")}
+              />
+            )}
             <SocialBtn
               label="Kakao"
               bg="#FEFCE8"
@@ -314,6 +320,7 @@ export default function LoginScreen() {
               textColor="#1A5C3A"
               loading={socialLoading === "line"}
               onPress={() => handleSocialLogin("line")}
+              fullWidth
             />
           </View>
         </View>
@@ -333,15 +340,19 @@ export default function LoginScreen() {
 // ── SocialBtn ───────────────────────────────────────────────────────────────
 
 function SocialBtn({
-  label, bg, border, iconBg, iconText, iconColor, textColor, loading, onPress,
+  label, bg, border, iconBg, iconText, iconColor, textColor, loading, onPress, fullWidth,
 }: {
   label: string; bg: string; border: string; iconBg: string;
   iconText: string; iconColor: string; textColor: string; loading: boolean;
-  onPress: () => void;
+  onPress: () => void; fullWidth?: boolean;
 }) {
   return (
     <Pressable
-      style={({ pressed }) => [styles.socialBtn, { backgroundColor: bg, borderColor: border, opacity: pressed || loading ? 0.8 : 1 }]}
+      style={({ pressed }) => [
+        styles.socialBtn,
+        fullWidth && { width: "100%" },
+        { backgroundColor: bg, borderColor: border, opacity: pressed || loading ? 0.8 : 1 },
+      ]}
       onPress={onPress}
       disabled={loading}
     >

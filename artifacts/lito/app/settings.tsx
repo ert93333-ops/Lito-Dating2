@@ -230,6 +230,8 @@ export default function SettingsScreen() {
             />
             <SettingRow
               icon="bell"
+              iconBg="#E8F3FF"
+              iconColor="#1A6AEB"
               label={lang === "ko" ? "알림" : "通知"}
               sublabel={lang === "ko" ? "메시지 · 매칭 · AI 알림 설정" : "メッセージ・マッチ・AI通知設定"}
               onPress={() => router.push("/notification-settings")}
@@ -244,17 +246,23 @@ export default function SettingsScreen() {
           <View style={[styles.section, { backgroundColor: colors.white, borderColor: colors.border }]}>
             <SettingRow
               icon="shield"
+              iconBg="#F0F1F3"
+              iconColor="#5A6480"
               label={lang === "ko" ? "차단 · 신고" : "ブロック・報告"}
               onPress={() => router.push("/blocked-users")}
             />
             <SettingRow
               icon="phone-off"
+              iconBg="#FFF3E8"
+              iconColor="#C07820"
               label={lang === "ko" ? "연락처 차단" : "連絡先ブロック"}
               sublabel={lang === "ko" ? "연락처에 있는 사람 숨기기" : "連絡先の人を非表示にする"}
               onPress={() => router.push("/contact-blocks")}
             />
             <SettingRow
               icon="log-out"
+              iconBg="#F0F1F3"
+              iconColor="#5A6480"
               label={lang === "ko" ? "로그아웃" : "ログアウト"}
               onPress={() => {
                 Alert.alert(

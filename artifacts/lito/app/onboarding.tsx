@@ -2,8 +2,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import FIcon from "@/components/FIcon";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   BackHandler,
   Platform,
   Pressable,
@@ -12,168 +13,80 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-  FadeIn,
-  FadeInUp,
-} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
-// ── Slide data ────────────────────────────────────────────────────────────────
+// ── Value card data ────────────────────────────────────────────────────────────
 
-const SLIDES = [
+const VALUE_CARDS = [
   {
-    id: "1",
     icon: "heart" as const,
-    gradientColors: ["#FFF0F3", "#FAE0E5"] as const,
+    gradientColors: ["#FFF0F3", "#FBDDE3"] as const,
     accentColor: "#D85870",
+    iconBg: "#F7C5D0",
     titleKo: "AI 문화 매칭",
     titleJa: "AIカルチャーマッチング",
-    titleBi: "AI 문화 매칭 · AI カルチャーマッチング",
-    bodyKo: "AI가 한국과 일본 문화를 깊이 이해하여\n가치관이 맞는 사람을 찾아드려요.",
-    bodyJa: "AIが韓国と日本の文化を深く理解し\n価値観が合う相手を見つけてくれます。",
+    bodyKo: "AI가 한·일 문화를 깊이 이해해\n가치관이 맞는 상대를 찾아드려요.",
+    bodyJa: "AIが韓日文化を深く理解し\n価値観が合う相手を見つけます。",
   },
   {
-    id: "2",
     icon: "message-circle" as const,
-    gradientColors: ["#EEF4FF", "#DCE8FF"] as const,
+    gradientColors: ["#EEF4FF", "#DAEAFF"] as const,
     accentColor: "#3B6FD4",
+    iconBg: "#BCCFF5",
     titleKo: "실시간 번역",
     titleJa: "リアルタイム翻訳",
-    titleBi: "실시간 번역 · リアルタイム翻訳",
-    bodyKo: "언어 장벽을 넘어 자연스럽게 대화하세요.\n한일 번역으로 진정한 연결이 가능해요.",
-    bodyJa: "言葉の壁を越えて自然に会話できます。\n韓日翻訳で本当のつながりが生まれます。",
+    bodyKo: "언어 장벽 없이 자연스럽게 대화해요.\n한일 번역으로 진정한 연결이 가능해요.",
+    bodyJa: "言葉の壁なく自然に会話できます。\n韓日翻訳で本当の繋がりが生まれます。",
   },
   {
-    id: "3",
     icon: "shield" as const,
-    gradientColors: ["#EFFAF4", "#D8F5E5"] as const,
+    gradientColors: ["#EFFAF4", "#D4F2E3"] as const,
     accentColor: "#1A7A4A",
+    iconBg: "#A9DFC2",
     titleKo: "안전한 신뢰 쌓기",
     titleJa: "安全な信頼の構築",
-    titleBi: "안전한 신뢰 쌓기 · 安全な信頼構築",
-    bodyKo: "준비됐을 때만 연락처를 공유하세요.\n신뢰가 쌓인 후에 앱 밖으로 나갈 수 있어요.",
-    bodyJa: "準備ができたときだけ連絡先を共有。\n信頼が深まってからアプリの外へ踏み出せます。",
+    bodyKo: "준비됐을 때만 연락처를 공유해요.\n신뢰가 쌓인 후에 앱 밖으로 나갈 수 있어요.",
+    bodyJa: "準備ができたときだけ連絡先を共有。\n信頼が深まってからアプリの外へ。",
   },
 ] as const;
 
-// ── CtaButton ─────────────────────────────────────────────────────────────────
-
-function CtaButton({
-  label,
-  accentColor,
-  onPress,
-}: {
-  label: string;
-  accentColor: string;
-  onPress: () => void;
-}) {
-  const scale = useSharedValue(1);
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = () => {
-    scale.value = withSpring(0.96, { damping: 22, stiffness: 420 });
-  };
-
-  const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 14, stiffness: 280 });
-  };
-
-  const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPress();
-  };
-
-  return (
-    <Animated.View style={[animStyle, { width: "100%" }]}>
-      <Pressable
-        onPress={handlePress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        style={[styles.ctaBtn, { backgroundColor: accentColor }]}
-      >
-        <Text style={styles.ctaBtnText}>{label}</Text>
-      </Pressable>
-    </Animated.View>
-  );
-}
-
 // ── FlagBadge ──────────────────────────────────────────────────────────────────
-// Modern language badge — gradient rounded square with typographic mark
+
 function FlagBadge({ country, size = 80 }: { country: "KR" | "JP"; size?: number }) {
   const radius = size * 0.28;
-
   if (country === "JP") {
     return (
-      <View style={{
-        width: size, height: size, borderRadius: radius, overflow: "hidden",
-        shadowColor: "#3B6FD4", shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.22, shadowRadius: 14, elevation: 6,
-      }}>
+      <View style={{ width: size, height: size, borderRadius: radius, overflow: "hidden" }}>
         <LinearGradient
           colors={["#3B6FD4", "#6A4FC8", "#C04472"]}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
         >
-          <Text style={{
-            fontFamily: "Inter_700Bold",
-            fontSize: size * 0.38,
-            color: "rgba(255,255,255,0.95)",
-            letterSpacing: -1,
-            lineHeight: size * 0.46,
-          }}>
+          <Text style={{ fontFamily: "Inter_700Bold", fontSize: size * 0.38, color: "rgba(255,255,255,0.95)", letterSpacing: -1, lineHeight: size * 0.46 }}>
             日
           </Text>
-          <View style={{
-            position: "absolute", bottom: 0, left: 0, right: 0, height: 3,
-            backgroundColor: "rgba(255,255,255,0.25)",
-          }} />
         </LinearGradient>
       </View>
     );
   }
-
-  // KR — diagonal gradient in Korean flag colors
   return (
-    <View style={{
-      width: size, height: size, borderRadius: radius, overflow: "hidden",
-      shadowColor: "#C60C30", shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.18, shadowRadius: 12, elevation: 5,
-    }}>
+    <View style={{ width: size, height: size, borderRadius: radius, overflow: "hidden" }}>
       <LinearGradient
         colors={["#D8324A", "#8B2FC9", "#1C4F9C"]}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
       >
-        <Text style={{
-          fontFamily: "Inter_700Bold",
-          fontSize: size * 0.38,
-          color: "rgba(255,255,255,0.95)",
-          letterSpacing: -1,
-          lineHeight: size * 0.46,
-        }}>
+        <Text style={{ fontFamily: "Inter_700Bold", fontSize: size * 0.38, color: "rgba(255,255,255,0.95)", letterSpacing: -1, lineHeight: size * 0.46 }}>
           한
         </Text>
-        {/* Bottom color strip */}
-        <View style={{
-          position: "absolute", bottom: 0, left: 0, right: 0, height: 3,
-          backgroundColor: "rgba(255,255,255,0.25)",
-        }} />
       </LinearGradient>
     </View>
   );
 }
 
 // ── LanguageCard ───────────────────────────────────────────────────────────────
-// L2 FIX: First screen forces explicit language/country selection.
 
 function LanguageCard({
   lang,
@@ -185,56 +98,45 @@ function LanguageCard({
   onPress: () => void;
 }) {
   const colors = useColors();
-  const scale = useSharedValue(1);
+  const scale = useRef(new Animated.Value(1)).current;
 
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = () => {
-    scale.value = withSpring(0.97, { damping: 20, stiffness: 380 });
+  const pressIn = () => {
+    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 30, bounciness: 0 }).start();
   };
-
-  const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 14, stiffness: 280 });
+  const pressOut = () => {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 6 }).start();
   };
 
   const isKo = lang === "ko";
   const accentColor = isKo ? "#D85870" : "#3B6FD4";
   const bgColor = isKo ? "#FFF0F3" : "#EEF4FF";
-  const borderColor = isKo ? "#F2BDCA" : "#A8C4F5";
 
   return (
-    <Animated.View style={[animStyle, { flex: 1 }]}>
+    <Animated.View style={[{ flex: 1 }, { transform: [{ scale }] }]}>
       <Pressable
         onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
+        onPressIn={pressIn}
+        onPressOut={pressOut}
         style={[
-          langCard.card,
+          lc.card,
           {
             borderColor: isSelected ? accentColor : colors.border,
             backgroundColor: isSelected ? bgColor : colors.white,
             shadowColor: isSelected ? accentColor : "#000",
-            shadowOpacity: isSelected ? 0.18 : 0.05,
+            shadowOpacity: isSelected ? 0.18 : 0.04,
           },
         ]}
       >
         {isSelected && (
-          <Animated.View
-            entering={FadeIn.duration(160)}
-            style={[langCard.checkBadge, { backgroundColor: accentColor }]}
-          >
+          <View style={[lc.checkBadge, { backgroundColor: accentColor }]}>
             <FIcon name="check" size={13} color="#fff" />
-          </Animated.View>
+          </View>
         )}
-
         <FlagBadge country={isKo ? "KR" : "JP"} size={76} />
-
-        <Text style={[langCard.langMain, { color: isSelected ? accentColor : colors.charcoal }]}>
+        <Text style={[lc.langMain, { color: isSelected ? accentColor : colors.charcoal }]}>
           {isKo ? "한국어" : "日本語"}
         </Text>
-        <Text style={[langCard.langSub, { color: colors.charcoalLight }]}>
+        <Text style={[lc.langSub, { color: colors.charcoalLight }]}>
           {isKo ? "Korean" : "Japanese"}
         </Text>
       </Pressable>
@@ -242,144 +144,134 @@ function LanguageCard({
   );
 }
 
-// ── OnboardingScreen ──────────────────────────────────────────────────────────
-// Flow: language → slides → login (country auto-set from language choice)
-// Back navigation:
-//   - "slides" phase: back → previous slide; if slide 0 → back to "language"
-//   - "language" phase: back → exit app (default)
+// ── OnboardingScreen ───────────────────────────────────────────────────────────
 
 export default function OnboardingScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { completeOnboarding, updateProfile } = useApp();
+  const { updateProfile } = useApp();
 
-  const [phase, setPhase] = useState<"language" | "slides">("language");
+  const [phase, setPhase] = useState<"welcome" | "language">("welcome");
   const [selectedLang, setSelectedLang] = useState<"ko" | "ja" | null>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  // ── L1 FIX: Android hardware back button handler ───────────────────────────
+  // Welcome card stagger animations
+  const cardAnims = useRef(
+    VALUE_CARDS.map(() => ({
+      opacity: new Animated.Value(0),
+      translateX: new Animated.Value(30),
+    }))
+  ).current;
+
+  // Phase transition
+  const phaseOpacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (phase === "welcome") {
+      Animated.stagger(
+        110,
+        cardAnims.map(({ opacity, translateX }) =>
+          Animated.parallel([
+            Animated.timing(opacity, { toValue: 1, duration: 320, useNativeDriver: true }),
+            Animated.spring(translateX, { toValue: 0, speed: 16, bounciness: 5, useNativeDriver: true }),
+          ])
+        )
+      ).start();
+    }
+  }, [phase]);
+
+  // Android back button
   useEffect(() => {
     if (Platform.OS !== "android") return;
-
     const handler = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (phase === "slides") {
-        if (currentIndex > 0) {
-          setCurrentIndex(currentIndex - 1);
-          return true;
-        }
-        // First slide → go back to language selection
-        setPhase("language");
-        return true;
-      }
-      // Language phase → exit app (default BackHandler behavior)
+      if (phase === "language") { setPhase("welcome"); return true; }
       return false;
     });
-
     return () => handler.remove();
-  }, [phase, currentIndex]);
+  }, [phase]);
 
-  // ── Slides helpers ─────────────────────────────────────────────────────────
-  const goNext = () => {
-    if (currentIndex < SLIDES.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      // Last slide → go straight to login
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      completeOnboarding();
-      router.replace("/login");
-    }
-  };
-
-  const goPrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    } else {
+  const goToLanguage = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Animated.timing(phaseOpacity, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => {
       setPhase("language");
-    }
+      Animated.timing(phaseOpacity, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+    });
   };
 
-  // ── Language selection helpers ─────────────────────────────────────────────
   const handleLangSelect = (l: "ko" | "ja") => {
     setSelectedLang(l);
-    updateProfile({
-      language: l,
-      country: l === "ko" ? "KR" : "JP",
-    });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleLangContinue = () => {
     if (!selectedLang) return;
+    updateProfile({
+      language: selectedLang,
+      country: selectedLang === "ko" ? "KR" : "JP",
+    });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setCurrentIndex(0);
-    setPhase("slides");
+    router.replace("/login");
   };
 
-  const appLang: "ko" | "ja" = selectedLang ?? "ko";
-  const slide = SLIDES[currentIndex];
-
-  // ── Phase: language ────────────────────────────────────────────────────────
-  if (phase === "language") {
+  // ── Phase: welcome ───────────────────────────────────────────────────────────
+  if (phase === "welcome") {
     return (
-      <View style={[styles.container, { backgroundColor: colors.white }]}>
-        <View style={[styles.header, { paddingTop: topPad + 16 }]}>
-          <View style={styles.logoRow}>
-            <Text style={[styles.logo, { color: colors.charcoal }]}>lito</Text>
-          </View>
+      <View style={[s.container, { backgroundColor: colors.white }]}>
+        <View style={[s.header, { paddingTop: topPad + 16 }]}>
+          <Text style={[s.logo, { color: colors.charcoal }]}>lito</Text>
         </View>
 
-        <Animated.View
-          entering={FadeInUp.duration(320).springify()}
-          style={[langStyles.content, { paddingBottom: bottomPad + 24 }]}
-        >
-          <View style={langStyles.headline}>
-            <Text style={[langStyles.title, { color: colors.charcoal }]}>
-              {"언어를 선택하세요\n言語を選択してください"}
-            </Text>
-            <Text style={[langStyles.sub, { color: colors.charcoalLight }]}>
-              {"Choose your language · 언어를 선택 / 言語選択"}
+        <Animated.View style={[s.welcomeContent, { paddingBottom: bottomPad + 24, opacity: phaseOpacity }]}>
+          <View style={s.welcomeHeadline}>
+            <Text style={[s.welcomeTitle, { color: colors.charcoal }]}>
+              {"한국과 일본을 잇는 인연\n韓日をつなぐ縁"}
             </Text>
           </View>
 
-          <View style={langStyles.cardRow}>
-            {(["ko", "ja"] as const).map((l) => (
-              <LanguageCard
-                key={l}
-                lang={l}
-                isSelected={selectedLang === l}
-                onPress={() => handleLangSelect(l)}
-              />
+          <View style={s.cardStack}>
+            {VALUE_CARDS.map((card, i) => (
+              <Animated.View
+                key={card.titleKo}
+                style={[
+                  s.valueCard,
+                  {
+                    borderColor: `${card.accentColor}22`,
+                    opacity: cardAnims[i].opacity,
+                    transform: [{ translateX: cardAnims[i].translateX }],
+                  },
+                ]}
+              >
+                <LinearGradient
+                  colors={card.gradientColors}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={s.valueCardGrad}
+                >
+                  <View style={[s.valueCardIcon, { backgroundColor: card.iconBg }]}>
+                    <FIcon name={card.icon} size={22} color={card.accentColor} />
+                  </View>
+                  <View style={s.valueCardText}>
+                    <Text style={[s.valueCardTitle, { color: card.accentColor }]}>
+                      {card.titleKo}
+                    </Text>
+                    <Text style={[s.valueCardBody, { color: "#4A3040" }]}>
+                      {card.bodyKo}
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </Animated.View>
             ))}
           </View>
 
-          <View style={langStyles.ctaWrap}>
+          <View style={s.welcomeFooter}>
             <TouchableOpacity
-              style={[
-                langStyles.ctaBtn,
-                {
-                  backgroundColor: selectedLang ? colors.rose : colors.muted,
-                  borderColor: selectedLang ? colors.rose : colors.border,
-                },
-              ]}
-              onPress={handleLangContinue}
-              disabled={!selectedLang}
+              style={[s.ctaBtn, { backgroundColor: colors.rose }]}
+              onPress={goToLanguage}
               activeOpacity={0.85}
             >
-              <Text
-                style={[
-                  langStyles.ctaBtnText,
-                  { color: selectedLang ? colors.white : colors.charcoalLight },
-                ]}
-              >
-                {selectedLang === "ko"
-                  ? "다음 →"
-                  : selectedLang === "ja"
-                  ? "次へ →"
-                  : "언어를 선택해주세요 · 言語を選んでください"}
-              </Text>
+              <Text style={s.ctaBtnText}>{"시작하기 →"}</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -387,95 +279,189 @@ export default function OnboardingScreen() {
     );
   }
 
-  // ── Phase: slides ──────────────────────────────────────────────────────────
+  // ── Phase: language ──────────────────────────────────────────────────────────
   return (
-    <View style={[styles.container, { backgroundColor: colors.white }]}>
-      <View style={[styles.header, { paddingTop: topPad + 16 }]}>
-        {/* L1 FIX: Back button navigates to previous slide or language phase */}
+    <View style={[s.container, { backgroundColor: colors.white }]}>
+      <View style={[s.header, { paddingTop: topPad + 16 }]}>
         <TouchableOpacity
-          onPress={goPrev}
-          style={styles.backBtn}
+          onPress={() => setPhase("welcome")}
+          style={s.backBtn}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Text style={[styles.backArrow, { color: colors.charcoalMid }]}>←</Text>
+          <FIcon name="chevron-left" size={22} color={colors.charcoalMid} />
         </TouchableOpacity>
-        <View style={styles.logoRow}>
-          <Text style={[styles.logo, { color: colors.charcoal }]}>lito</Text>
-        </View>
+        <Text style={[s.logo, { color: colors.charcoal }]}>lito</Text>
         <View style={{ width: 36 }} />
       </View>
 
-      <Animated.View
-        key={`slide-${currentIndex}`}
-        entering={FadeInUp.duration(260).springify()}
-        style={[styles.slide]}
-      >
-        <LinearGradient
-          colors={slide.gradientColors}
-          style={styles.iconCircle}
-        >
-          <FIcon name={slide.icon} size={52} color={slide.accentColor} />
-        </LinearGradient>
-
-        <Text style={[styles.title, { color: colors.charcoal }]}>
-          {appLang === "ko" ? slide.titleKo : slide.titleJa}
-        </Text>
-
-        <View style={[styles.biTag, { backgroundColor: `${slide.accentColor}14` }]}>
-          <Text style={[styles.biText, { color: slide.accentColor }]}>
-            {slide.titleBi}
+      <Animated.View style={[s.langContent, { paddingBottom: bottomPad + 24, opacity: phaseOpacity }]}>
+        <View style={s.langHeadline}>
+          <Text style={[s.langTitle, { color: colors.charcoal }]}>
+            {"언어를 선택하세요\n言語を選択してください"}
+          </Text>
+          <Text style={[s.langSub, { color: colors.charcoalLight }]}>
+            앱 언어 및 매칭 국가가 설정됩니다
           </Text>
         </View>
 
-        <Text style={[styles.body, { color: colors.charcoalLight }]}>
-          {appLang === "ko" ? slide.bodyKo : slide.bodyJa}
-        </Text>
-
-        <Text style={[styles.bodyNative, { color: colors.charcoalMid }]}>
-          {appLang === "ko" ? slide.bodyJa : slide.bodyKo}
-        </Text>
-      </Animated.View>
-
-      <View style={[styles.footer, { paddingBottom: bottomPad + 24 }]}>
-        <View style={styles.dots}>
-          {SLIDES.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.dot,
-                {
-                  backgroundColor:
-                    i === currentIndex ? slide.accentColor : `${slide.accentColor}30`,
-                  width: i === currentIndex ? 22 : 8,
-                },
-              ]}
+        <View style={s.langCardRow}>
+          {(["ko", "ja"] as const).map((l) => (
+            <LanguageCard
+              key={l}
+              lang={l}
+              isSelected={selectedLang === l}
+              onPress={() => handleLangSelect(l)}
             />
           ))}
         </View>
 
-        <CtaButton
-          accentColor={slide.accentColor}
-          onPress={goNext}
-          label={
-            currentIndex === SLIDES.length - 1
-              ? (appLang === "ko" ? "LITO 시작하기 →" : "LITO をはじめる →")
-              : (appLang === "ko" ? "다음 →" : "次へ →")
-          }
-        />
-
-        {currentIndex === SLIDES.length - 1 && (
-          <Text style={[styles.trustNote, { color: colors.charcoalLight }]}>
-            한국 · 일본 연결을 지원합니다
+        <TouchableOpacity
+          style={[
+            s.ctaBtn,
+            {
+              backgroundColor: selectedLang ? colors.rose : colors.muted,
+              borderWidth: selectedLang ? 0 : 1.5,
+              borderColor: colors.border,
+            },
+          ]}
+          onPress={handleLangContinue}
+          disabled={!selectedLang}
+          activeOpacity={0.85}
+        >
+          <Text style={[s.ctaBtnText, { color: selectedLang ? "#fff" : colors.charcoalLight }]}>
+            {selectedLang === "ko"
+              ? "다음 →"
+              : selectedLang === "ja"
+              ? "次へ →"
+              : "언어를 선택해주세요 · 言語を選んでください"}
           </Text>
-        )}
-      </View>
+        </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 }
 
-// ── Language phase styles ─────────────────────────────────────────────────────
+// ── Styles ─────────────────────────────────────────────────────────────────────
 
-const langCard = StyleSheet.create({
+const s = StyleSheet.create({
+  container: { flex: 1 },
+
+  header: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingBottom: 8,
+    position: "relative",
+  },
+  logo: { fontFamily: "Inter_700Bold", fontSize: 22, letterSpacing: -0.8 },
+  backBtn: {
+    position: "absolute",
+    left: 24,
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // ── Welcome ──────────────────────────────────────────────────────────────────
+  welcomeContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  welcomeHeadline: { marginBottom: 28, paddingHorizontal: 4 },
+  welcomeTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 26,
+    lineHeight: 36,
+  },
+  cardStack: { gap: 12, flex: 1 },
+  valueCard: {
+    borderRadius: 20,
+    borderWidth: 1.5,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  valueCardGrad: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    gap: 16,
+  },
+  valueCardIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  valueCardText: { flex: 1 },
+  valueCardTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 15,
+    marginBottom: 4,
+  },
+  valueCardBody: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    lineHeight: 19,
+    opacity: 0.82,
+  },
+  welcomeFooter: { marginTop: 24 },
+
+  // ── Language ─────────────────────────────────────────────────────────────────
+  langContent: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    justifyContent: "center",
+  },
+  langHeadline: { marginBottom: 32 },
+  langTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 27,
+    lineHeight: 38,
+    marginBottom: 8,
+  },
+  langSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    lineHeight: 21,
+    opacity: 0.8,
+  },
+  langCardRow: {
+    flexDirection: "row",
+    gap: 14,
+    marginBottom: 32,
+  },
+
+  // ── Shared CTA ───────────────────────────────────────────────────────────────
+  ctaBtn: {
+    borderRadius: 100,
+    paddingVertical: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  ctaBtnText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 17,
+    color: "#fff",
+    letterSpacing: 0.1,
+  },
+});
+
+const lc = StyleSheet.create({
   card: {
     borderRadius: 24,
     borderWidth: 1.5,
@@ -498,182 +484,6 @@ const langCard = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  checkText: { color: "#fff", fontSize: 12, fontFamily: "Inter_700Bold" },
-  flag: { fontSize: 54 },
   langMain: { fontFamily: "Inter_700Bold", fontSize: 22 },
   langSub: { fontFamily: "Inter_400Regular", fontSize: 13 },
-});
-
-const langStyles = StyleSheet.create({
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    justifyContent: "center",
-  },
-  headline: { marginBottom: 36 },
-  title: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 28,
-    lineHeight: 38,
-    marginBottom: 8,
-  },
-  sub: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    lineHeight: 21,
-    opacity: 0.8,
-  },
-  cardRow: {
-    flexDirection: "row",
-    gap: 14,
-    marginBottom: 28,
-  },
-  ctaWrap: { width: "100%" },
-  ctaBtn: {
-    borderRadius: 100,
-    paddingVertical: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  ctaBtnText: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 17,
-    letterSpacing: 0.1,
-  },
-});
-
-// ── Slides phase styles ───────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingBottom: 8,
-  },
-  logoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 9,
-  },
-  logo: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 22,
-    letterSpacing: -0.8,
-  },
-  backBtn: {
-    width: 36,
-    alignItems: "flex-start",
-    justifyContent: "center",
-    padding: 4,
-  },
-  backArrow: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 22,
-    lineHeight: 28,
-  },
-  skipBtn: { padding: 4 },
-  skip: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 14,
-  },
-
-  slide: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 32,
-    paddingBottom: 24,
-  },
-  iconCircle: {
-    width: 148,
-    height: 148,
-    borderRadius: 74,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 38,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 6,
-  },
-  title: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 28,
-    textAlign: "center",
-    marginBottom: 12,
-    lineHeight: 36,
-  },
-  biTag: {
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    marginBottom: 24,
-  },
-  biText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
-    textAlign: "center",
-    letterSpacing: 0.1,
-  },
-  body: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 16,
-    textAlign: "center",
-    lineHeight: 25,
-    marginBottom: 14,
-  },
-  bodyNative: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 13.5,
-    textAlign: "center",
-    lineHeight: 21,
-    opacity: 0.75,
-  },
-
-  footer: {
-    paddingHorizontal: 28,
-    alignItems: "center",
-    gap: 0,
-  },
-  dots: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 22,
-  },
-  dot: { height: 8, borderRadius: 4 },
-  ctaBtn: {
-    width: "100%",
-    borderRadius: 100,
-    paddingVertical: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  ctaBtnText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 17,
-    color: "#fff",
-    letterSpacing: 0.1,
-  },
-  trustNote: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12.5,
-    marginTop: 14,
-    textAlign: "center",
-  },
 });
