@@ -101,7 +101,7 @@ function LanguageCard({
   const scale = useRef(new Animated.Value(1)).current;
 
   const pressIn = () => {
-    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 30, bounciness: 0 }).start();
+    Animated.spring(scale, { toValue: 0.975, useNativeDriver: true, speed: 30, bounciness: 0 }).start();
   };
   const pressOut = () => {
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 6 }).start();
@@ -109,10 +109,13 @@ function LanguageCard({
 
   const isKo = lang === "ko";
   const accentColor = isKo ? "#D85870" : "#3B6FD4";
-  const bgColor = isKo ? "#FFF0F3" : "#EEF4FF";
+  const gradColors: [string, string] = isKo ? ["#FFF0F3", "#FBDDE3"] : ["#EEF4FF", "#DAEAFF"];
+  const iconBg = isKo ? "#F7C5D0" : "#BCCFF5";
+  const descKo = isKo ? "한국에서 일본인과 인연을 만나요" : "日本で韓国人と出会いましょう";
+  const descJa = isKo ? "한국어 사용자 · 한국 매칭" : "日本語ユーザー · 日本マッチング";
 
   return (
-    <Animated.View style={[{ flex: 1 }, { transform: [{ scale }] }]}>
+    <Animated.View style={{ transform: [{ scale }] }}>
       <Pressable
         onPress={onPress}
         onPressIn={pressIn}
@@ -121,24 +124,34 @@ function LanguageCard({
           lc.card,
           {
             borderColor: isSelected ? accentColor : colors.border,
-            backgroundColor: isSelected ? bgColor : colors.white,
+            backgroundColor: isSelected ? gradColors[0] : colors.white,
             shadowColor: isSelected ? accentColor : "#000",
-            shadowOpacity: isSelected ? 0.18 : 0.04,
+            shadowOpacity: isSelected ? 0.14 : 0.04,
           },
         ]}
       >
-        {isSelected && (
-          <View style={[lc.checkBadge, { backgroundColor: accentColor }]}>
-            <FIcon name="check" size={13} color="#fff" />
-          </View>
-        )}
-        <FlagBadge country={isKo ? "KR" : "JP"} size={76} />
-        <Text style={[lc.langMain, { color: isSelected ? accentColor : colors.charcoal }]}>
-          {isKo ? "한국어" : "日本語"}
-        </Text>
-        <Text style={[lc.langSub, { color: colors.charcoalLight }]}>
-          {isKo ? "Korean" : "Japanese"}
-        </Text>
+        {/* Flag icon */}
+        <View style={[lc.iconWrap, { backgroundColor: isSelected ? iconBg : colors.muted }]}>
+          <FlagBadge country={isKo ? "KR" : "JP"} size={48} />
+        </View>
+
+        {/* Text */}
+        <View style={lc.textBlock}>
+          <Text style={[lc.langMain, { color: isSelected ? accentColor : colors.charcoal }]}>
+            {isKo ? "한국어" : "日本語"}
+          </Text>
+          <Text style={[lc.langLabel, { color: isSelected ? accentColor : colors.charcoalLight }]}>
+            {isKo ? "Korean" : "Japanese"}
+          </Text>
+          <Text style={[lc.langDesc, { color: colors.charcoalLight }]}>
+            {isKo ? descJa : descKo}
+          </Text>
+        </View>
+
+        {/* Check */}
+        <View style={[lc.checkCircle, { borderColor: isSelected ? accentColor : colors.border, backgroundColor: isSelected ? accentColor : "transparent" }]}>
+          {isSelected && <FIcon name="check" size={14} color="#fff" />}
+        </View>
       </Pressable>
     </Animated.View>
   );
@@ -317,21 +330,25 @@ export default function OnboardingScreen() {
   // ── Phase: language ──────────────────────────────────────────────────────────
   return (
     <View style={[s.container, { backgroundColor: colors.white }]}>
-      <View style={[s.header, { paddingTop: topPad + 16 }]}>
-        <Text style={[s.logo, { color: colors.charcoal }]}>lito</Text>
-      </View>
+      <Animated.View
+        style={[s.langOuter, { paddingTop: topPad + 32, paddingBottom: bottomPad + 24, opacity: phaseOpacity }]}
+      >
+        {/* Logo block — matches login screen size */}
+        <View style={s.langLogoBlock}>
+          <Text style={[s.langLogo, { color: colors.charcoal }]}>lito</Text>
+          <Text style={[s.langTagline, { color: colors.charcoalLight }]}>한국과 일본을 잇는 인연</Text>
+          <Text style={[s.langTaglineJa, { color: colors.charcoalLight }]}>韓日をつなぐ縁</Text>
+        </View>
 
-      <Animated.View style={[s.langContent, { paddingBottom: bottomPad + 24, opacity: phaseOpacity }]}>
-        <View style={s.langHeadline}>
-          <Text style={[s.langTitle, { color: colors.charcoal }]}>
-            {"언어를 선택하세요\n言語を選択してください"}
-          </Text>
-          <Text style={[s.langSub, { color: colors.charcoalLight }]}>
-            {"앱 언어 및 매칭 국가가 설정됩니다\nアプリの言語とマッチング国が設定されます"}
+        {/* Section label */}
+        <View style={s.langLabelBlock}>
+          <Text style={[s.langSectionLabel, { color: colors.charcoalMid }]}>
+            {"언어를 선택하세요  ·  言語を選択してください"}
           </Text>
         </View>
 
-        <View style={s.langCardRow}>
+        {/* Vertical cards */}
+        <View style={s.langCardStack}>
           {(["ko", "ja"] as const).map((l) => (
             <LanguageCard
               key={l}
@@ -342,27 +359,31 @@ export default function OnboardingScreen() {
           ))}
         </View>
 
-        <TouchableOpacity
-          style={[
-            s.ctaBtn,
-            {
-              backgroundColor: selectedLang ? colors.rose : colors.muted,
-              borderWidth: selectedLang ? 0 : 1.5,
-              borderColor: colors.border,
-            },
-          ]}
-          onPress={handleLangContinue}
-          disabled={!selectedLang}
-          activeOpacity={0.85}
-        >
-          <Text style={[s.ctaBtnText, { color: selectedLang ? "#fff" : colors.charcoalLight }]}>
-            {selectedLang === "ko"
-              ? "다음 →"
-              : selectedLang === "ja"
-              ? "次へ →"
-              : "언어를 선택해주세요 · 言語を選んでください"}
-          </Text>
-        </TouchableOpacity>
+        {/* CTA */}
+        <View style={s.langFooter}>
+          <TouchableOpacity
+            style={[
+              s.ctaBtn,
+              {
+                backgroundColor: selectedLang ? colors.rose : colors.muted,
+                borderWidth: selectedLang ? 0 : 1.5,
+                borderColor: colors.border,
+                shadowColor: selectedLang ? colors.rose : "transparent",
+              },
+            ]}
+            onPress={handleLangContinue}
+            disabled={!selectedLang}
+            activeOpacity={0.85}
+          >
+            <Text style={[s.ctaBtnText, { color: selectedLang ? "#fff" : colors.charcoalLight }]}>
+              {selectedLang === "ko"
+                ? "다음으로 →"
+                : selectedLang === "ja"
+                ? "次へ →"
+                : "언어를 선택해주세요 · 言語を選んでください"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
     </View>
   );
@@ -444,30 +465,44 @@ const s = StyleSheet.create({
   welcomeFooter: { marginTop: 24 },
 
   // ── Language ─────────────────────────────────────────────────────────────────
-  langContent: {
+  langOuter: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 20,
-    justifyContent: "center",
   },
-  langHeadline: { marginBottom: 32 },
-  langTitle: {
+  langLogoBlock: {
+    alignItems: "center",
+    paddingBottom: 32,
+  },
+  langLogo: {
     fontFamily: "Inter_700Bold",
-    fontSize: 27,
-    lineHeight: 38,
-    marginBottom: 8,
+    fontSize: 44,
+    letterSpacing: -2,
+    marginBottom: 10,
   },
-  langSub: {
+  langTagline: {
     fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    lineHeight: 21,
-    opacity: 0.8,
+    fontSize: 13,
+    opacity: 0.7,
+    marginBottom: 2,
   },
-  langCardRow: {
-    flexDirection: "row",
-    gap: 14,
-    marginBottom: 32,
+  langTaglineJa: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    opacity: 0.45,
   },
+  langLabelBlock: {
+    marginBottom: 16,
+  },
+  langSectionLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    letterSpacing: 0.2,
+  },
+  langCardStack: {
+    gap: 12,
+    marginBottom: 28,
+  },
+  langFooter: {},
 
   // ── Shared CTA ───────────────────────────────────────────────────────────────
   ctaBtn: {
@@ -490,27 +525,53 @@ const s = StyleSheet.create({
 
 const lc = StyleSheet.create({
   card: {
-    borderRadius: 24,
+    borderRadius: 20,
     borderWidth: 1.5,
-    paddingVertical: 28,
-    paddingHorizontal: 12,
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+    flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    position: "relative",
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 18,
-    elevation: 4,
+    gap: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 14,
+    elevation: 3,
   },
-  checkBadge: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  iconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
-  langMain: { fontFamily: "Inter_700Bold", fontSize: 22 },
-  langSub: { fontFamily: "Inter_400Regular", fontSize: 13 },
+  textBlock: {
+    flex: 1,
+    gap: 1,
+  },
+  langMain: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  langLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    opacity: 0.7,
+    marginBottom: 4,
+  },
+  langDesc: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    lineHeight: 17,
+    opacity: 0.65,
+  },
+  checkCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
 });
