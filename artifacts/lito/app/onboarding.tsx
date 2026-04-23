@@ -162,7 +162,7 @@ function LanguageCard({
 export default function OnboardingScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { updateProfile } = useApp();
+  const { updateProfile, completeOnboarding } = useApp();
 
   const [phase, setPhase] = useState<"language" | "welcome">("language");
   const [selectedLang, setSelectedLang] = useState<"ko" | "ja" | null>(null);
@@ -242,9 +242,10 @@ export default function OnboardingScreen() {
     goToWelcome();
   };
 
-  // Welcome CTA → login
+  // Welcome CTA → mark onboarding complete → login
   const handleStartApp = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    completeOnboarding();
     router.replace("/login");
   };
 
