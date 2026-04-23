@@ -9,9 +9,13 @@ import { translateInterest } from "@/utils/interests";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
+  Dimensions,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Platform,
   ScrollView,
   StyleSheet,
@@ -20,6 +24,9 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const { width: SCREEN_W } = Dimensions.get("window");
+const HERO_H = 400;
 
 export default function UserProfileScreen() {
   const colors = useColors();
@@ -30,6 +37,53 @@ export default function UserProfileScreen() {
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+
+  // ── Photo gallery ──────────────────────────────────────────────────────────
+  const [photoIndex, setPhotoIndex] = useState(0);
+
+  const handlePhotoScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
+    setPhotoIndex(idx);
+  };
+
+  // ── Entry animations ───────────────────────────────────────────────────────
+  const heroAnim    = useRef(new Animated.Value(0)).current; // hero fade+scale
+  const contentAnim = useRef(new Animated.Value(0)).current; // content fade+slide
+  const footerAnim  = useRef(new Animated.Value(28)).current; // footer slide-up
+
+  useEffect(() => {
+    Animated.parallel([
+      // Hero: fade in + subtle scale 0.97→1
+      Animated.timing(heroAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      // Content: slight delay, fade + 16px slide up
+      Animated.sequence([
+        Animated.delay(100),
+        Animated.parallel([
+          Animated.timing(contentAnim, {
+            toValue: 1,
+            duration: 320,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+      // Footer: slides up from 28px below
+      Animated.sequence([
+        Animated.delay(160),
+        Animated.spring(footerAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          damping: 22,
+          stiffness: 240,
+          mass: 0.9,
+        }),
+      ]),
+    ]).start();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Find user from conversations or discover deck
   const conv = conversations.find((c) => c.user.id === id);
@@ -90,28 +144,109 @@ export default function UserProfileScreen() {
         contentContainerStyle={{ paddingBottom: bottomPad + 100 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Hero photo ── */}
-        <View style={styles.heroWrap}>
-          <ProfileImage
-            photoKey={user.photos[0]}
-            size={undefined}
-            style={{ width: "100%", height: 380 } as any}
-          />
-          <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.7)"]}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={styles.heroInfo}>
-            <View style={styles.heroNameRow}>
-              <Text style={styles.heroName}>{user.nickname}</Text>
-              <Text style={styles.heroAge}>{user.age}</Text>
-              <CountryFlag country={user.country} size={18} />
-            </View>
-            <Text style={styles.heroCity}>{user.city}</Text>
-          </View>
-        </View>
+        {/* ── Hero photo gallery ── */}
+        <Animated.View
+          style={[
+            styles.heroWrap,
+            {
+              opacity: heroAnim,
+              transform: [
+                {
+                  scale: heroAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.97, 1],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          {/* Horizontal paging photo carousel */}
+          {(() => {
+            const photos = user.photos.length > 0 ? user.photos : ["profile1"];
+            return (
+              <>
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={handlePhotoScroll}
+                  scrollEventThrottle={16}
+                  style={{ width: SCREEN_W, height: HERO_H }}
+                >
+                  {photos.map((photo, i) => (
+                    <View key={i} style={{ width: SCREEN_W, height: HERO_H }}>
+                      <ProfileImage
+                        photoKey={photo}
+                        size={undefined}
+                        style={{ width: SCREEN_W, height: HERO_H } as any}
+                        borderRadius={0}
+                      />
+                    </View>
+                  ))}
+                </ScrollView>
 
-        <View style={styles.content}>
+                {/* Gradient overlay */}
+                <LinearGradient
+                  colors={["transparent", "rgba(0,0,0,0.72)"]}
+                  locations={[0.45, 1]}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                />
+
+                {/* Dot indicators — only if multiple photos */}
+                {photos.length > 1 && (
+                  <View style={styles.photoDots}>
+                    {photos.map((_, i) => (
+                      <View
+                        key={i}
+                        style={[
+                          styles.photoDot,
+                          { opacity: i === photoIndex ? 1 : 0.38, width: i === photoIndex ? 18 : 6 },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                )}
+
+                {/* Name / age / city info */}
+                <View style={styles.heroInfo}>
+                  <View style={styles.heroNameRow}>
+                    <Text style={styles.heroName}>{user.nickname}</Text>
+                    <Text style={styles.heroAge}>{user.age}</Text>
+                    <CountryFlag country={user.country} size={18} />
+                  </View>
+                  <Text style={styles.heroCity}>{user.city}</Text>
+                  {/* Photo count pill */}
+                  {photos.length > 1 && (
+                    <View style={styles.photoCountPill}>
+                      <Text style={styles.photoCountText}>
+                        {photoIndex + 1} / {photos.length}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </>
+            );
+          })()}
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.content,
+            {
+              opacity: contentAnim,
+              transform: [
+                {
+                  translateY: contentAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [16, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
           {/* ── Trust badge ── */}
           <View style={styles.trustRow}>
             <TrustBadge trustProfile={user.trustProfile} size="md" lang={lang} />
@@ -221,11 +356,21 @@ export default function UserProfileScreen() {
               ))}
             </View>
           )}
-        </View>
+        </Animated.View>
       </ScrollView>
 
-      {/* ── Bottom CTA ── */}
-      <View style={[styles.footer, { paddingBottom: bottomPad + 12, backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+      {/* ── Bottom CTA — slides up on mount ── */}
+      <Animated.View
+        style={[
+          styles.footer,
+          {
+            paddingBottom: bottomPad + 12,
+            backgroundColor: colors.surface,
+            borderTopColor: colors.border,
+            transform: [{ translateY: footerAnim }],
+          },
+        ]}
+      >
         {hasConv ? (
           <TouchableOpacity
             style={[styles.ctaBtn, { backgroundColor: colors.rose }]}
@@ -291,7 +436,7 @@ export default function UserProfileScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -318,8 +463,37 @@ const styles = StyleSheet.create({
   },
   heroWrap: {
     position: "relative",
-    height: 380,
+    height: HERO_H,
     overflow: "hidden",
+  },
+  photoDots: {
+    position: "absolute",
+    top: 14,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 5,
+    zIndex: 5,
+  },
+  photoDot: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#fff",
+  },
+  photoCountPill: {
+    marginTop: 6,
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(0,0,0,0.4)",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  photoCountText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.9)",
   },
   heroInfo: {
     position: "absolute",
