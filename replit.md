@@ -176,6 +176,16 @@ artifacts/lito/
 - `trackEvent()` facade covers 24 events across monetization, AI, and viral categories
 - Console logging in dev; replace `send()` in analytics.ts to wire in PostHog/Amplitude
 
+### UI 버전 기록 (롤백 기준점)
+
+| 버전 | 커밋 ID | 설명 |
+|------|---------|------|
+| **UI 버전 1** | `fec57722a701159c05d88b551e7dcff9c2c33c21` | 5차 패치 완료 상태 — analytics/consent 버그 수정 포함 기준 UI |
+
+> "버전 1로 롤백해줘" → 위 커밋으로 복원
+
+---
+
 ### CRITICAL — Do Not Touch
 - `chat/[id].tsx` — translation enrichment pipeline (enrichmentMap, inflight, translationCache)
 - Pronunciation features must NEVER be reintroduced
