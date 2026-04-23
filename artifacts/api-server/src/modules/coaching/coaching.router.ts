@@ -7,8 +7,11 @@
  */
 
 import { Router } from "express";
+import { eq, and } from "drizzle-orm";
+import { db, creditWallets, aiConsents, aiLedger } from "@workspace/db";
 import { requireAuth } from "../../middleware/auth.js";
 import { aiRateLimit } from "../../middleware/aiRateLimit.js";
+import { trackEvent } from "../../infra/canonicalAnalytics.js";
 import {
   suggestReply,
   translate,
@@ -20,6 +23,81 @@ import {
 } from "./coaching.service.js";
 
 const router = Router();
+
+const COACH_CREDIT_COST = 1;
+
+/** 대화 코치 동의 확인 */
+async function hasCoachConsent(userId: number): Promise<boolean> {
+  const [consent] = await db.select().from(aiConsents)
+    .where(and(
+      eq(aiConsents.userId, userId),
+      eq(aiConsents.featureType, "conversation_coach")
+    ))
+    .limit(1);
+  return !!(consent?.granted && !consent.revokedAt);
+}
+
+/**
+ * Trial-first credit deduction.
+ * 성공 반환 후에만 호출할 것.
+ * @returns consumption info
+ */
+async function debitCoachCredit(
+  userId: number,
+  featureType: "conversation_coach" | "profile_coach",
+  refId: string
+): Promise<{ consumption_source: "trial" | "paid"; trial_remaining: number; paid_remaining: number; remaining_total: number }> {
+  const [wallet] = await db.select().from(creditWallets)
+    .where(eq(creditWallets.userId, userId))
+    .limit(1);
+
+  const trialNow = wallet?.trialRemaining ?? 3;
+  const paidNow = wallet?.balanceCache ?? 0;
+
+  let newTrial = trialNow;
+  let newPaid = paidNow;
+  let source: "trial" | "paid";
+
+  if (trialNow >= COACH_CREDIT_COST) {
+    newTrial = trialNow - COACH_CREDIT_COST;
+    source = "trial";
+  } else {
+    newPaid = Math.max(0, paidNow - COACH_CREDIT_COST);
+    source = "paid";
+  }
+
+  const newBalance = newPaid;
+  const now = new Date();
+
+  if (!wallet) {
+    await db.insert(creditWallets).values({
+      userId,
+      balanceCache: newPaid,
+      trialRemaining: newTrial,
+      updatedAt: now,
+    });
+  } else {
+    await db.update(creditWallets)
+      .set({ balanceCache: newPaid, trialRemaining: newTrial, updatedAt: now })
+      .where(eq(creditWallets.userId, userId));
+  }
+
+  await db.insert(aiLedger).values({
+    userId,
+    entryType: "debit",
+    credits: COACH_CREDIT_COST,
+    featureType,
+    referenceId: refId,
+    balanceAfter: newBalance,
+  });
+
+  return {
+    consumption_source: source,
+    trial_remaining: newTrial,
+    paid_remaining: newPaid,
+    remaining_total: newTrial + newPaid,
+  };
+}
 
 // 인증 필수 — 모든 /ai/* 경로 (비로그인 접근 시 401 반환)
 router.use((req, res, next) => {
@@ -96,24 +174,81 @@ router.post("/ai/translate", async (req, res) => {
 /**
  * POST /api/ai/coach
  * Body: { messages, targetLang?, uiLang?, prsContext? }
- * Response: { summary, tones }
+ * Response: { summary, tones, charged, consumption_source, consumption_applied, trial_remaining, paid_remaining, remaining_total }
+ *
+ * Blocks:
+ *  - no_consent      → { blocked: true, block_reason: "no_consent" }
+ *  - zero_credit     → { blocked: true, block_reason: "zero_credit" }
  */
-router.post("/ai/coach", async (req, res) => {
+router.post("/ai/coach", requireAuth, async (req, res) => {
+  const userId = (req as any).user?.userId;
   try {
+    // 1. consent 확인
+    const consent = await hasCoachConsent(userId);
+    if (!consent) {
+      await trackEvent({ eventName: "coach_blocked_no_consent", actorId: userId });
+      res.json({ ok: true, data: { blocked: true, block_reason: "no_consent" } });
+      return;
+    }
+
+    // 2. 크레딧 잔액 확인
+    const [wallet] = await db.select().from(creditWallets)
+      .where(eq(creditWallets.userId, userId))
+      .limit(1);
+    const trialNow = wallet?.trialRemaining ?? 3;
+    const paidNow = wallet?.balanceCache ?? 0;
+    if (trialNow + paidNow < COACH_CREDIT_COST) {
+      await trackEvent({ eventName: "coach_blocked_zero_credit", actorId: userId });
+      res.json({
+        ok: true,
+        data: {
+          blocked: true,
+          block_reason: "zero_credit",
+          trial_remaining: trialNow,
+          paid_remaining: paidNow,
+          remaining_total: 0,
+        }
+      });
+      return;
+    }
+
+    // 3. 요청 유효성
     const { messages, targetLang, uiLang, prsContext } = req.body as {
       messages: Array<{ sender: string; text: string }>;
       targetLang?: "ko" | "ja";
       uiLang?: "ko" | "ja";
       prsContext?: Record<string, unknown> | null;
     };
-
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       res.status(400).json({ error: "messages array is required" });
       return;
     }
 
+    // 4. AI 호출
     const result = await coach({ messages, targetLang, uiLang, prsContext });
-    res.json(result);
+
+    // 5. 성공 시에만 차감 (trial first)
+    const refId = `conv_coach_${userId}_${Date.now()}`;
+    const consumption = await debitCoachCredit(userId, "conversation_coach", refId);
+
+    await trackEvent({
+      eventName: "coach_conv_success",
+      actorId: userId,
+      props: {
+        consumption_source: consumption.consumption_source,
+        remaining_total: consumption.remaining_total,
+      }
+    });
+
+    res.json({
+      ...result,
+      charged: true,
+      consumption_applied: COACH_CREDIT_COST,
+      consumption_source: consumption.consumption_source,
+      trial_remaining: consumption.trial_remaining,
+      paid_remaining: consumption.paid_remaining,
+      remaining_total: consumption.remaining_total,
+    });
   } catch (err) {
     console.error("[coaching] /ai/coach error:", err);
     if (err instanceof Error) {

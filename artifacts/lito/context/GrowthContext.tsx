@@ -29,6 +29,7 @@ import {
   requestProfileCoach,
   saveProfileCoachOutput,
   type ConsentStatus,
+  type WalletState,
 } from "@/services/coachApi";
 import {
   defaultSubscriptionState,
@@ -57,9 +58,6 @@ import {
   SubscriptionState,
 } from "@/types/growth";
 import { User } from "@/types";
-
-// ── Trial config ───────────────────────────────────────────────────────────────
-const SHARED_TRIAL_COUNT = 3;
 
 // ── Context shape ─────────────────────────────────────────────────────────────
 
@@ -97,6 +95,7 @@ interface GrowthContextType {
 
   // Server-authoritative wallet & consents
   walletBalance: number | null;
+  walletState: WalletState | null;
   trialRemaining: number;
   consentStatus: ConsentStatus | null;
   walletLoading: boolean;
@@ -133,11 +132,13 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
   );
 
   // ── Server-authoritative state ────────────────────────────────────────────
-  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletState, setWalletState] = useState<WalletState | null>(null);
   const [walletLoading, setWalletLoading] = useState(false);
   const [consentStatus, setConsentStatus] = useState<ConsentStatus | null>(null);
-  // Shared trial credits — 3 total, consumed only on successful coach result
-  const [trialRemaining, setTrialRemaining] = useState(SHARED_TRIAL_COUNT);
+
+  // Derived wallet values (server authoritative, fall back to safe defaults)
+  const walletBalance = walletState?.balance ?? null;
+  const trialRemaining = walletState?.trial_remaining ?? 3;
 
   // Keep refs to avoid stale closures in callbacks
   const profileRef = useRef(profile);
@@ -157,11 +158,11 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
   // ── Bootstrap server state when token is available ────────────────────────
   useEffect(() => {
     if (!token) {
-      setWalletBalance(null);
+      setWalletState(null);
       setConsentStatus(null);
       return;
     }
-    fetchWallet(token).then((w) => { if (w) setWalletBalance(w.balance); });
+    fetchWallet(token).then((w) => { if (w) setWalletState(w); });
     fetchConsentStatus(token).then((c) => { if (c) setConsentStatus(c); });
   }, [token]);
 
@@ -311,7 +312,7 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
     setWalletLoading(true);
     try {
       const w = await fetchWallet(t);
-      if (w) setWalletBalance(w.balance);
+      if (w) setWalletState(w);
     } finally {
       setWalletLoading(false);
     }
@@ -465,6 +466,7 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
         claimReferralReward,
         simulateReferralSuccess,
         walletBalance,
+        walletState,
         trialRemaining,
         consentStatus,
         walletLoading,

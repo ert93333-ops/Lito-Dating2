@@ -14,11 +14,46 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useApp } from "@/context/AppContext";
 import { useGrowth } from "@/context/GrowthContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 import { PLANS } from "@/services/monetization";
+import { verifyPurchase } from "@/services/coachApi";
 import { PlanId } from "@/types/growth";
+
+// ── IAP 플랫폼 product ID 매핑 ─────────────────────────────────────────────────
+const PRODUCT_IDS: Record<PlanId, string> = {
+  premium: "com.litodate.membership.premium.monthly",
+  plus:    "com.litodate.membership.plus.monthly",
+  free:    "",
+};
+
+/**
+ * nativeIapPurchase
+ *
+ * 실제 기기에서는 StoreKit (iOS) / Play Billing (Android) 을 호출합니다.
+ * 웹/시뮬레이터에서는 stub을 반환합니다.
+ *
+ * 반환값: { transactionId, receiptData (iOS) | purchaseToken (Android) }
+ *         실패 시 throw
+ */
+async function nativeIapPurchase(productId: string, platform: "apple" | "google" | "web"): Promise<{
+  transactionId: string;
+  receiptData?: string;
+  purchaseToken?: string;
+}> {
+  if (platform === "web") {
+    // 웹 환경 — 서버 검증을 위한 stub (개발/데모 전용)
+    await new Promise((r) => setTimeout(r, 900));
+    return { transactionId: `demo_${Date.now()}`, receiptData: "DEMO_RECEIPT" };
+  }
+  // TODO: 실제 기기에서 expo-iap / react-native-purchases 호출
+  // const { transactionId, transactionReceipt, purchaseToken } = await requestPurchase(productId);
+  // return { transactionId, receiptData: transactionReceipt, purchaseToken };
+  await new Promise((r) => setTimeout(r, 900));
+  return { transactionId: `stub_${platform}_${Date.now()}` };
+}
 
 // ── Plan card ─────────────────────────────────────────────────────────────────
 
@@ -108,6 +143,7 @@ function PlanCard({
 export default function PaywallScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { token } = useApp();
   const { subscription, upgradePlan, track, refreshWallet } = useGrowth();
   const { lang } = useLocale();
 
@@ -123,16 +159,47 @@ export default function PaywallScreen() {
   const handleUpgrade = async () => {
     if (selectedPlan === "free") return;
     if (isCurrent(selectedPlan)) { router.back(); return; }
+
     setLoading(true);
     track("purchase_started", { plan: selectedPlan });
+
     try {
-      // Simulate IAP flow — replace with real StoreKit/Play Billing receipt
-      await new Promise((r) => setTimeout(r, 900));
-      // Local state upgrade (optimistic, plan persisted locally)
+      // 1. 플랫폼 결정
+      const nativePlatform: "apple" | "google" | "web" =
+        Platform.OS === "ios" ? "apple" :
+        Platform.OS === "android" ? "google" : "web";
+
+      const productId = PRODUCT_IDS[selectedPlan];
+
+      // 2. 네이티브 IAP (StoreKit / Play Billing)
+      const iapResult = await nativeIapPurchase(productId, nativePlatform);
+
+      // 3. 서버 영수증 검증 (purchase_verified — purchase_completed와 분리)
+      // 네이티브 플랫폼에서만 실행 (web은 demo stub이므로 skip)
+      if (token && nativePlatform !== "web") {
+        const billingPlatform: "apple" | "google" = nativePlatform;
+        try {
+          await verifyPurchase(token, {
+            platform: billingPlatform,
+            productId,
+            transactionId: iapResult.transactionId,
+            receiptData: iapResult.receiptData,
+            purchaseToken: iapResult.purchaseToken,
+          });
+          track("purchase_verified", { plan: selectedPlan, platform: billingPlatform });
+        } catch (verifyErr) {
+          console.warn("[paywall] server verify failed (non-blocking):", verifyErr);
+          track("purchase_verify_failed", { plan: selectedPlan });
+        }
+      }
+
+      // 4. 로컬 상태 업데이트 (낙관적)
       upgradePlan(selectedPlan);
-      track("purchase_completed", { plan: selectedPlan });
-      // Refresh server wallet after successful purchase (credits may be granted)
+
+      // 5. 서버 wallet 동기화 (크레딧 부여 반영)
       refreshWallet().catch(() => {});
+
+      track("purchase_success_returned", { plan: selectedPlan });
       setUpgraded(true);
       setTimeout(() => router.back(), 1400);
     } catch (err) {

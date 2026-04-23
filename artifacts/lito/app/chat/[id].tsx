@@ -22,6 +22,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ContactLockCard } from "@/components/ContactLockCard";
 import { CountryFlag } from "@/components/CountryFlag";
+import { NoConsentSheet } from "@/components/chat/NoConsentSheet";
+import { ZeroCreditSheet } from "@/components/chat/ZeroCreditSheet";
+import { UnsafeNotice } from "@/components/chat/UnsafeNotice";
 import { ProfileImage } from "@/components/ProfileImage";
 import { PRSInsightCard, type PRSCardState } from "@/components/PRSInsightCard";
 import { useApp } from "@/context/AppContext";
@@ -846,6 +849,7 @@ export default function ChatDetailScreen() {
     buyAiCoachCredits,
     upgradePlan,
     walletBalance,
+    walletState,
     consentStatus,
     grantConsent,
     refreshWallet,
@@ -856,6 +860,12 @@ export default function ChatDetailScreen() {
   const [showCoachSheet, setShowCoachSheet] = useState(false);
   const [showTrustGateModal, setShowTrustGateModal] = useState(false);
   const [coachData, setCoachData] = useState<CoachResult | null>(null);
+
+  // S08: Blocked UI 3종 분리 상태
+  const [showNoConsentSheet, setShowNoConsentSheet] = useState(false);
+  const [showZeroCreditSheet, setShowZeroCreditSheet] = useState(false);
+  const [showUnsafeNotice, setShowUnsafeNotice] = useState(false);
+  const [isGrantingConsent, setIsGrantingConsent] = useState(false);
   // L6 FIX: track whether user has ever tapped translate — to show/hide first-use hint
   const [hasUsedTranslation, setHasUsedTranslation] = useState(false);
 
@@ -1169,40 +1179,25 @@ export default function ChatDetailScreen() {
 
     track("coach_opened");
 
-    // State machine: unsafe → no_consent → zero_credit → server call
-    // 1. No consent → show consent gate (consent + paywall 동시 노출 금지)
+    // State machine: no_consent → zero_credit → server call
+    // 1. consent 체크 (로컬 consent status 기준 fast-path)
     if (consentStatus !== null && !consentStatus.conversation_coach) {
       track("coach_blocked_no_consent");
-      Alert.alert(
-        "AI 코치 이용 동의",
-        "AI 코치를 사용하려면 AI 데이터 처리에 동의해야 합니다.",
-        [
-          { text: "취소", style: "cancel" },
-          {
-            text: "동의",
-            onPress: async () => {
-              const ok = await grantConsent("conversation_coach");
-              if (ok) handleAiSuggest();
-            },
-          },
-        ]
-      );
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setShowNoConsentSheet(true);
       return;
     }
 
-    // 2. Server wallet gate — if balance 0 and no local credits → paywall
+    // 2. 크레딧 fast-path 체크 (서버가 최종 권한, 여기선 UI 방어막)
+    const serverTotal = (walletState?.remaining_total) ?? (walletState?.trial_remaining ?? 3) + (walletBalance ?? 0);
     const localCredits = getAiCoachCreditsRemaining();
-    const serverBalance = walletBalance ?? 0;
-    const hasFunds = localCredits > 0 || serverBalance > 0;
-    if (!hasFunds) {
+    const hasFunds = localCredits > 0 || serverTotal > 0;
+    if (consentStatus !== null && !hasFunds) {
       track("coach_blocked_zero_credit");
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setShowCreditsModal(true);
+      setShowZeroCreditSheet(true);
       return;
     }
-
-    // 3. Local credit deduct (optimistic) — server deduction handled by /api/ai/coach
-    consumeAiCoachCredit();
 
     setAiSuggesting(true);
     track("coach_request_started");
@@ -1225,31 +1220,33 @@ export default function ChatDetailScreen() {
         body: JSON.stringify({ messages: recentMessages, targetLang, uiLang, prsContext }),
       });
 
-      if (!response.ok) {
-        const errBody = await response.json().catch(() => ({}));
-        const code = (errBody as any)?.error?.code;
-        if (code === "NO_CONSENT") {
+      const raw: any = await response.json().catch(() => ({}));
+
+      // 서버 authoritative blocked 응답 처리
+      if (raw?.ok === true && raw?.data?.blocked) {
+        const blockReason = raw.data.block_reason as string;
+        if (blockReason === "no_consent") {
           track("coach_blocked_no_consent");
-          Alert.alert("AI 코치", "AI 이용 동의가 필요합니다.");
+          setShowNoConsentSheet(true);
           return;
         }
-        if (code === "ZERO_CREDIT") {
+        if (blockReason === "zero_credit") {
           track("coach_blocked_zero_credit");
-          setShowCreditsModal(true);
+          setShowZeroCreditSheet(true);
           return;
         }
-        if (code === "CONTENT_UNSAFE") {
+        if (blockReason === "unsafe") {
           track("coach_blocked_unsafe");
-          Alert.alert("AI 코치", "부적절한 내용이 감지되어 코치를 제공할 수 없습니다.");
+          setShowUnsafeNotice(true);
           return;
         }
-        throw new Error(`API ${response.status}`);
+        track("coach_request_no_charge_failure");
+        return;
       }
 
-      const raw: any = await response.json();
-      if (raw?.error) {
+      if (!response.ok || raw?.error) {
         track("coach_request_no_charge_failure");
-        throw new Error(raw.error);
+        throw new Error(raw?.error ?? `API ${response.status}`);
       }
 
       const safeData: CoachResult = {
@@ -1270,12 +1267,11 @@ export default function ChatDetailScreen() {
       };
 
       track("coach_request_completed");
-
       setCoachData(safeData);
       setShowCoachSheet(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      // Refresh wallet after successful coach call
-      refreshWallet();
+      // 성공 후 서버 wallet 동기화
+      refreshWallet().catch(() => {});
     } catch (err) {
       console.error("[AI Coach] error:", err);
       track("coach_request_no_charge_failure");
@@ -1395,7 +1391,7 @@ export default function ChatDetailScreen() {
         onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })}
       />
 
-      {/* ── AI Coach credits modal ──────────────────────────────────────── */}
+      {/* ── AI Coach credits modal (legacy, 구독 플로우용 유지) ───────────── */}
       <AiCoachCreditsModal
         visible={showCreditsModal}
         planId={subscription.planId}
@@ -1411,6 +1407,32 @@ export default function ChatDetailScreen() {
         }}
       />
 
+      {/* ── Blocked UI 3종 분리 (S07/S08) ────────────────────────────────── */}
+      <NoConsentSheet
+        visible={showNoConsentSheet}
+        onDismiss={() => setShowNoConsentSheet(false)}
+        isGranting={isGrantingConsent}
+        onConsentGranted={async () => {
+          setIsGrantingConsent(true);
+          const ok = await grantConsent("conversation_coach");
+          setIsGrantingConsent(false);
+          setShowNoConsentSheet(false);
+          if (ok) {
+            track("consent_granted", { feature: "conversation_coach" });
+          }
+        }}
+      />
+      <ZeroCreditSheet
+        visible={showZeroCreditSheet}
+        onDismiss={() => setShowZeroCreditSheet(false)}
+        onBuyCredits={() => {
+          setShowZeroCreditSheet(false);
+          router.push("/paywall" as any);
+        }}
+        trialRemaining={walletState?.trial_remaining}
+        paidRemaining={walletState?.paid_remaining}
+      />
+
       {/* ── AI Conversation Coach popup (top slide-down, non-blocking) ───── */}
       <AiCoachPopup
         visible={showCoachSheet}
@@ -1419,6 +1441,15 @@ export default function ChatDetailScreen() {
         onClose={() => setShowCoachSheet(false)}
         onSuggestionSelect={handleSuggestionSelect}
       />
+
+      {/* ── Unsafe 인라인 배너 (S08) ─────────────────────────────────────── */}
+      {showUnsafeNotice && (
+        <UnsafeNotice
+          onReport={() => { setShowUnsafeNotice(false); router.push(`/report-user?id=${conversation?.user.id}` as any); }}
+          onBlock={() => { setShowUnsafeNotice(false); if (conversation?.user.id) blockUser(conversation.user.id); }}
+          onHelp={() => { setShowUnsafeNotice(false); router.push("/trust-center" as any); }}
+        />
+      )}
 
       {/* ── Quick reply chips (collapsible) ──────────────────────────────── */}
       {(quickRepliesLoading || quickReplies.length > 0) && (

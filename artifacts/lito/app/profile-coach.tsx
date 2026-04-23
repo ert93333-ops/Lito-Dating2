@@ -139,31 +139,37 @@ export default function ProfileCoachScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
+  // 화면 열릴 때 분석 시작 안 함 — 사용자가 명시적으로 버튼을 눌러야만 요청
   useEffect(() => {
     track("profile_coach_opened");
-    // 동의 미완료 시 게이트 — 코칭 자동 실행 금지
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 명시적 탭 → consent 게이트 → 서버 요청
+  const handleStartCoach = async () => {
+    if (profileCoachLoading) return;
     if (consentStatus !== null && !consentStatus.profile_coach) {
       Alert.alert(
         "AI 프로필 코치 동의",
-        "AI 프로필 코치를 사용하려면 AI 데이터 처리에 동의해야 합니다.",
+        "AI 데이터 처리에 동의해야 합니다. 채팅 내용은 분석에 사용되지 않으며, 프로필 정보만 참고합니다.",
         [
-          { text: "취소", style: "cancel", onPress: () => router.back() },
+          { text: "지금은 안 함", style: "cancel" },
           {
-            text: "동의",
+            text: "동의하고 계속",
             onPress: async () => {
               const ok = await grantConsent("profile_coach");
-              if (ok && profileSuggestions.length === 0) refreshProfileSuggestions();
+              if (!ok) {
+                Alert.alert("오류", "동의 처리 중 문제가 발생했어요. 다시 시도해주세요.");
+              }
+              // 동의 후 자동 실행 금지 — 사용자가 다시 버튼을 눌러야 함
             },
           },
         ]
       );
       return;
     }
-    if (profileSuggestions.length === 0 && !profileCoachLoading) {
-      refreshProfileSuggestions();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    await refreshProfileSuggestions();
+  };
 
   const pendingCount = profileSuggestions.filter((s) => s.accepted === null || s.accepted === undefined).length;
 
@@ -224,7 +230,7 @@ export default function ProfileCoachScreen() {
           </View>
         )}
 
-        {/* Suggestions */}
+        {/* Suggestions / Loading / CTA */}
         {profileCoachLoading ? (
           <View style={styles.emptyState}>
             <ActivityIndicator size="large" color={colors.rose} />
@@ -233,15 +239,25 @@ export default function ProfileCoachScreen() {
             </Text>
           </View>
         ) : profileSuggestions.length === 0 ? (
+          /* 미분석 상태 — 명시적 CTA만 제공, 자동 실행 없음 */
           <View style={styles.emptyState}>
             <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>
-              {lang === "ko" ? "프로필이 잘 되어 있어요!" : "プロフィールはしっかりできています！"}
+              {lang === "ko" ? "아직 분석을 시작하지 않았어요" : "まだ分析を開始していません"}
             </Text>
             <Text style={[styles.emptySub, { color: colors.charcoalLight }]}>
               {lang === "ko"
-                ? "현재 제안할 내용이 없어요. 나중에 다시 확인해보세요."
-                : "現在提案することはありません。後でまた確認してみてください。"}
+                ? "아래 버튼을 눌러 AI 프로필 분석을 시작하세요."
+                : "下のボタンを押してAIプロフィール分析を開始してください。"}
             </Text>
+            <TouchableOpacity
+              style={[styles.startBtn, { backgroundColor: colors.rose }]}
+              onPress={handleStartCoach}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.startBtnText}>
+                {lang === "ko" ? "분석 시작하기" : "分析を始める"}
+              </Text>
+            </TouchableOpacity>
           </View>
         ) : (
           profileSuggestions.map((s) => (
@@ -249,17 +265,19 @@ export default function ProfileCoachScreen() {
           ))
         )}
 
-        {/* Refresh */}
-        <TouchableOpacity
-          style={[styles.refreshBtn, { borderColor: colors.border }]}
-          onPress={() => refreshProfileSuggestions()}
-          disabled={profileCoachLoading}
-        >
-          <FIcon name="refresh-cw" size={14} color={colors.charcoalMid} />
-          <Text style={[styles.refreshBtnText, { color: colors.charcoalMid }]}>
-            {lang === "ko" ? "다시 분석하기" : "再分析する"}
-          </Text>
-        </TouchableOpacity>
+        {/* Re-analyse (표시 조건: 결과가 있을 때만) */}
+        {profileSuggestions.length > 0 && (
+          <TouchableOpacity
+            style={[styles.refreshBtn, { borderColor: colors.border }]}
+            onPress={handleStartCoach}
+            disabled={profileCoachLoading}
+          >
+            <FIcon name="refresh-cw" size={14} color={colors.charcoalMid} />
+            <Text style={[styles.refreshBtnText, { color: colors.charcoalMid }]}>
+              {lang === "ko" ? "다시 분석하기" : "再分析する"}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Privacy note */}
         <View style={[styles.privacyNote, { borderColor: colors.border }]}>
@@ -379,6 +397,14 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 48 },
   emptyTitle: { fontFamily: "Inter_700Bold", fontSize: 20, textAlign: "center" },
   emptySub: { fontFamily: "Inter_400Regular", fontSize: 14, textAlign: "center", lineHeight: 21 },
+  startBtn: {
+    marginTop: 10,
+    paddingHorizontal: 28,
+    paddingVertical: 13,
+    borderRadius: 24,
+    alignItems: "center",
+  },
+  startBtnText: { fontFamily: "Inter_700Bold", fontSize: 15, color: "#fff" },
 
   refreshBtn: {
     flexDirection: "row",

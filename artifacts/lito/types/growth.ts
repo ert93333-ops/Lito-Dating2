@@ -158,6 +158,7 @@ export type AnalyticsEvent =
   | "purchase_started"
   | "purchase_completed"
   | "purchase_verified"
+  | "purchase_verify_failed"
   | "purchase_failed"
   | "purchase_cancelled"
   | "purchase_success_returned"

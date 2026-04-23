@@ -18,6 +18,8 @@ export const creditWallets = pgTable("credit_wallets", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id).unique(),
   balanceCache: integer("balance_cache").notNull().default(0),
+  /** 서버 persistent trial 잔액 — 계정 단위, 재설치 불가 리셋 */
+  trialRemaining: integer("trial_remaining").notNull().default(3),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

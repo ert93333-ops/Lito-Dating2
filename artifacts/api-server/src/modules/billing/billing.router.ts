@@ -271,13 +271,18 @@ router.get("/v1/billing/wallet", requireAuth, async (req, res) => {
       .where(eq(creditWallets.userId, userId))
       .limit(1);
 
-    const balance = wallet?.balanceCache ?? 0;
+    const trialRemaining = wallet?.trialRemaining ?? 3;
+    const paidRemaining = wallet?.balanceCache ?? 0;
+    const remainingTotal = trialRemaining + paidRemaining;
 
     res.json({
       ok: true,
       data: {
-        balance,
-        isZeroCredit: balance === 0,
+        balance: paidRemaining,
+        trial_remaining: trialRemaining,
+        paid_remaining: paidRemaining,
+        remaining_total: remainingTotal,
+        isZeroCredit: remainingTotal === 0,
         note: "채팅과 번역은 크레딧과 무관하게 무료 이용 가능합니다."
       }
     });

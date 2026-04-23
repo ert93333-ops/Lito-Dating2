@@ -11,6 +11,9 @@ import { API_BASE } from "@/utils/api";
 
 export interface WalletState {
   balance: number;
+  trial_remaining: number;
+  paid_remaining: number;
+  remaining_total: number;
   isZeroCredit: boolean;
 }
 
@@ -32,14 +35,29 @@ export interface ProfileCoachResult {
   blocked: false;
   coach_output_id: number;
   suggestions: ServerProfileSuggestion[];
-  remaining_credit: number;
+  charged: boolean;
+  consumption_applied: number;
+  consumption_source: "trial" | "paid";
+  trial_remaining: number;
+  paid_remaining: number;
+  remaining_total: number;
 }
 
 export interface ProfileCoachBlocked {
   blocked: true;
-  block_reason: "blocked_no_consent" | "blocked_zero_credit" | "blocked_unsafe";
-  remaining_credit?: number;
-  message: string;
+  block_reason: "blocked_no_consent" | "blocked_zero_credit" | "blocked_unsafe" | "no_consent" | "zero_credit";
+  trial_remaining?: number;
+  paid_remaining?: number;
+  remaining_total?: number;
+  message?: string;
+}
+
+export interface ConvCoachBlocked {
+  blocked: true;
+  block_reason: "no_consent" | "zero_credit";
+  trial_remaining?: number;
+  paid_remaining?: number;
+  remaining_total?: number;
 }
 
 export type ProfileCoachResponse = ProfileCoachResult | ProfileCoachBlocked;

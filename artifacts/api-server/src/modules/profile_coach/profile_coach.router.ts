@@ -36,11 +36,13 @@ async function hasCoachConsent(userId: number): Promise<boolean> {
   return !!(consent?.granted && !consent.revokedAt);
 }
 
-async function getWalletBalance(userId: number): Promise<number> {
+async function getWalletTotals(userId: number): Promise<{ trialRemaining: number; paidRemaining: number; total: number }> {
   const [wallet] = await db.select().from(creditWallets)
     .where(eq(creditWallets.userId, userId))
     .limit(1);
-  return wallet?.balanceCache ?? 0;
+  const trialRemaining = wallet?.trialRemaining ?? 3;
+  const paidRemaining = wallet?.balanceCache ?? 0;
+  return { trialRemaining, paidRemaining, total: trialRemaining + paidRemaining };
 }
 
 async function hasUnsafeFlag(userId: number): Promise<boolean> {
@@ -58,17 +60,34 @@ async function hasUnsafeFlag(userId: number): Promise<boolean> {
   return !!result.rows?.length;
 }
 
-async function debitCredit(userId: number, credits: number, refId: string): Promise<number> {
+async function debitCreditTrialFirst(
+  userId: number,
+  credits: number,
+  refId: string
+): Promise<{ consumption_source: "trial" | "paid"; trial_remaining: number; paid_remaining: number; remaining_total: number }> {
   const [wallet] = await db.select().from(creditWallets)
     .where(eq(creditWallets.userId, userId))
     .limit(1);
 
-  const current = wallet?.balanceCache ?? 0;
-  const newBalance = Math.max(0, current - credits);
+  const trialNow = wallet?.trialRemaining ?? 3;
+  const paidNow = wallet?.balanceCache ?? 0;
 
+  let newTrial = trialNow;
+  let newPaid = paidNow;
+  let source: "trial" | "paid";
+
+  if (trialNow >= credits) {
+    newTrial = trialNow - credits;
+    source = "trial";
+  } else {
+    newPaid = Math.max(0, paidNow - credits);
+    source = "paid";
+  }
+
+  const now = new Date();
   if (wallet) {
     await db.update(creditWallets)
-      .set({ balanceCache: newBalance, updatedAt: new Date() })
+      .set({ balanceCache: newPaid, trialRemaining: newTrial, updatedAt: now })
       .where(eq(creditWallets.userId, userId));
   }
 
@@ -78,10 +97,15 @@ async function debitCredit(userId: number, credits: number, refId: string): Prom
     credits,
     featureType: "profile_coach",
     referenceId: refId,
-    balanceAfter: newBalance,
+    balanceAfter: newPaid,
   });
 
-  return newBalance;
+  return {
+    consumption_source: source,
+    trial_remaining: newTrial,
+    paid_remaining: newPaid,
+    remaining_total: newTrial + newPaid,
+  };
 }
 
 /**
@@ -114,12 +138,19 @@ router.post("/v1/ai/profile-coach", requireAuth, async (req, res) => {
       return;
     }
 
-    const balance = await getWalletBalance(userId);
-    if (balance < COACH_CREDIT_COST) {
+    const walletTotals = await getWalletTotals(userId);
+    if (walletTotals.total < COACH_CREDIT_COST) {
       await trackEvent({ eventName: "coach_blocked_zero_credit", actorId: userId });
       res.json({
         ok: true,
-        data: { blocked: true, block_reason: "blocked_zero_credit", remaining_credit: balance, message: "AI 코칭 크레딧이 부족합니다." }
+        data: {
+          blocked: true,
+          block_reason: "blocked_zero_credit",
+          trial_remaining: walletTotals.trialRemaining,
+          paid_remaining: walletTotals.paidRemaining,
+          remaining_total: 0,
+          message: "AI 코칭 크레딧이 부족합니다."
+        }
       });
       return;
     }
@@ -172,11 +203,11 @@ Rules:
     }
 
     const refId = `profile_coach_${userId}_${Date.now()}`;
-    const newBalance = await debitCredit(userId, COACH_CREDIT_COST, refId);
+    const consumption = await debitCreditTrialFirst(userId, COACH_CREDIT_COST, refId);
 
     const saved = await db.execute<{ id: number }>(sql`
       INSERT INTO profile_coach_outputs (user_id, consent_snapshot, suggestions, remaining_credit, created_at)
-      VALUES (${userId}, true, ${JSON.stringify(suggestions)}::jsonb, ${newBalance}, NOW())
+      VALUES (${userId}, true, ${JSON.stringify(suggestions)}::jsonb, ${consumption.paid_remaining}, NOW())
       RETURNING id
     `);
 
@@ -185,7 +216,11 @@ Rules:
     await trackEvent({
       eventName: "coach_request_completed",
       actorId: userId,
-      props: { suggestions_count: suggestions.length, remaining_credit: newBalance }
+      props: {
+        suggestions_count: suggestions.length,
+        consumption_source: consumption.consumption_source,
+        remaining_total: consumption.remaining_total,
+      }
     });
 
     res.json({
@@ -193,7 +228,12 @@ Rules:
       data: {
         coach_output_id: outputId,
         suggestions,
-        remaining_credit: newBalance,
+        charged: true,
+        consumption_applied: COACH_CREDIT_COST,
+        consumption_source: consumption.consumption_source,
+        trial_remaining: consumption.trial_remaining,
+        paid_remaining: consumption.paid_remaining,
+        remaining_total: consumption.remaining_total,
       }
     });
   } catch (err) {
