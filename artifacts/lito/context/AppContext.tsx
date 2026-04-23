@@ -113,6 +113,8 @@ export interface DiscoverFilters {
   ageMax: number;
   interests: string[];
   gender: "all" | "male" | "female";
+  smoking?: "all" | "never" | "socially" | "regularly";
+  drinking?: "all" | "never" | "socially" | "regularly";
 }
 
 interface AppContextType {
@@ -224,6 +226,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── Fetch discover users from API ─────────────────────────────────────────
   const discoverFiltersRef = useRef<DiscoverFilters>({
     country: "all", langLevel: "all", ageMin: 20, ageMax: 35, interests: [], gender: "all",
+    smoking: "all", drinking: "all",
   });
 
   const fetchDiscover = useCallback(async (filters?: DiscoverFilters) => {
@@ -242,6 +245,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
       if (f.interests.length > 0) params.set("interests", f.interests.join(","));
       if (f.gender !== "all") params.set("gender", f.gender);
+      if (f.smoking && f.smoking !== "all") params.set("smoking", f.smoking);
+      if (f.drinking && f.drinking !== "all") params.set("drinking", f.drinking);
       const res = await fetch(`${API_BASE}/api/users/discover?${params.toString()}`, { headers });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json() as { users: ServerUser[] };

@@ -718,6 +718,8 @@ export default function DiscoverScreen() {
   const [filterAgeMin, setFilterAgeMin] = useState(20);
   const [filterAgeMax, setFilterAgeMax] = useState(35);
   const [filterInterests, setFilterInterests] = useState<string[]>([]);
+  const [filterSmoking, setFilterSmoking] = useState<"all" | "never" | "socially" | "regularly">("all");
+  const [filterDrinking, setFilterDrinking] = useState<"all" | "never" | "socially" | "regularly">("all");
   const { chemistryPicks, track } = useGrowth();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const TAB_BAR_H = Platform.OS === "web" ? 84 : 70;
@@ -741,7 +743,8 @@ export default function DiscoverScreen() {
   const filteredUsers = discoverUsers;
   const filtersActive =
     filterGender !== "all" || filterCountry !== "all" || filterLevel !== "all" ||
-    filterAgeMin !== 20 || filterAgeMax !== 35 || filterInterests.length > 0;
+    filterAgeMin !== 20 || filterAgeMax !== 35 || filterInterests.length > 0 ||
+    filterSmoking !== "all" || filterDrinking !== "all";
 
   // ── 필터 적용 — API 재요청 ─────────────────────────────────────────────────
   const applyFilters = () => {
@@ -752,6 +755,8 @@ export default function DiscoverScreen() {
       ageMin: filterAgeMin,
       ageMax: filterAgeMax,
       interests: filterInterests,
+      smoking: filterSmoking,
+      drinking: filterDrinking,
     };
     refetchDiscover(filters);
     setShowFilterSheet(false);
@@ -765,7 +770,9 @@ export default function DiscoverScreen() {
     setFilterAgeMin(20);
     setFilterAgeMax(35);
     setFilterInterests([]);
-    refetchDiscover({ gender: "all", country: "all", langLevel: "all", ageMin: 20, ageMax: 35, interests: [] });
+    setFilterSmoking("all");
+    setFilterDrinking("all");
+    refetchDiscover({ gender: "all", country: "all", langLevel: "all", ageMin: 20, ageMax: 35, interests: [], smoking: "all", drinking: "all" });
   };
 
   // ── 관심사 토글 ────────────────────────────────────────────────────────────
@@ -1109,6 +1116,68 @@ export default function DiscoverScreen() {
                   onPress={() => toggleInterest(label)}
                 >
                   <Text style={[filterStyles.interestChipText, { color: selected ? "#fff" : colors.charcoalMid }]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Smoking */}
+          <Text style={[filterStyles.label, { color: colors.charcoalLight }]}>
+            {isKo ? "흡연" : "喫煙"}
+          </Text>
+          <View style={filterStyles.chipRow}>
+            {(["all", "never", "socially", "regularly"] as const).map((val) => {
+              const label =
+                val === "all"
+                  ? isKo ? "전체" : "すべて"
+                  : val === "never"
+                  ? isKo ? "안 함" : "しない"
+                  : val === "socially"
+                  ? isKo ? "가끔" : "たまに"
+                  : isKo ? "자주" : "よくする";
+              return (
+                <TouchableOpacity
+                  key={val}
+                  style={[filterStyles.chip, {
+                    backgroundColor: filterSmoking === val ? colors.rose : colors.muted,
+                    borderColor: filterSmoking === val ? colors.rose : colors.border,
+                  }]}
+                  onPress={() => setFilterSmoking(val)}
+                >
+                  <Text style={[filterStyles.chipText, { color: filterSmoking === val ? "#fff" : colors.charcoalMid }]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Drinking */}
+          <Text style={[filterStyles.label, { color: colors.charcoalLight }]}>
+            {isKo ? "음주" : "飲酒"}
+          </Text>
+          <View style={filterStyles.chipRow}>
+            {(["all", "never", "socially", "regularly"] as const).map((val) => {
+              const label =
+                val === "all"
+                  ? isKo ? "전체" : "すべて"
+                  : val === "never"
+                  ? isKo ? "안 함" : "しない"
+                  : val === "socially"
+                  ? isKo ? "가끔" : "たまに"
+                  : isKo ? "자주" : "よく飲む";
+              return (
+                <TouchableOpacity
+                  key={val}
+                  style={[filterStyles.chip, {
+                    backgroundColor: filterDrinking === val ? colors.rose : colors.muted,
+                    borderColor: filterDrinking === val ? colors.rose : colors.border,
+                  }]}
+                  onPress={() => setFilterDrinking(val)}
+                >
+                  <Text style={[filterStyles.chipText, { color: filterDrinking === val ? "#fff" : colors.charcoalMid }]}>
                     {label}
                   </Text>
                 </TouchableOpacity>

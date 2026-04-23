@@ -54,6 +54,8 @@ type FilterOpts = {
   langLevel: string;
   interests: string[];
   gender: string;
+  smoking?: string;
+  drinking?: string;
 };
 
 function applyFilters(user: ServerUser, opts: FilterOpts): boolean {
@@ -61,6 +63,12 @@ function applyFilters(user: ServerUser, opts: FilterOpts): boolean {
   if (opts.country !== "all" && user.country !== opts.country) return false;
   if (opts.langLevel !== "all" && user.languageLevel !== opts.langLevel) return false;
   if (opts.gender !== "all" && user.gender !== opts.gender) return false;
+  if (opts.smoking && opts.smoking !== "all") {
+    if (!user.smoking || user.smoking === "prefer_not_to_say" || user.smoking !== opts.smoking) return false;
+  }
+  if (opts.drinking && opts.drinking !== "all") {
+    if (!user.drinking || user.drinking === "prefer_not_to_say" || user.drinking !== opts.drinking) return false;
+  }
   if (opts.interests.length > 0) {
     const expandedFilter = expandInterestTags(opts.interests);
     const userInterests = (user.interests ?? []).map((i) => i.toLowerCase());
