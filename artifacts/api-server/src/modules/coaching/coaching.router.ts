@@ -99,12 +99,6 @@ async function debitCoachCredit(
   };
 }
 
-// 인증 필수 — 모든 /ai/* 경로 (비로그인 접근 시 401 반환)
-router.use((req, res, next) => {
-  if (req.path.startsWith("/ai/")) return requireAuth(req, res, next);
-  next();
-});
-
 // Rate-limit all /ai/* paths
 router.use((req, res, next) => {
   if (req.path.startsWith("/ai/")) return aiRateLimit(req, res, next);
