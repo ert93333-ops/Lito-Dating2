@@ -918,7 +918,25 @@ export default function ChatDetailScreen() {
   const [prsExpanded, setPrsExpanded] = useState(false);
 
   const [inputText, setInputText] = useState(draft ? decodeURIComponent(draft) : "");
+  const [inputFocused, setInputFocused] = useState(false);
+
+  // Send button — pressIn/Out feedback scale
   const sendBtnScale = useRef(new Animated.Value(1)).current;
+  // Send button — appear/disappear when text is present/absent
+  const sendAppear = useRef(new Animated.Value(draft ? 1 : 0)).current;
+
+  // Animate send button in/out as inputText gains or loses content
+  useEffect(() => {
+    const hasText = inputText.trim().length > 0;
+    Animated.spring(sendAppear, {
+      toValue: hasText ? 1 : 0,
+      useNativeDriver: true,
+      damping: 18,
+      stiffness: 340,
+      mass: 0.7,
+    }).start();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputText]);
 
   const handleSendPressIn = () => {
     Animated.spring(sendBtnScale, { toValue: 0.88, useNativeDriver: true, speed: 30, bounciness: 0 }).start();
@@ -1658,13 +1676,13 @@ export default function ChatDetailScreen() {
             );
           })()}
 
-          {/* Text input */}
+          {/* Text input — border glows rose on focus */}
           <TextInput
             style={[
               styles.input,
               {
                 backgroundColor: colors.muted,
-                borderColor: colors.border,
+                borderColor: inputFocused ? colors.rose : colors.border,
                 color: colors.charcoal,
               },
             ]}
@@ -1672,31 +1690,49 @@ export default function ChatDetailScreen() {
             placeholderTextColor={colors.charcoalLight}
             value={inputText}
             onChangeText={setInputText}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
             multiline
             maxLength={500}
           />
 
-          {/* Send button — scale spring + haptic on press */}
-          <Animated.View style={{ transform: [{ scale: sendBtnScale }] }}>
-            <Pressable
-              style={[
-                styles.sendBtn,
+          {/* Send button:
+              outer Animated.View  → appear/disappear scale + opacity (sendAppear)
+              inner Animated.View  → pressIn/pressOut spring (sendBtnScale) */}
+          <Animated.View
+            style={{
+              opacity: sendAppear.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }),
+              transform: [
                 {
-                  backgroundColor: inputText.trim() ? colors.rose : colors.muted,
-                  borderColor: inputText.trim() ? colors.rose : colors.border,
+                  scale: sendAppear.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.72, 1],
+                  }),
                 },
-              ]}
-              onPress={handleSend}
-              onPressIn={handleSendPressIn}
-              onPressOut={handleSendPressOut}
-              disabled={!inputText.trim()}
-            >
-              <FIcon
-                name="send"
-                size={16}
-                color={inputText.trim() ? colors.white : colors.charcoalFaint}
-              />
-            </Pressable>
+              ],
+            }}
+          >
+            <Animated.View style={{ transform: [{ scale: sendBtnScale }] }}>
+              <Pressable
+                style={[
+                  styles.sendBtn,
+                  {
+                    backgroundColor: inputText.trim() ? colors.rose : colors.muted,
+                    borderColor: inputText.trim() ? colors.rose : colors.border,
+                  },
+                ]}
+                onPress={handleSend}
+                onPressIn={handleSendPressIn}
+                onPressOut={handleSendPressOut}
+                disabled={!inputText.trim()}
+              >
+                <FIcon
+                  name="send"
+                  size={16}
+                  color={inputText.trim() ? colors.white : colors.charcoalFaint}
+                />
+              </Pressable>
+            </Animated.View>
           </Animated.View>
         </View>
       </KeyboardAvoidingView>
