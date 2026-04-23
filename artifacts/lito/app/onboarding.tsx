@@ -178,9 +178,6 @@ export default function OnboardingScreen() {
     }))
   ).current;
 
-  // Phase transition
-  const phaseOpacity = useRef(new Animated.Value(1)).current;
-
   useEffect(() => {
     if (phase === "welcome") {
       // Reset before stagger in case user returned from welcome
@@ -212,18 +209,12 @@ export default function OnboardingScreen() {
 
   const goToWelcome = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Animated.timing(phaseOpacity, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => {
-      setPhase("welcome");
-      Animated.timing(phaseOpacity, { toValue: 1, duration: 220, useNativeDriver: true }).start();
-    });
+    setPhase("welcome");
   };
 
   const goBackToLanguage = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Animated.timing(phaseOpacity, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => {
-      setPhase("language");
-      Animated.timing(phaseOpacity, { toValue: 1, duration: 220, useNativeDriver: true }).start();
-    });
+    setPhase("language");
   };
 
   const handleLangSelect = (l: "ko" | "ja") => {
@@ -272,7 +263,7 @@ export default function OnboardingScreen() {
           <View style={{ width: 36 }} />
         </View>
 
-        <Animated.View style={[s.welcomeContent, { paddingBottom: bottomPad + 24, opacity: phaseOpacity }]}>
+        <View style={[s.welcomeContent, { paddingBottom: bottomPad + 24 }]}>
           <View style={s.welcomeHeadline}>
             <Text style={[s.welcomeTitle, { color: colors.charcoal }]}>
               {headline}
@@ -323,7 +314,7 @@ export default function OnboardingScreen() {
               <Text style={s.ctaBtnText}>{ctaLabel}</Text>
             </TouchableOpacity>
           </View>
-        </Animated.View>
+        </View>
       </View>
     );
   }
@@ -331,9 +322,7 @@ export default function OnboardingScreen() {
   // ── Phase: language ──────────────────────────────────────────────────────────
   return (
     <View style={[s.container, { backgroundColor: colors.white }]}>
-      <Animated.View
-        style={[s.langOuter, { paddingTop: topPad + 32, paddingBottom: bottomPad + 24, opacity: phaseOpacity }]}
-      >
+      <View style={[s.langOuter, { paddingTop: topPad + 32, paddingBottom: bottomPad + 24 }]}>
         {/* Logo block — matches login screen size */}
         <View style={s.langLogoBlock}>
           <Text style={[s.langLogo, { color: colors.charcoal }]}>lito</Text>
@@ -385,7 +374,7 @@ export default function OnboardingScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      </Animated.View>
+      </View>
     </View>
   );
 }
