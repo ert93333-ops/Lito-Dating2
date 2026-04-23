@@ -93,13 +93,52 @@ function MessageBubble({ msg, enrichment, viewerLang, onToggleTranslation, showF
   const isTranslating = !!enrichment?.isLoading;
   const showTranslation = !!enrichment?.showTranslation;
 
-  // What language the translation IS IN — always the opposite of the source message.
-  // Korean message → "JA" chip.  Japanese message → "KO" chip.
   const translationLangLabel = msg.originalLanguage === "ko" ? "JA" : "KO";
+
+  // ── Entry animation (fade + slide up 10px) ──────────────────────────────
+  const entryOpacity   = useRef(new Animated.Value(0)).current;
+  const entryTranslateY = useRef(new Animated.Value(10)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(entryOpacity, {
+        toValue: 1,
+        duration: 200,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(entryTranslateY, {
+        toValue: 0,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  // Only on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Translation crossfade ─────────────────────────────────────────────────
+  const translationFade = useRef(new Animated.Value(0)).current;
+  const prevShow = useRef(false);
+  useEffect(() => {
+    if (showTranslation === prevShow.current) return;
+    prevShow.current = showTranslation;
+    Animated.timing(translationFade, {
+      toValue: showTranslation ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [showTranslation, translationFade]);
 
   if (isMe) {
     return (
-      <View style={[bubble.wrap, { alignSelf: "flex-end" }]}>
+      <Animated.View
+        style={[
+          bubble.wrap,
+          { alignSelf: "flex-end", opacity: entryOpacity, transform: [{ translateY: entryTranslateY }] },
+        ]}
+      >
         <View style={[bubble.balloonMe, { backgroundColor: colors.bubbleMe }]}>
           <Text style={[bubble.textMe, { color: colors.white }]}>
             {msg.originalText}
@@ -108,13 +147,18 @@ function MessageBubble({ msg, enrichment, viewerLang, onToggleTranslation, showF
         <Text style={[bubble.time, { color: colors.charcoalLight, alignSelf: "flex-end" }]}>
           {fmtTime(msg.createdAt)}
         </Text>
-      </View>
+      </Animated.View>
     );
   }
 
   // ── Received message — tappable to toggle translation ────────────────────
   return (
-    <View style={[bubble.wrap, { alignSelf: "flex-start" }]}>
+    <Animated.View
+      style={[
+        bubble.wrap,
+        { alignSelf: "flex-start", opacity: entryOpacity, transform: [{ translateY: entryTranslateY }] },
+      ]}
+    >
       <TouchableOpacity
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -133,12 +177,12 @@ function MessageBubble({ msg, enrichment, viewerLang, onToggleTranslation, showF
             },
           ]}
         >
-          {/* Layer 1 — original text: authentic voice */}
+          {/* Layer 1 — original text */}
           <Text style={[bubble.textOriginal, { color: colors.charcoalMid }]}>
             {msg.originalText}
           </Text>
 
-          {/* Translation loading spinner */}
+          {/* Translation loading */}
           {isTranslating && (
             <>
               <View style={[bubble.divider, { backgroundColor: colors.border }]} />
@@ -150,9 +194,9 @@ function MessageBubble({ msg, enrichment, viewerLang, onToggleTranslation, showF
             </>
           )}
 
-          {/* Layer 2 — translated text: shown only when toggled ON */}
-          {hasTranslation && showTranslation && !isTranslating && (
-            <>
+          {/* Layer 2 — translated text: crossfade in/out */}
+          {hasTranslation && !isTranslating && (
+            <Animated.View style={{ opacity: translationFade, overflow: "hidden" }}>
               <View style={[bubble.divider, { backgroundColor: colors.border }]} />
               <View style={bubble.translationRow}>
                 <View style={[bubble.langChip, { backgroundColor: colors.roseLight }]}>
@@ -164,10 +208,10 @@ function MessageBubble({ msg, enrichment, viewerLang, onToggleTranslation, showF
                   {enrichment!.translatedText}
                 </Text>
               </View>
-            </>
+            </Animated.View>
           )}
 
-          {/* L6 FIX: First-use hint — prominent callout when user hasn't translated yet */}
+          {/* First-use callout */}
           {!hasTranslation && !isTranslating && showFirstUseHint && (
             <View style={[bubble.firstUseHint, { backgroundColor: colors.roseLight, borderColor: "#F2BDCA" }]}>
               <FIcon name="globe" size={12} color={colors.rose} />
@@ -176,7 +220,7 @@ function MessageBubble({ msg, enrichment, viewerLang, onToggleTranslation, showF
               </Text>
             </View>
           )}
-          {/* Subtle globe hint — shown on all other untranslated messages */}
+          {/* Subtle globe hint */}
           {!hasTranslation && !isTranslating && !showFirstUseHint && (
             <View style={bubble.translateHint}>
               <FIcon name="globe" size={11} color={colors.charcoalLight} style={{ opacity: 0.55 }} />
@@ -188,7 +232,7 @@ function MessageBubble({ msg, enrichment, viewerLang, onToggleTranslation, showF
       <Text style={[bubble.time, { color: colors.charcoalLight, alignSelf: "flex-start" }]}>
         {fmtTime(msg.createdAt)}
       </Text>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -892,6 +936,8 @@ export default function ChatDetailScreen() {
   const [quickReplies, setQuickReplies] = useState<string[]>([]);
   const [quickRepliesLoading, setQuickRepliesLoading] = useState(false);
   const [quickRepliesExpanded, setQuickRepliesExpanded] = useState(false);
+  const quickRepliesPanelAnim = useRef(new Animated.Value(0)).current;
+  const quickRepliesPanelVisible = useRef(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const lastFetchedMsgId = useRef<string | null>(null);
 
@@ -1107,6 +1153,23 @@ export default function ChatDetailScreen() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [convMessages.length]);
+
+  // ── Quick replies panel slide-up animation ────────────────────────────────
+  const panelShouldShow = quickRepliesLoading || quickReplies.length > 0;
+  useEffect(() => {
+    if (panelShouldShow && !quickRepliesPanelVisible.current) {
+      quickRepliesPanelVisible.current = true;
+      quickRepliesPanelAnim.setValue(0);
+      Animated.timing(quickRepliesPanelAnim, {
+        toValue: 1,
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    } else if (!panelShouldShow) {
+      quickRepliesPanelVisible.current = false;
+    }
+  }, [panelShouldShow, quickRepliesPanelAnim]);
 
   // ── NOTE: Batch enrichment effect removed ─────────────────────────────────
   // Translation is now purely per-message tap-to-toggle.
@@ -1451,10 +1514,25 @@ export default function ChatDetailScreen() {
         />
       )}
 
-      {/* ── Quick reply chips (collapsible) ──────────────────────────────── */}
+      {/* ── Quick reply chips (collapsible, slides up) ───────────────────── */}
       {(quickRepliesLoading || quickReplies.length > 0) && (
-        <View style={[styles.quickRepliesOuter, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
-          {/* Toggle header — always visible */}
+        <Animated.View
+          style={[
+            styles.quickRepliesOuter,
+            {
+              borderTopColor: colors.border,
+              backgroundColor: colors.surface,
+              opacity: quickRepliesPanelAnim,
+              transform: [{
+                translateY: quickRepliesPanelAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [16, 0],
+                }),
+              }],
+            },
+          ]}
+        >
+          {/* Toggle header */}
           <TouchableOpacity
             style={styles.quickRepliesLabelRow}
             onPress={() => {
@@ -1475,7 +1553,7 @@ export default function ChatDetailScreen() {
             />
           </TouchableOpacity>
 
-          {/* Chips — shown only when expanded */}
+          {/* Chips */}
           {quickRepliesExpanded && (
             <View style={styles.quickRepliesChipRow}>
               {quickRepliesLoading ? (
@@ -1505,7 +1583,7 @@ export default function ChatDetailScreen() {
               )}
             </View>
           )}
-        </View>
+        </Animated.View>
       )}
 
       {/* ── Input area ──────────────────────────────────────────────────── */}
