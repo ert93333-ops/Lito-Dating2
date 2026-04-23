@@ -23,6 +23,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withSequence,
   withSpring,
   withTiming,
@@ -828,21 +829,83 @@ export default function DiscoverScreen() {
   // 0 = top card at rest, 1 = top card fully swiped (background cards come forward)
   const swipeProgress = useSharedValue(0);
 
-  // ── Match popup animation ──────────────────────────────────────────────────
-  const matchScale = useSharedValue(0.72);
-  const matchOpacity = useSharedValue(0);
-  const matchAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: matchScale.value }],
-    opacity: matchOpacity.value,
+  // ── Match popup animation system ───────────────────────────────────────────
+  // 5-layer sequence: overlay → cards → heart → text → CTA
+  const matchOverlayOpacity = useSharedValue(0);
+  const matchCardScale      = useSharedValue(0.82);
+  const matchPhotoLeftX     = useSharedValue(-56);
+  const matchPhotoRightX    = useSharedValue(56);
+  const matchPhotoLeftY     = useSharedValue(20);
+  const matchPhotoRightY    = useSharedValue(20);
+  const matchHeartScale     = useSharedValue(0);
+  const matchTextOpacity    = useSharedValue(0);
+  const matchCtaY           = useSharedValue(22);
+  const matchCtaOpacity     = useSharedValue(0);
+
+  const matchOverlayStyle = useAnimatedStyle(() => ({ opacity: matchOverlayOpacity.value }));
+  const matchCardAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: matchCardScale.value }],
   }));
+  const matchPhotoLeftStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: matchPhotoLeftX.value }, { translateY: matchPhotoLeftY.value }],
+  }));
+  const matchPhotoRightStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: matchPhotoRightX.value }, { translateY: matchPhotoRightY.value }],
+  }));
+  const matchHeartStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: matchHeartScale.value }],
+  }));
+  const matchTextStyle = useAnimatedStyle(() => ({ opacity: matchTextOpacity.value }));
+  const matchCtaStyle = useAnimatedStyle(() => ({
+    opacity: matchCtaOpacity.value,
+    transform: [{ translateY: matchCtaY.value }],
+  }));
+
   useEffect(() => {
     if (newMatch) {
-      matchScale.value = 0.72;
-      matchOpacity.value = 0;
-      matchScale.value = withSpring(1, { damping: 18, stiffness: 300, mass: 0.8 });
-      matchOpacity.value = withSpring(1, { damping: 20, stiffness: 260 });
+      // Reset all
+      matchOverlayOpacity.value = 0;
+      matchCardScale.value      = 0.92;
+      matchPhotoLeftX.value     = -56;
+      matchPhotoRightX.value    = 56;
+      matchPhotoLeftY.value     = 20;
+      matchPhotoRightY.value    = 20;
+      matchHeartScale.value     = 0;
+      matchTextOpacity.value    = 0;
+      matchCtaY.value           = 22;
+      matchCtaOpacity.value     = 0;
+
+      // Layer 1: overlay fades in (0ms)
+      matchOverlayOpacity.value = withTiming(1, { duration: 260 });
+
+      // Layer 2: card scales up (80ms delay)
+      matchCardScale.value = withDelay(80, withSpring(1, { damping: 20, stiffness: 240, mass: 0.9 }));
+
+      // Layer 3: photos slide in from sides (120ms delay)
+      matchPhotoLeftX.value  = withDelay(120, withSpring(0, { damping: 22, stiffness: 260, mass: 0.8 }));
+      matchPhotoRightX.value = withDelay(120, withSpring(0, { damping: 22, stiffness: 260, mass: 0.8 }));
+      matchPhotoLeftY.value  = withDelay(120, withSpring(0, { damping: 22, stiffness: 260 }));
+      matchPhotoRightY.value = withDelay(120, withSpring(0, { damping: 22, stiffness: 260 }));
+
+      // Layer 4: heart badge pops in + pulses (320ms delay)
+      matchHeartScale.value = withDelay(
+        320,
+        withSequence(
+          withSpring(1.3, { damping: 12, stiffness: 380, mass: 0.6 }),
+          withSpring(1.0, { damping: 18, stiffness: 260, mass: 0.7 }),
+          withSpring(1.12, { damping: 14, stiffness: 300 }),
+          withSpring(1.0, { damping: 20, stiffness: 260 })
+        )
+      );
+
+      // Layer 5: text & CTA slides up (400ms delay)
+      matchTextOpacity.value = withDelay(400, withTiming(1, { duration: 220 }));
+      matchCtaY.value        = withDelay(440, withSpring(0, { damping: 20, stiffness: 220, mass: 0.9 }));
+      matchCtaOpacity.value  = withDelay(440, withTiming(1, { duration: 220 }));
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newMatch]);
 
   // ── Loading state ──────────────────────────────────────────────────────────
@@ -1254,54 +1317,68 @@ export default function DiscoverScreen() {
 
       {/* ── Match popup ────────────────────────────────────────────────── */}
       {newMatch && (
-        <View style={styles.matchOverlay}>
-          <Animated.View style={[styles.matchCard, matchAnimStyle]}>
-            {/* Decorative dots */}
+        <Animated.View style={[styles.matchOverlay, matchOverlayStyle]}>
+          <Animated.View style={[styles.matchCard, matchCardAnimStyle]}>
+            {/* Soft decorative dots */}
             <View style={styles.matchDotTL} />
             <View style={styles.matchDotBR} />
+            <View style={styles.matchDotMid} />
 
-            {/* ── Two overlapping photos ── */}
+            {/* ── Two photos slide in from sides ── */}
             <View style={styles.matchPhotoRow}>
-              <View style={styles.matchPhotoLeft}>
-                <ProfileImage photoKey={newMatch.photos?.[0] ?? "profile2"} size={110} borderRadius={22} />
-              </View>
-              <View style={styles.matchPhotoRight}>
-                <ProfileImage photoKey={profile.photos?.[0] ?? "profile1"} size={110} borderRadius={22} />
-                <View style={styles.matchHeartBadge}>
-                  <FIcon name="heart" size={14} color="#fff" />
+              {/* Left photo: Animated.View translates, inner View rotates */}
+              <Animated.View style={[styles.matchPhotoLeftWrap, matchPhotoLeftStyle]}>
+                <View style={styles.matchPhotoLeft}>
+                  <ProfileImage photoKey={newMatch.photos?.[0] ?? "profile2"} size={112} borderRadius={24} />
                 </View>
-              </View>
+              </Animated.View>
+              {/* Right photo: Animated.View translates, inner View rotates */}
+              <Animated.View style={[styles.matchPhotoRightWrap, matchPhotoRightStyle]}>
+                <View style={styles.matchPhotoRight}>
+                  <ProfileImage photoKey={profile.photos?.[0] ?? "profile1"} size={112} borderRadius={24} />
+                </View>
+                {/* Heart badge pops in with pulse */}
+                <Animated.View style={[styles.matchHeartBadge, matchHeartStyle]}>
+                  <FIcon name="heart" size={16} color="#fff" />
+                </Animated.View>
+              </Animated.View>
             </View>
 
-            <Text style={styles.matchCongrats}>CONGRATULATIONS</Text>
-            <Text style={styles.matchTitle}>
-              {isKo ? `${newMatch.nickname}님과 매칭!` : `${newMatch.nickname}とマッチ！`}
-            </Text>
-            <Text style={styles.matchSub}>
-              {isKo ? "지금 서로 대화를 시작해보세요" : "今すぐ話しかけましょう"}
-            </Text>
-
-            <TouchableOpacity
-              style={styles.matchBtn}
-              activeOpacity={0.85}
-              onPress={() => {
-                dismissMatch();
-                router.push("/(tabs)/chats" as any);
-              }}
-            >
-              <Text style={styles.matchBtnText}>
-                {isKo ? "대화 시작하기" : "メッセージを送る"}
+            {/* Text fades in */}
+            <Animated.View style={[{ alignItems: "center" }, matchTextStyle]}>
+              <Text style={styles.matchCongrats}>CONGRATULATIONS</Text>
+              <Text style={styles.matchTitle}>
+                {isKo ? `${newMatch.nickname}님과 매칭!` : `${newMatch.nickname}とマッチ！`}
               </Text>
-              <FIcon name="heart" size={16} color="#fff" />
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={dismissMatch} activeOpacity={0.7} style={styles.matchSkip}>
-              <Text style={styles.matchSkipText}>
-                {isKo ? "계속 둘러보기" : "スワイプを続ける"}
+              <Text style={styles.matchSub}>
+                {isKo ? "지금 서로 대화를 시작해보세요" : "今すぐ話しかけましょう"}
               </Text>
-            </TouchableOpacity>
+            </Animated.View>
+
+            {/* CTA slides up last */}
+            <Animated.View style={[{ width: "100%", alignItems: "center", gap: 14, marginTop: 8 }, matchCtaStyle]}>
+              <TouchableOpacity
+                style={styles.matchBtn}
+                activeOpacity={0.85}
+                onPress={() => {
+                  dismissMatch();
+                  router.push("/(tabs)/chats" as any);
+                }}
+              >
+                <Text style={styles.matchBtnText}>
+                  {isKo ? "대화 시작하기" : "メッセージを送る"}
+                </Text>
+                <FIcon name="heart" size={16} color="#fff" />
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={dismissMatch} activeOpacity={0.7}>
+                <Text style={styles.matchSkipText}>
+                  {isKo ? "계속 둘러보기" : "スワイプを続ける"}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
           </Animated.View>
-        </View>
+        </Animated.View>
       )}
     </View>
   );
@@ -1503,15 +1580,25 @@ const styles = StyleSheet.create({
     backgroundColor: "#D85870",
     opacity: 0.4,
   },
+  matchDotMid: {
+    position: "absolute",
+    top: -30,
+    right: 30,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: "#D85870",
+    opacity: 0.25,
+  },
   matchPhotoRow: {
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "center",
     marginBottom: 36,
-    height: 140,
+    height: 148,
   },
-  matchPhotoLeft: {
-    transform: [{ rotate: "-8deg" }],
+  // Wrapper: carries translateX/Y animation
+  matchPhotoLeftWrap: {
     marginRight: -18,
     zIndex: 1,
     shadowColor: "#000",
@@ -1520,14 +1607,22 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 10,
   },
-  matchPhotoRight: {
-    transform: [{ rotate: "8deg" }, { translateY: -16 }],
+  // Inner: carries rotation only
+  matchPhotoLeft: {
+    transform: [{ rotate: "-8deg" }],
+  },
+  // Wrapper: carries translateX/Y animation
+  matchPhotoRightWrap: {
     zIndex: 2,
     shadowColor: "#D85870",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
     elevation: 12,
+  },
+  // Inner: carries rotation + lift
+  matchPhotoRight: {
+    transform: [{ rotate: "8deg" }, { translateY: -16 }],
   },
   matchHeartBadge: {
     position: "absolute",

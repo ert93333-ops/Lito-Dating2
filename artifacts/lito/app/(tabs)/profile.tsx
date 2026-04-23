@@ -1,8 +1,9 @@
 import FIcon from "@/components/FIcon";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import {
+  Animated,
   Dimensions,
   Platform,
   ScrollView,
@@ -37,6 +38,28 @@ export default function ProfileScreen() {
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+
+  // ── Profile completeness score ────────────────────────────────────────────
+  const photoScore    = profile.photos.length >= 3 ? 25 : profile.photos.length === 2 ? 20 : profile.photos.length === 1 ? 12 : 0;
+  const genderScore   = profile.gender ? 10 : 0;
+  const bioScore      = profile.bio ? 15 : 0;
+  const interestScore = (profile.interests?.length ?? 0) >= 3 ? 15 : (profile.interests?.length ?? 0) > 0 ? 8 : 0;
+  const nickScore     = profile.nickname && profile.nickname !== "User" ? 5 : 0;
+  const trustScoreW   = computeTrustScore(profile.trustProfile) * 0.3;
+  const lifestyleScore = (profile.smoking || profile.drinking) ? 5 : 0;
+  const profileTotal  = Math.min(100, photoScore + genderScore + bioScore + interestScore + nickScore + trustScoreW + lifestyleScore);
+
+  // ── Animated progress bar ─────────────────────────────────────────────────
+  const barAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(barAnim, {
+      toValue: profileTotal,
+      duration: 900,
+      delay: 300,
+      useNativeDriver: false,
+    }).start();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileTotal]);
 
   const heroHeight = 290;
 
@@ -177,32 +200,32 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Strength bar (profile completeness + trust combined) */}
-        {(() => {
-          const photoScore = profile.photos.length >= 3 ? 25 : profile.photos.length === 2 ? 20 : profile.photos.length === 1 ? 12 : 0;
-          const genderScore = profile.gender ? 10 : 0;
-          const bioScore = profile.bio ? 15 : 0;
-          const interestScore = (profile.interests?.length ?? 0) >= 3 ? 15 : (profile.interests?.length ?? 0) > 0 ? 8 : 0;
-          const nickScore = profile.nickname && profile.nickname !== "User" ? 5 : 0;
-          const trustScore = computeTrustScore(profile.trustProfile) * 0.3;
-          const lifestyleScore = (profile.smoking || profile.drinking) ? 5 : 0;
-          const total = Math.min(100, photoScore + genderScore + bioScore + interestScore + nickScore + trustScore + lifestyleScore);
-          return (
-            <View>
-              <View style={styles.barLabelRow}>
-                <Text style={[styles.barLabelText, { color: colors.charcoalLight }]}>
-                  {lang === "ko" ? "프로필 완성도" : "プロフィール完成度"}
-                </Text>
-                <Text style={[styles.barPct, { color: total >= 70 ? "#1A7A4A" : colors.rose }]}>
-                  {Math.round(total)}%
-                </Text>
-              </View>
-              <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
-                <View style={[styles.barFill, { backgroundColor: total >= 70 ? "#1A7A4A" : colors.rose, width: `${total}%` as any }]} />
-              </View>
-            </View>
-          );
-        })()}
+        {/* Strength bar — animated fill on mount */}
+        <View>
+          <View style={styles.barLabelRow}>
+            <Text style={[styles.barLabelText, { color: colors.charcoalLight }]}>
+              {lang === "ko" ? "프로필 완성도" : "プロフィール完成度"}
+            </Text>
+            <Text style={[styles.barPct, { color: profileTotal >= 70 ? "#1A7A4A" : colors.rose }]}>
+              {Math.round(profileTotal)}%
+            </Text>
+          </View>
+          <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
+            <Animated.View
+              style={[
+                styles.barFill,
+                {
+                  backgroundColor: profileTotal >= 70 ? "#1A7A4A" : colors.rose,
+                  width: barAnim.interpolate({
+                    inputRange: [0, 100],
+                    outputRange: ["0%", "100%"],
+                    extrapolate: "clamp",
+                  }),
+                },
+              ]}
+            />
+          </View>
+        </View>
       </TouchableOpacity>
 
       {/* ── 완성 체크리스트 ───────────────────────────────────────────────── */}
