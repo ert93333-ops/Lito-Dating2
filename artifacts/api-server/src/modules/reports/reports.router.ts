@@ -163,6 +163,63 @@ router.post("/blocks", requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /api/blocks — 내가 차단한 사용자 목록
+ */
+router.get("/blocks", requireAuth, async (req, res) => {
+  try {
+    const blockerId = req.user!.userId;
+    const rows = await db
+      .select({
+        userId: userBlocks.blockedUserId,
+        nickname: userProfiles.nickname,
+        photoUrl: userProfiles.photoUrls,
+        blockedAt: userBlocks.createdAt,
+      })
+      .from(userBlocks)
+      .leftJoin(userProfiles, eq(userProfiles.userId, userBlocks.blockedUserId))
+      .where(eq(userBlocks.blockerId, blockerId))
+      .orderBy(desc(userBlocks.createdAt));
+
+    const blocks = rows.map((r) => ({
+      userId: r.userId,
+      nickname: r.nickname ?? "알 수 없음",
+      photoUrl: Array.isArray(r.photoUrl) && r.photoUrl.length > 0 ? r.photoUrl[0] : null,
+      blockedAt: r.blockedAt,
+    }));
+
+    res.json({ blocks });
+  } catch (err) {
+    logger.error({ err }, "Failed to list blocks");
+    res.status(500).json({ error: "차단 목록 조회에 실패했습니다." });
+  }
+});
+
+/**
+ * DELETE /api/blocks/:userId — 특정 사용자 차단 해제
+ */
+router.delete("/blocks/:userId", requireAuth, async (req, res) => {
+  try {
+    const blockerId = req.user!.userId;
+    const blockedUserId = Number(req.params.userId);
+
+    if (!blockedUserId || isNaN(blockedUserId)) {
+      res.status(400).json({ error: "유효하지 않은 userId입니다." });
+      return;
+    }
+
+    await db
+      .delete(userBlocks)
+      .where(and(eq(userBlocks.blockerId, blockerId), eq(userBlocks.blockedUserId, blockedUserId)));
+
+    logger.info({ blockerId, blockedUserId }, "User unblocked");
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "Failed to unblock user");
+    res.status(500).json({ error: "차단 해제에 실패했습니다." });
+  }
+});
+
+/**
  * GET /api/admin/reports
  */
 router.get("/admin/reports", async (req, res) => {

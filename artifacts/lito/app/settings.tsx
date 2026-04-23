@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import React from "react";
 import {
   Alert,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -16,11 +17,12 @@ import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 import { idNeedsAction } from "@/types";
+import { API_BASE } from "@/utils/api";
 
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { logout, profile, updateProfile } = useApp();
+  const { logout, profile, updateProfile, token } = useApp();
   const { lang } = useLocale();
   const appLanguage = profile.language;
 
@@ -66,14 +68,29 @@ export default function SettingsScreen() {
     Alert.alert(
       lang === "ko" ? "계정 삭제" : "アカウント削除",
       lang === "ko"
-        ? "정말 삭제하시겠습니까? 취소할 수 없습니다."
-        : "本当に削除しますか？この操作は取り消せません。",
+        ? "계정을 삭제하면 프로필이 즉시 숨겨지고, 데이터는 법령에 따라 완전히 삭제됩니다. 계속하시겠습니까?"
+        : "アカウントを削除するとプロフィールが即座に非表示になり、データは法令に従い完全削除されます。続けますか？",
       [
         { text: lang === "ko" ? "취소" : "キャンセル", style: "cancel" },
         {
-          text: lang === "ko" ? "삭제" : "削除",
+          text: lang === "ko" ? "삭제 진행" : "削除を進める",
           style: "destructive",
-          onPress: () => {
+          onPress: async () => {
+            try {
+              const res = await fetch(`${API_BASE}/api/v1/account-deletion/start`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token ?? ""}`,
+                },
+                body: JSON.stringify({ reason: "user_requested" }),
+              });
+              if (!res.ok && res.status !== 409) {
+                throw new Error("failed");
+              }
+            } catch {
+              // 서버 오류여도 로컬 로그아웃 진행
+            }
             logout();
           },
         },
@@ -142,17 +159,17 @@ export default function SettingsScreen() {
               icon="mail"
               label={lang === "ko" ? "지원팀에 문의" : "サポートに連絡"}
               sublabel="litosupport@gmail.com"
-              onPress={() => {}}
+              onPress={() => Linking.openURL("mailto:litosupport@gmail.com")}
             />
             <SettingRow
               icon="file-text"
               label={lang === "ko" ? "개인정보 보호정책" : "プライバシーポリシー"}
-              onPress={() => {}}
+              onPress={() => Linking.openURL("https://litodate.app/privacy")}
             />
             <SettingRow
               icon="help-circle"
               label={lang === "ko" ? "자주 묻는 질문" : "よくある質問"}
-              onPress={() => {}}
+              onPress={() => router.push("/faq")}
             />
           </View>
         </View>
@@ -212,7 +229,7 @@ export default function SettingsScreen() {
             <SettingRow
               icon="shield"
               label={lang === "ko" ? "차단 · 신고" : "ブロック・報告"}
-              onPress={() => {}}
+              onPress={() => router.push("/blocked-users")}
             />
             <SettingRow
               icon="phone-off"

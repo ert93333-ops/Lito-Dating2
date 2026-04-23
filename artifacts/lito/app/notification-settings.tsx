@@ -269,16 +269,76 @@ export default function NotificationSettingsScreen() {
       <Text style={s.sectionTitle}>{lang === "ko" ? "방해 금지 시간" : "おやすみモード"}</Text>
       <View style={s.card}>
         <View style={s.quietRow}>
-          <Text style={[s.quietLabel, { color: colors.charcoal }]}>
-            {lang === "ko"
-              ? `${prefs.quietHoursStart}:00 ~ ${prefs.quietHoursEnd}:00`
-              : `${prefs.quietHoursStart}:00 〜 ${prefs.quietHoursEnd}:00`}
-          </Text>
           <Text style={[s.quietSub, { color: colors.charcoalMid }]}>
             {lang === "ko"
               ? "이 시간에는 메시지·안전 알림만 전달됩니다"
               : "この時間はメッセージ・安全通知のみ届きます"}
           </Text>
+          <View style={s.quietTimeRow}>
+            <View style={s.quietTimeBlock}>
+              <Text style={[s.quietTimeLabel, { color: colors.charcoalLight }]}>
+                {lang === "ko" ? "시작" : "開始"}
+              </Text>
+              <View style={s.quietStepper}>
+                <TouchableOpacity
+                  style={[s.stepBtn, { borderColor: colors.border }]}
+                  onPress={() => {
+                    const v = (prefs.quietHoursStart - 1 + 24) % 24;
+                    const u = { ...prefs, quietHoursStart: v };
+                    setPrefs(u); savePrefs(u);
+                  }}
+                >
+                  <FIcon name="minus" size={14} color={colors.charcoal} />
+                </TouchableOpacity>
+                <Text style={[s.stepValue, { color: colors.charcoal }]}>
+                  {String(prefs.quietHoursStart).padStart(2, "0")}:00
+                </Text>
+                <TouchableOpacity
+                  style={[s.stepBtn, { borderColor: colors.border }]}
+                  onPress={() => {
+                    const v = (prefs.quietHoursStart + 1) % 24;
+                    const u = { ...prefs, quietHoursStart: v };
+                    setPrefs(u); savePrefs(u);
+                  }}
+                >
+                  <FIcon name="plus" size={14} color={colors.charcoal} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <Text style={[s.quietTilde, { color: colors.charcoalLight }]}>~</Text>
+
+            <View style={s.quietTimeBlock}>
+              <Text style={[s.quietTimeLabel, { color: colors.charcoalLight }]}>
+                {lang === "ko" ? "종료" : "終了"}
+              </Text>
+              <View style={s.quietStepper}>
+                <TouchableOpacity
+                  style={[s.stepBtn, { borderColor: colors.border }]}
+                  onPress={() => {
+                    const v = (prefs.quietHoursEnd - 1 + 24) % 24;
+                    const u = { ...prefs, quietHoursEnd: v };
+                    setPrefs(u); savePrefs(u);
+                  }}
+                >
+                  <FIcon name="minus" size={14} color={colors.charcoal} />
+                </TouchableOpacity>
+                <Text style={[s.stepValue, { color: colors.charcoal }]}>
+                  {String(prefs.quietHoursEnd).padStart(2, "0")}:00
+                </Text>
+                <TouchableOpacity
+                  style={[s.stepBtn, { borderColor: colors.border }]}
+                  onPress={() => {
+                    const v = (prefs.quietHoursEnd + 1) % 24;
+                    const u = { ...prefs, quietHoursEnd: v };
+                    setPrefs(u); savePrefs(u);
+                  }}
+                >
+                  <FIcon name="plus" size={14} color={colors.charcoal} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
         </View>
       </View>
     </ScrollView>
@@ -408,8 +468,27 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
       marginTop: 8,
       lineHeight: 18,
     },
-    quietRow: { paddingVertical: 14, paddingHorizontal: 16, gap: 4 },
-    quietLabel: { fontSize: 15, fontFamily: "Inter_500Medium" },
+    quietRow: { paddingVertical: 14, paddingHorizontal: 16, gap: 12 },
     quietSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
+    quietTimeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 12,
+      paddingTop: 4,
+    },
+    quietTimeBlock: { alignItems: "center", gap: 6 },
+    quietTimeLabel: { fontSize: 11, fontFamily: "Inter_500Medium", textTransform: "uppercase", letterSpacing: 0.5 },
+    quietStepper: { flexDirection: "row", alignItems: "center", gap: 10 },
+    stepBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      borderWidth: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    stepValue: { fontFamily: "Inter_600SemiBold", fontSize: 17, minWidth: 52, textAlign: "center" },
+    quietTilde: { fontSize: 20, fontFamily: "Inter_300Light", marginTop: 20 },
   });
 }

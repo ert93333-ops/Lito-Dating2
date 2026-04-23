@@ -7,8 +7,11 @@
  */
 
 import { Router } from "express";
+import { eq } from "drizzle-orm";
 import { requireAuth, optionalAuth } from "../../middleware/auth.js";
 import { chatService } from "./chat.service.js";
+import { notificationService } from "../notification/notification.service.js";
+import { db, conversationParticipants } from "@workspace/db";
 
 const router = Router();
 
@@ -50,6 +53,27 @@ router.post("/chat/:conversationId/messages", requireAuth, async (req, res) => {
       translatedContent,
       originalLanguage,
     });
+
+    // 수신자에게 메시지 알림 발송 (fire-and-forget)
+    void db
+      .select({ userId: conversationParticipants.userId })
+      .from(conversationParticipants)
+      .where(
+        eq(conversationParticipants.conversationId, conversationId)
+      )
+      .then((participants) => {
+        const recipient = participants.find((p) => p.userId !== userId);
+        if (recipient) {
+          return notificationService.emit({
+            userId: recipient.userId,
+            type: "message.created",
+            actorUserId: userId,
+            conversationId,
+            payload: { preview: content.slice(0, 100) },
+          });
+        }
+      })
+      .catch((err) => console.error("[chat] notification emit failed:", err));
 
     res.status(201).json({ message });
   } catch (err) {
