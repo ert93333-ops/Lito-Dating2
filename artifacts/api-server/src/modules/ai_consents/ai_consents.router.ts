@@ -63,6 +63,17 @@ router.post("/v1/ai/consents/translation/grant", requireAuth, async (req, res) =
   }
 });
 
+router.post("/v1/ai/consents/conversation_coach/grant", requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user?.userId;
+    await grantConsent(userId, "conversation_coach");
+    res.json({ ok: true, data: { featureType: "conversation_coach", granted: true } });
+  } catch (err) {
+    console.error("[ai_consents/conversation_coach/grant]", err);
+    res.status(500).json({ ok: false, error: { code: "INTERNAL_ERROR", message: "서버 오류" } });
+  }
+});
+
 router.post("/v1/ai/consents/conversation-coach/grant", requireAuth, async (req, res) => {
   try {
     const userId = (req as any).user?.userId;
@@ -70,6 +81,17 @@ router.post("/v1/ai/consents/conversation-coach/grant", requireAuth, async (req,
     res.json({ ok: true, data: { featureType: "conversation_coach", granted: true } });
   } catch (err) {
     console.error("[ai_consents/conversation-coach/grant]", err);
+    res.status(500).json({ ok: false, error: { code: "INTERNAL_ERROR", message: "서버 오류" } });
+  }
+});
+
+router.post("/v1/ai/consents/profile_coach/grant", requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user?.userId;
+    await grantConsent(userId, "profile_coach");
+    res.json({ ok: true, data: { featureType: "profile_coach", granted: true } });
+  } catch (err) {
+    console.error("[ai_consents/profile_coach/grant]", err);
     res.status(500).json({ ok: false, error: { code: "INTERNAL_ERROR", message: "서버 오류" } });
   }
 });

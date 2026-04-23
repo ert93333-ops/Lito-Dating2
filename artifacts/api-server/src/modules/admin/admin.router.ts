@@ -28,7 +28,7 @@ import {
   conversationRiskFlags, moderationActions, iapPurchases, creditWallets, aiLedger
 } from "@workspace/db";
 import { requireAuth } from "../../middleware/auth.js";
-import { getEventCounts, getRecentEventsForAdmin } from "../../infra/canonicalAnalytics.js";
+import { trackEvent, getEventCounts, getRecentEventsForAdmin } from "../../infra/canonicalAnalytics.js";
 
 const router = Router();
 
