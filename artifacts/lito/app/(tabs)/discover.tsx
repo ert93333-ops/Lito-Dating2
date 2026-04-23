@@ -968,31 +968,6 @@ export default function DiscoverScreen() {
         </View>
       </View>
 
-      {/* ── Diagnosis reminder banner ───────────────────────────────── */}
-      {diagnosisStatus === "skipped" && (
-        <TouchableOpacity
-          style={styles.diagnosisBanner}
-          activeOpacity={0.85}
-          onPress={() => router.push("/diagnosis" as any)}
-        >
-          <View style={styles.diagnosisBannerLeft}>
-            <FIcon name="heart" size={15} color="#C84B72" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.diagnosisBannerTitle}>
-                {isKo
-                  ? "연애 스타일 진단을 완료해 매칭을 개선하세요"
-                  : "恋愛スタイル診断を完了してマッチングを改善"}
-              </Text>
-              <Text style={styles.diagnosisBannerSub}>
-                {isKo ? "AI 코칭 티켓 1장 증정" : "AIコーチングチケット1枚プレゼント"}
-              </Text>
-            </View>
-          </View>
-          <Text style={styles.diagnosisBannerCta}>
-            {isKo ? "시작" : "開始"}
-          </Text>
-        </TouchableOpacity>
-      )}
 
       {/* ── Card stack ─────────────────────────────────────────────────── */}
       <View style={{ flex: 1, paddingHorizontal: 8, paddingTop: 8, paddingBottom: TAB_BAR_H + 104 }}>
