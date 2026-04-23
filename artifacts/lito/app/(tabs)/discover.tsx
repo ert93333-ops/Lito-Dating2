@@ -312,12 +312,20 @@ function DiscoverCard({
       {/* ── Action buttons — bottom-right of card ───────────────────────── */}
       {isTop && (
         <View style={cardStyles.cardActions}>
-          <ActionButton onPress={onPass} hapticStyle="light">
+          <ActionButton
+            onPress={onPass}
+            hapticStyle="light"
+            accessibilityLabel={viewerLang === "ko" ? "패스" : "パス"}
+          >
             <View style={cardStyles.cardBtn}>
               <FIcon name="x" size={20} color="rgba(255,255,255,0.92)" />
             </View>
           </ActionButton>
-          <ActionButton onPress={onSuperLike} hapticStyle="medium">
+          <ActionButton
+            onPress={onSuperLike}
+            hapticStyle="medium"
+            accessibilityLabel={viewerLang === "ko" ? "슈퍼 좋아요" : "スーパーいいね"}
+          >
             <View style={[
               cardStyles.cardBtn,
               { backgroundColor: superLikesLeft > 0 ? "rgba(255,218,60,0.22)" : "rgba(255,255,255,0.12)" },
@@ -325,7 +333,11 @@ function DiscoverCard({
               <FIcon name="star" size={18} color={superLikesLeft > 0 ? "#FFD43B" : "rgba(255,255,255,0.45)"} />
             </View>
           </ActionButton>
-          <ActionButton onPress={onLike} hapticStyle="medium">
+          <ActionButton
+            onPress={onLike}
+            hapticStyle="medium"
+            accessibilityLabel={viewerLang === "ko" ? `${user.nickname} 좋아요` : `${user.nickname}にいいね`}
+          >
             <View style={cardStyles.cardBtnMain}>
               <FIcon name="heart" size={22} color="#fff" />
             </View>
@@ -648,10 +660,11 @@ interface ActionBtnProps {
   onPress: () => void;
   hapticStyle?: "light" | "medium";
   style?: object;
+  accessibilityLabel?: string;
   children: React.ReactNode;
 }
 
-function ActionButton({ onPress, hapticStyle = "light", style, children }: ActionBtnProps) {
+function ActionButton({ onPress, hapticStyle = "light", style, accessibilityLabel, children }: ActionBtnProps) {
   const scale = useSharedValue(1);
 
   const animStyle = useAnimatedStyle(() => ({
@@ -683,6 +696,8 @@ function ActionButton({ onPress, hapticStyle = "light", style, children }: Actio
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         activeOpacity={1}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
       >
         {children}
       </TouchableOpacity>

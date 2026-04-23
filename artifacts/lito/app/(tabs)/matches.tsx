@@ -42,7 +42,12 @@ function MatchCard({ match }: { match: Match }) {
   return (
     <View style={[styles.matchCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
       {/* Tap photo → profile */}
-      <TouchableOpacity onPress={goToProfile} activeOpacity={0.85}>
+      <TouchableOpacity
+        onPress={goToProfile}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={lang === "ko" ? `${match.user.nickname} 프로필 보기` : `${match.user.nickname}のプロフィールを見る`}
+      >
         <View style={styles.photoWrap}>
           <ProfileImage photoKey={match.user.photos[0]} size={70} borderRadius={16} />
           {match.isNew && (
@@ -65,7 +70,9 @@ function MatchCard({ match }: { match: Match }) {
           {match.user.studyingLanguage && (
             <View style={[styles.studyBadge, { backgroundColor: "#E8FAF4", borderColor: "#B8EDD8" }]}>
               <Text style={[styles.studyBadgeText, { color: "#1A7A4A" }]}>
-                {match.user.language === "ja" ? "KR 공부중" : "JP 공부중"}
+                {match.user.language === "ja"
+                  ? (lang === "ko" ? "한국어 공부중" : "韓国語学習中")
+                  : (lang === "ko" ? "일본어 공부중" : "日本語学習中")}
               </Text>
             </View>
           )}
@@ -103,6 +110,8 @@ function MatchCard({ match }: { match: Match }) {
             style={[styles.matchActionBtn, styles.matchActionBtnOutline, { borderColor: colors.border }]}
             onPress={goToProfile}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={lang === "ko" ? "프로필 보기" : "プロフィールを見る"}
           >
             <FIcon name="user" size={13} color={colors.charcoalMid} />
             <Text style={[styles.matchActionBtnText, { color: colors.charcoalMid }]}>
@@ -113,6 +122,8 @@ function MatchCard({ match }: { match: Match }) {
             style={[styles.matchActionBtn, styles.matchActionBtnFill, { backgroundColor: colors.rose }]}
             onPress={() => goToChat()}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={lang === "ko" ? "채팅 시작" : "チャットを始める"}
           >
             <FIcon name="message-circle" size={13} color="#fff" />
             <Text style={[styles.matchActionBtnText, { color: "#fff" }]}>
@@ -207,7 +218,7 @@ export default function MatchesScreen() {
       <View style={[styles.referralNudge, { backgroundColor: "#FFF0F3", borderColor: "#F2BDCA" }]}>
         <View style={styles.referralNudgeLeft}>
           <Text style={[styles.referralNudgeTitle, { color: colors.charcoal }]}>
-            {lang === "ko" ? "친구에게 Lito를 소개해요 🎁" : "友達にLitoを紹介しよう 🎁"}
+            {lang === "ko" ? "친구에게 Lito를 소개해요" : "友達にLitoを紹介しよう"}
           </Text>
           <Text style={[styles.referralNudgeSub, { color: colors.charcoalLight }]}>
             {referral.successfulReferrals > 0
@@ -250,8 +261,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 15,
     marginBottom: 14,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
   newMatchRow: { marginHorizontal: -24, paddingHorizontal: 24 },
   newMatchBubble: {

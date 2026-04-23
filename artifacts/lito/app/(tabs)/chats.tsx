@@ -38,6 +38,8 @@ function ConversationRow({ conversation }: { conversation: Conversation }) {
     <TouchableOpacity
       style={[styles.row, { borderBottomColor: colors.border }]}
       onPress={() => router.push(`/chat/${conversation.id}` as any)}
+      accessibilityRole="button"
+      accessibilityLabel={lang === "ko" ? `${conversation.user.nickname}와 채팅` : `${conversation.user.nickname}とチャット`}
     >
       {/* ── Avatar + overlays ── */}
       <View style={styles.avatarWrap}>
@@ -135,8 +137,20 @@ export default function ChatsScreen() {
               {lang === "ko" ? "아직 대화가 없어요" : "まだ会話がありません"}
             </Text>
             <Text style={[styles.emptySub, { color: colors.charcoalLight }]}>
-              {lang === "ko" ? "매칭하고 대화를 시작해보세요!" : "マッチングして会話を始めましょう！"}
+              {lang === "ko" ? "매칭하고 대화를 시작해보세요" : "マッチングして会話を始めましょう"}
             </Text>
+            <TouchableOpacity
+              style={[styles.emptyCta, { backgroundColor: colors.rose }]}
+              onPress={() => router.push("/(tabs)/matches" as any)}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={lang === "ko" ? "매칭 화면으로 이동" : "マッチング画面へ移動"}
+            >
+              <FIcon name="heart" size={14} color="#fff" />
+              <Text style={styles.emptyCtaText}>
+                {lang === "ko" ? "매칭 보러 가기" : "マッチングを見る"}
+              </Text>
+            </TouchableOpacity>
           </View>
         ) : (
           conversations.map((conv) => (
@@ -288,5 +302,19 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 14,
     textAlign: "center",
+    marginBottom: 24,
+  },
+  emptyCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 13,
+    borderRadius: 30,
+  },
+  emptyCtaText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+    color: "#fff",
   },
 });
