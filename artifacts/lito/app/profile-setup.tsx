@@ -254,11 +254,8 @@ export default function ProfileSetupScreen() {
 
   const goBack = () => {
     if (step <= 1) return;
-    Animated.timing(fadeAnim, { toValue: 0, duration: 120, useNativeDriver: false }).start(() => {
-      setStep(step - 1);
-      fadeAnim.setValue(0);
-      Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: false }).start();
-    });
+    fadeAnim.setValue(1);
+    setStep(step - 1);
   };
 
   // ── Step 1: Name ───────────────────────────────────────────────────────────
