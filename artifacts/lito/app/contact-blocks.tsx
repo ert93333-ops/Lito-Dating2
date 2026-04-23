@@ -13,7 +13,15 @@
  */
 
 import * as Contacts from "expo-contacts";
-import * as Crypto from "expo-crypto";
+
+// expo-crypto uses a native module (ExpoCryptoAES) not available in Expo Go
+let Crypto: typeof import("expo-crypto") | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  Crypto = require("expo-crypto");
+} catch {
+  // Running in Expo Go — crypto unavailable
+}
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -44,6 +52,14 @@ function normalizePhone(raw: string, defaultCountryCode = "82"): string {
 }
 
 async function sha256(text: string): Promise<string> {
+  if (!Crypto) {
+    // Fallback: return a simple hash-like string (Expo Go only, not for production)
+    let h = 0;
+    for (let i = 0; i < text.length; i++) {
+      h = (Math.imul(31, h) + text.charCodeAt(i)) | 0;
+    }
+    return Math.abs(h).toString(16).padStart(8, "0");
+  }
   const digest = await Crypto.digestStringAsync(
     Crypto.CryptoDigestAlgorithm.SHA256,
     text

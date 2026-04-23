@@ -1,39 +1,36 @@
-/**
- * hooks/usePushNotifications.ts
- *
- * Manages push notification permission request and token registration.
- *
- * Permission flow:
- *   - Does NOT request on launch.
- *   - Call requestPermission() after a meaningful moment (first match, first reply).
- *   - Shows a soft prompt first (via a native-style UI component), then OS prompt.
- *
- * Android channels are registered here for proper categorization.
- * iOS interruption levels are set per notification type in the send layer.
- */
-
 import { useEffect, useRef, useState } from "react";
-import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useApp } from "@/context/AppContext";
 
+// expo-notifications was removed from Expo Go (SDK 53+).
+// Use try/require so the module load doesn't crash in Expo Go.
+let Notifications: typeof import("expo-notifications") | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  Notifications = require("expo-notifications");
+} catch {
+  // Running in Expo Go — push notifications unavailable
+}
+
+if (Notifications) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
+
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "";
 const STORAGE_KEY = "push_token_registered";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
-
 async function registerAndroidChannels() {
-  if (Platform.OS !== "android") return;
+  if (!Notifications || Platform.OS !== "android") return;
   await Notifications.setNotificationChannelAsync("messages", {
     name: "메시지",
     importance: Notifications.AndroidImportance.HIGH,
@@ -71,12 +68,7 @@ async function registerTokenWithServer(token: string, jwt: string) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${jwt}`,
       },
-      body: JSON.stringify({
-        pushToken: token,
-        platform,
-        locale,
-        timezone,
-      }),
+      body: JSON.stringify({ pushToken: token, platform, locale, timezone }),
     });
     if (!res.ok) {
       console.warn("[push] token registration failed:", res.status);
@@ -92,14 +84,16 @@ export function usePushNotifications() {
   const { token: jwt } = useApp();
   const [permissionStatus, setPermissionStatus] = useState<"unknown" | "granted" | "denied">("unknown");
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
-  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
-  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+  const notificationListener = useRef<any>(null);
+  const responseListener = useRef<any>(null);
 
   useEffect(() => {
+    if (!Notifications) return; // Expo Go — skip
+
     registerAndroidChannels();
 
     const checkPermission = async () => {
-      const { status } = await Notifications.getPermissionsAsync();
+      const { status } = await Notifications!.getPermissionsAsync();
       if (status === "granted") {
         setPermissionStatus("granted");
         await ensureTokenRegistered();
@@ -111,13 +105,13 @@ export function usePushNotifications() {
     checkPermission();
 
     notificationListener.current = Notifications.addNotificationReceivedListener(
-      (notification) => {
+      (notification: any) => {
         console.log("[push] notification received:", notification.request.content.title);
       }
     );
 
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(
-      (_response) => {
+    responseListener.current = Notifications!.addNotificationResponseReceivedListener(
+      (_response: any) => {
         console.log("[push] notification tapped");
       }
     );
@@ -126,17 +120,15 @@ export function usePushNotifications() {
       notificationListener.current?.remove();
       responseListener.current?.remove();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function ensureTokenRegistered() {
-    if (!Device.isDevice) return;
-    if (!jwt) return;
-
+    if (!Notifications || !Device.isDevice || !jwt) return;
     try {
       const tokenData = await Notifications.getExpoPushTokenAsync();
       const token = tokenData.data;
       setExpoPushToken(token);
-
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored !== token) {
         await registerTokenWithServer(token, jwt);
@@ -146,16 +138,8 @@ export function usePushNotifications() {
     }
   }
 
-  /**
-   * Request OS push permission.
-   * Call after soft prompt has been shown and user expressed willingness.
-   * Silently skips on simulator/emulator.
-   */
   async function requestPermission(): Promise<boolean> {
-    if (!Device.isDevice) {
-      console.log("[push] skipping permission on simulator");
-      return false;
-    }
+    if (!Notifications || !Device.isDevice) return false;
 
     const { status: existing } = await Notifications.getPermissionsAsync();
     if (existing === "granted") {
@@ -175,9 +159,6 @@ export function usePushNotifications() {
     return false;
   }
 
-  /**
-   * Deregister push token from server (on logout).
-   */
   async function deregisterToken() {
     const token = expoPushToken;
     if (!token || !jwt) return;

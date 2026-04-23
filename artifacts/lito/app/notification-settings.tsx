@@ -29,7 +29,14 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import * as Notifications from "expo-notifications";
+// expo-notifications removed from Expo Go (SDK 53+) — use try/require
+let Notifications: typeof import("expo-notifications") | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  Notifications = require("expo-notifications");
+} catch {
+  // Running in Expo Go
+}
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 import { useApp } from "@/context/AppContext";
@@ -71,6 +78,7 @@ export default function NotificationSettingsScreen() {
 
   useEffect(() => {
     const checkOs = async () => {
+      if (!Notifications) { setOsStatus("unknown"); return; }
       const { status } = await Notifications.getPermissionsAsync();
       setOsStatus(status === "granted" ? "granted" : status === "denied" ? "denied" : "unknown");
     };
@@ -146,6 +154,7 @@ export default function NotificationSettingsScreen() {
       );
       return;
     }
+    if (!Notifications) return;
     const { status } = await Notifications.requestPermissionsAsync();
     setOsStatus(status === "granted" ? "granted" : "denied");
   };
