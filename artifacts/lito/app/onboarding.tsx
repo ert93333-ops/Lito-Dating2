@@ -151,7 +151,7 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const { updateProfile } = useApp();
 
-  const [phase, setPhase] = useState<"welcome" | "language">("welcome");
+  const [phase, setPhase] = useState<"language" | "welcome">("language");
   const [selectedLang, setSelectedLang] = useState<"ko" | "ja" | null>(null);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -170,6 +170,11 @@ export default function OnboardingScreen() {
 
   useEffect(() => {
     if (phase === "welcome") {
+      // Reset before stagger in case user returned from welcome
+      cardAnims.forEach(({ opacity, translateX }) => {
+        opacity.setValue(0);
+        translateX.setValue(30);
+      });
       Animated.stagger(
         110,
         cardAnims.map(({ opacity, translateX }) =>
@@ -182,17 +187,25 @@ export default function OnboardingScreen() {
     }
   }, [phase]);
 
-  // Android back button
+  // Android back button — welcome → language, language → system back
   useEffect(() => {
     if (Platform.OS !== "android") return;
     const handler = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (phase === "language") { setPhase("welcome"); return true; }
+      if (phase === "welcome") { goBackToLanguage(); return true; }
       return false;
     });
     return () => handler.remove();
   }, [phase]);
 
-  const goToLanguage = () => {
+  const goToWelcome = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Animated.timing(phaseOpacity, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => {
+      setPhase("welcome");
+      Animated.timing(phaseOpacity, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+    });
+  };
+
+  const goBackToLanguage = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Animated.timing(phaseOpacity, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => {
       setPhase("language");
@@ -205,6 +218,7 @@ export default function OnboardingScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  // Language selected → save + go to welcome
   const handleLangContinue = () => {
     if (!selectedLang) return;
     updateProfile({
@@ -212,21 +226,42 @@ export default function OnboardingScreen() {
       country: selectedLang === "ko" ? "KR" : "JP",
     });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    goToWelcome();
+  };
+
+  // Welcome CTA → login
+  const handleStartApp = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.replace("/login");
   };
 
   // ── Phase: welcome ───────────────────────────────────────────────────────────
   if (phase === "welcome") {
+    const lang = selectedLang ?? "ko";
+    const headline =
+      lang === "ko"
+        ? "한국과 일본을 잇는 인연\n韓日をつなぐ縁"
+        : "韓日をつなぐ縁\n한국과 일본을 잇는 인연";
+    const ctaLabel = lang === "ko" ? "시작하기 →" : "はじめる →";
+
     return (
       <View style={[s.container, { backgroundColor: colors.white }]}>
         <View style={[s.header, { paddingTop: topPad + 16 }]}>
+          <TouchableOpacity
+            onPress={goBackToLanguage}
+            style={s.backBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <FIcon name="chevron-left" size={22} color={colors.charcoalMid} />
+          </TouchableOpacity>
           <Text style={[s.logo, { color: colors.charcoal }]}>lito</Text>
+          <View style={{ width: 36 }} />
         </View>
 
         <Animated.View style={[s.welcomeContent, { paddingBottom: bottomPad + 24, opacity: phaseOpacity }]}>
           <View style={s.welcomeHeadline}>
             <Text style={[s.welcomeTitle, { color: colors.charcoal }]}>
-              {"한국과 일본을 잇는 인연\n韓日をつなぐ縁"}
+              {headline}
             </Text>
           </View>
 
@@ -254,10 +289,10 @@ export default function OnboardingScreen() {
                   </View>
                   <View style={s.valueCardText}>
                     <Text style={[s.valueCardTitle, { color: card.accentColor }]}>
-                      {card.titleKo}
+                      {lang === "ko" ? card.titleKo : card.titleJa}
                     </Text>
                     <Text style={[s.valueCardBody, { color: "#4A3040" }]}>
-                      {card.bodyKo}
+                      {lang === "ko" ? card.bodyKo : card.bodyJa}
                     </Text>
                   </View>
                 </LinearGradient>
@@ -268,10 +303,10 @@ export default function OnboardingScreen() {
           <View style={s.welcomeFooter}>
             <TouchableOpacity
               style={[s.ctaBtn, { backgroundColor: colors.rose }]}
-              onPress={goToLanguage}
+              onPress={handleStartApp}
               activeOpacity={0.85}
             >
-              <Text style={s.ctaBtnText}>{"시작하기 →"}</Text>
+              <Text style={s.ctaBtnText}>{ctaLabel}</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -283,15 +318,7 @@ export default function OnboardingScreen() {
   return (
     <View style={[s.container, { backgroundColor: colors.white }]}>
       <View style={[s.header, { paddingTop: topPad + 16 }]}>
-        <TouchableOpacity
-          onPress={() => setPhase("welcome")}
-          style={s.backBtn}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <FIcon name="chevron-left" size={22} color={colors.charcoalMid} />
-        </TouchableOpacity>
         <Text style={[s.logo, { color: colors.charcoal }]}>lito</Text>
-        <View style={{ width: 36 }} />
       </View>
 
       <Animated.View style={[s.langContent, { paddingBottom: bottomPad + 24, opacity: phaseOpacity }]}>
@@ -300,7 +327,7 @@ export default function OnboardingScreen() {
             {"언어를 선택하세요\n言語を選択してください"}
           </Text>
           <Text style={[s.langSub, { color: colors.charcoalLight }]}>
-            앱 언어 및 매칭 국가가 설정됩니다
+            {"앱 언어 및 매칭 국가가 설정됩니다\nアプリの言語とマッチング国が設定されます"}
           </Text>
         </View>
 
