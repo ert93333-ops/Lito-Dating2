@@ -1,8 +1,7 @@
 import FIcon from "@/components/FIcon";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback } from "react";
 import {
-  ActivityIndicator,
   Platform,
   ScrollView,
   StyleSheet,
@@ -11,10 +10,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
-  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : "http://localhost:8080";
 
 import { CountryFlag } from "@/components/CountryFlag";
 import { ProfileImage } from "@/components/ProfileImage";
@@ -32,9 +27,6 @@ function MatchCard({ match }: { match: Match }) {
   const { profile } = useApp();
   const trustScore = computeTrustScore(match.user.trustProfile);
 
-  const [starters, setStarters] = useState<string[] | null>(null);
-  const [starterLoading, setStarterLoading] = useState(false);
-
   const goToChat = (draft?: string) => {
     const convId = match.id.replace("match", "conv");
     const path = draft
@@ -45,32 +37,6 @@ function MatchCard({ match }: { match: Match }) {
 
   const goToProfile = () => {
     router.push(`/user-profile/${match.user.id}` as any);
-  };
-
-  const fetchStarters = async () => {
-    if (starterLoading) return;
-    setStarterLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/ai/conversation-starter`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          myLang: lang,
-          theirProfile: {
-            nickname: match.user.nickname,
-            bio: match.user.bio,
-            interests: match.user.interests,
-            country: match.user.country,
-          },
-        }),
-      });
-      const data = await res.json();
-      if (data.starters) setStarters(data.starters);
-    } catch {
-      setStarters(null);
-    } finally {
-      setStarterLoading(false);
-    }
   };
 
   return (
@@ -155,42 +121,6 @@ function MatchCard({ match }: { match: Match }) {
           </TouchableOpacity>
         </View>
 
-        {/* AI 첫 메시지 제안 */}
-        {starters === null && !starterLoading && (
-          <TouchableOpacity
-            style={[styles.starterTrigger, { backgroundColor: colors.roseLight, borderColor: "#F2BDCA" }]}
-            onPress={fetchStarters}
-            activeOpacity={0.82}
-          >
-            <FIcon name="cpu" size={12} color={colors.rose} />
-            <Text style={[styles.starterTriggerText, { color: colors.rose }]}>
-              {lang === "ko" ? "AI 첫 메시지 제안 받기" : "AI最初のメッセージを提案"}
-            </Text>
-          </TouchableOpacity>
-        )}
-        {starterLoading && (
-          <View style={[styles.starterTrigger, { backgroundColor: colors.muted }]}>
-            <ActivityIndicator size="small" color={colors.rose} />
-            <Text style={[styles.starterTriggerText, { color: colors.charcoalLight }]}>
-              {lang === "ko" ? "AI가 생각 중..." : "AIが考え中..."}
-            </Text>
-          </View>
-        )}
-        {starters && starters.length > 0 && (
-          <View style={styles.starterList}>
-            {starters.map((s, i) => (
-              <TouchableOpacity
-                key={i}
-                style={[styles.starterPill, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                onPress={() => goToChat(s)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.starterPillText, { color: colors.charcoal }]}>{s}</Text>
-                <FIcon name="send" size={11} color={colors.rose} />
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
       </View>
     </View>
   );
@@ -221,9 +151,6 @@ export default function MatchesScreen() {
       <View style={[styles.header, { paddingTop: topPad + 16 }]}>
         <Text style={[styles.title, { color: colors.charcoal }]}>
           {lang === "ko" ? "매칭" : "マッチング"}
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.charcoalLight }]}>
-          {lang === "ko" ? "매칭 · マッチング" : "マッチング · 매칭"}
         </Text>
       </View>
 

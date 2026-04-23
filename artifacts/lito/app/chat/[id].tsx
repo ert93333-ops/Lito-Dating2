@@ -1591,7 +1591,7 @@ export default function ChatDetailScreen() {
               },
             ]}
             placeholder={t("chat.placeholder")}
-            placeholderTextColor={colors.charcoalFaint}
+            placeholderTextColor={colors.charcoalLight}
             value={inputText}
             onChangeText={setInputText}
             multiline

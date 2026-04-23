@@ -120,9 +120,6 @@ export default function ChatsScreen() {
         <Text style={[styles.title, { color: colors.charcoal }]}>
           {lang === "ko" ? "채팅" : "チャット"}
         </Text>
-        <Text style={[styles.subtitle, { color: colors.charcoalLight }]}>
-          {lang === "ko" ? "채팅 · チャット" : "チャット · 채팅"}
-        </Text>
       </View>
 
       <ScrollView

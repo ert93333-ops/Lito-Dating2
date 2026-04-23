@@ -187,12 +187,82 @@ export default function ProfileScreen() {
           const trustScore = computeTrustScore(profile.trustProfile) * 0.3;
           const total = Math.min(100, photoScore + genderScore + bioScore + interestScore + nickScore + trustScore);
           return (
-            <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
-              <View style={[styles.barFill, { backgroundColor: colors.rose, width: `${total}%` as any }]} />
+            <View>
+              <View style={styles.barLabelRow}>
+                <Text style={[styles.barLabelText, { color: colors.charcoalLight }]}>
+                  {lang === "ko" ? "프로필 완성도" : "プロフィール完成度"}
+                </Text>
+                <Text style={[styles.barPct, { color: total >= 70 ? "#1A7A4A" : colors.rose }]}>
+                  {Math.round(total)}%
+                </Text>
+              </View>
+              <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
+                <View style={[styles.barFill, { backgroundColor: total >= 70 ? "#1A7A4A" : colors.rose, width: `${total}%` as any }]} />
+              </View>
             </View>
           );
         })()}
       </TouchableOpacity>
+
+      {/* ── 완성 체크리스트 ───────────────────────────────────────────────── */}
+      {(() => {
+        const tasks = [
+          {
+            done: profile.photos.length >= 2,
+            label: lang === "ko" ? "사진 2장 이상 추가" : "写真を2枚以上追加",
+            hint: lang === "ko" ? "발견 노출 +18%" : "発見表示率 +18%",
+            route: "/profile-edit",
+          },
+          {
+            done: computeTrustScore(profile.trustProfile) > 0,
+            label: lang === "ko" ? "본인 인증 완료" : "本人認証を完了",
+            hint: lang === "ko" ? "매칭 신뢰도 상승" : "マッチング信頼度アップ",
+            route: "/trust-center",
+          },
+          {
+            done: !!(profile.bio && profile.bio.length > 10),
+            label: lang === "ko" ? "자기소개 작성" : "自己紹介を書く",
+            hint: lang === "ko" ? "대화 시작률 상승" : "会話開始率アップ",
+            route: "/profile-edit",
+          },
+        ];
+        const allDone = tasks.every((t) => t.done);
+        if (allDone) return null;
+        return (
+          <View style={[styles.checklistCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.checklistTitle, { color: colors.charcoal }]}>
+              {lang === "ko" ? "지금 할 수 있는 것" : "今すぐできること"}
+            </Text>
+            {tasks.map((task, i) => (
+              <TouchableOpacity
+                key={i}
+                style={[styles.checklistRow, task.done && { opacity: 0.45 }]}
+                onPress={() => !task.done && router.push(task.route as any)}
+                activeOpacity={task.done ? 1 : 0.75}
+                disabled={task.done}
+              >
+                <View style={[
+                  styles.checkCircle,
+                  { borderColor: task.done ? "#1A7A4A" : colors.border, backgroundColor: task.done ? "#EFFAF4" : "transparent" },
+                ]}>
+                  {task.done && <FIcon name="check" size={11} color="#1A7A4A" />}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.checkLabel, { color: task.done ? colors.charcoalLight : colors.charcoal }]}>
+                    {task.label}
+                  </Text>
+                  {!task.done && (
+                    <Text style={[styles.checkHint, { color: colors.rose }]}>
+                      {task.hint}
+                    </Text>
+                  )}
+                </View>
+                {!task.done && <FIcon name="chevron-right" size={14} color={colors.charcoalLight} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        );
+      })()}
 
       {/* ── 사진 없음 경고 배너 ───────────────────────────────────────────── */}
       {profile.photos.length === 0 && (
@@ -673,6 +743,59 @@ const styles = StyleSheet.create({
   barFill: {
     height: 4,
     borderRadius: 2,
+  },
+  barLabelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  barLabelText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+  },
+  barPct: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 13,
+  },
+
+  // ── Checklist card ─────────────────────────────────────────────────────────
+  checklistCard: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+  },
+  checklistTitle: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  checklistRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(0,0,0,0.06)",
+  },
+  checkCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+  },
+  checkHint: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    marginTop: 1,
   },
 
   // ── Sections ──────────────────────────────────────────────────────────────

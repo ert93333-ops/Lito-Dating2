@@ -113,14 +113,9 @@ function TranslatedBio({ user, viewerLang }: { user: User; viewerLang: "ko" | "j
   }
 
   return (
-    <View style={{ gap: 3 }}>
-      <Text style={cardStyles.bioText} numberOfLines={2}>
-        {result.translation.split("\n")[0]}
-      </Text>
-      <Text style={cardStyles.bioOriginal} numberOfLines={1}>
-        {originalLine}
-      </Text>
-    </View>
+    <Text style={cardStyles.bioText} numberOfLines={2}>
+      {result.translation.split("\n")[0]}
+    </Text>
   );
 }
 
@@ -348,42 +343,12 @@ function DiscoverCard({
           <TrustBadge trustProfile={user.trustProfile} size="sm" />
         </View>
 
-        {/* Match score + city + language study badge */}
-        <View style={cardStyles.metaRow}>
-          <View style={cardStyles.matchPill}>
-            <FIcon name="zap" size={10} color="#D85870" />
-            <Text style={cardStyles.matchText}>{user.compatibilityScore}% {profile.language === "ko" ? "매치" : "マッチ"}</Text>
-          </View>
-          {user.city ? (
-            <View style={cardStyles.cityRow}>
-              <FIcon name="map-pin" size={10} color="rgba(255,255,255,0.65)" />
-              <Text style={cardStyles.cityText}>{user.city}</Text>
-            </View>
-          ) : null}
-          {user.studyingLanguage && (
-            <View style={cardStyles.langBadge}>
-              <Text style={cardStyles.langBadgeText}>
-                {user.language === "ja"
-                  ? (profile.language === "ko" ? "한국어 공부 중" : "韓国語勉強中")
-                  : (profile.language === "ko" ? "일본어 공부 중" : "日本語勉強中")}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Interest + compatibility chips */}
-        {((user.interests && user.interests.length > 0) || user.compatibilityReasons.length > 0) && (
+        {/* Interest chips — max 3, neutral glass */}
+        {user.interests && user.interests.length > 0 && (
           <View style={cardStyles.chips}>
-            {user.interests
-              ? user.interests.slice(0, 2).map((interest) => (
-                  <View key={interest} style={cardStyles.chip}>
-                    <Text style={cardStyles.chipText}>{interest}</Text>
-                  </View>
-                ))
-              : null}
-            {user.compatibilityReasons.slice(0, user.interests ? 1 : 3).map((r) => (
-              <View key={r} style={[cardStyles.chip, cardStyles.chipMatch]}>
-                <Text style={cardStyles.chipText}>{r}</Text>
+            {user.interests.slice(0, 3).map((interest) => (
+              <View key={interest} style={cardStyles.chip}>
+                <Text style={cardStyles.chipText}>{interest}</Text>
               </View>
             ))}
           </View>
