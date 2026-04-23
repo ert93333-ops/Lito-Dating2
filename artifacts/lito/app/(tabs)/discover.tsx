@@ -158,12 +158,23 @@ function DiscoverCard({
   const translateY = useSharedValue(0);
   const likeOpacity = useSharedValue(0);
   const passOpacity = useSharedValue(0);
+  // Card entry: fade + slide-up when this card becomes top
+  const entryOpacity = useSharedValue(isTop ? 0 : 1);
+  const entryTranslateY = useSharedValue(isTop ? 14 : 0);
 
   // Haptics must run on JS thread
   const triggerLikeHaptic = () =>
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   const triggerPassHaptic = () =>
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+  // ── Entry animation — fire once on mount when isTop ─────────────────────
+  useEffect(() => {
+    if (!isTop) return;
+    entryOpacity.value = withTiming(1, { duration: 260 });
+    entryTranslateY.value = withSpring(0, { damping: 22, stiffness: 260, mass: 0.7 });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Pan gesture — fully native-thread via Reanimated ────────────────────
   const panGesture = Gesture.Pan()
@@ -234,18 +245,31 @@ function DiscoverCard({
     return {
       transform: [
         { translateX: translateX.value },
-        { translateY: translateY.value },
+        { translateY: translateY.value + entryTranslateY.value },
         { rotate: `${rotate}deg` },
       ],
+      opacity: entryOpacity.value,
     };
   });
 
-  const likeAnimStyle = useAnimatedStyle(() => ({
-    opacity: likeOpacity.value,
-  }));
+  // LIKE stamp: opacity + scale for impact
+  const likeAnimStyle = useAnimatedStyle(() => {
+    const scale = interpolate(likeOpacity.value, [0, 1], [0.72, 1], Extrapolation.CLAMP);
+    return { opacity: likeOpacity.value, transform: [{ scale }, { rotate: "-12deg" }] };
+  });
 
-  const passAnimStyle = useAnimatedStyle(() => ({
-    opacity: passOpacity.value,
+  // PASS stamp: opacity + scale
+  const passAnimStyle = useAnimatedStyle(() => {
+    const scale = interpolate(passOpacity.value, [0, 1], [0.72, 1], Extrapolation.CLAMP);
+    return { opacity: passOpacity.value, transform: [{ scale }, { rotate: "12deg" }] };
+  });
+
+  // Swipe direction color tint overlay
+  const likeTintStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(likeOpacity.value, [0, 1], [0, 0.2], Extrapolation.CLAMP),
+  }));
+  const passTintStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(passOpacity.value, [0, 1], [0, 0.18], Extrapolation.CLAMP),
   }));
 
   // ── Card body ────────────────────────────────────────────────────────────
@@ -280,10 +304,10 @@ function DiscoverCard({
         </TouchableOpacity>
       )}
 
-      {/* LIKE stamp */}
+      {/* LIKE stamp — position absolute, rotation in animStyle */}
       <Animated.View style={[cardStyles.stamp, cardStyles.stampLike, likeAnimStyle]}>
         <View style={cardStyles.likeInner}>
-          <FIcon name="heart" size={13} color="#D85870" />
+          <FIcon name="heart" size={14} color="#D85870" />
           <Text style={[cardStyles.stampText, { color: "#D85870" }]}>LIKE</Text>
         </View>
       </Animated.View>
@@ -291,20 +315,38 @@ function DiscoverCard({
       {/* PASS stamp */}
       <Animated.View style={[cardStyles.stamp, cardStyles.stampPass, passAnimStyle]}>
         <View style={cardStyles.passInner}>
-          <FIcon name="x" size={13} color="#8E8E93" />
-          <Text style={[cardStyles.stampText, { color: "#8E8E93" }]}>PASS</Text>
+          <FIcon name="x" size={14} color="#6E6E76" />
+          <Text style={[cardStyles.stampText, { color: "#6E6E76" }]}>PASS</Text>
         </View>
       </Animated.View>
 
-      {/* Deep bottom gradient — transparent → photo-warm dark */}
+      {/* Swipe direction tint — rose for LIKE, neutral for PASS */}
+      <Animated.View
+        style={[StyleSheet.absoluteFillObject, { backgroundColor: "#D85870" }, likeTintStyle]}
+        pointerEvents="none"
+      />
+      <Animated.View
+        style={[StyleSheet.absoluteFillObject, { backgroundColor: "#3C3C3E" }, passTintStyle]}
+        pointerEvents="none"
+      />
+
+      {/* Bottom gradient — stronger protection for info text */}
       <LinearGradient
         colors={[
           "transparent",
-          "rgba(10,8,10,0.18)",
-          "rgba(10,8,10,0.68)",
-          "rgba(10,8,10,0.88)",
+          "rgba(8,6,8,0.24)",
+          "rgba(8,6,8,0.76)",
+          "rgba(8,6,8,0.94)",
         ]}
-        locations={[0.28, 0.52, 0.78, 1]}
+        locations={[0.18, 0.44, 0.72, 1]}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
+
+      {/* Subtle top scrim — protects report button on bright photos */}
+      <LinearGradient
+        colors={["rgba(0,0,0,0.28)", "transparent"]}
+        locations={[0, 0.18]}
         style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
@@ -393,10 +435,10 @@ const cardStyles = StyleSheet.create({
     elevation: 12,
   },
 
-  // Stamps — refined pill with icon, white background for legibility
+  // Stamps — pill with icon; rotation is handled by useAnimatedStyle
   stamp: { position: "absolute", top: 44, zIndex: 20 },
-  stampLike: { left: 20, transform: [{ rotate: "-12deg" }] },
-  stampPass: { right: 20, transform: [{ rotate: "12deg" }] },
+  stampLike: { left: 20 },
+  stampPass: { right: 20 },
   likeInner: {
     flexDirection: "row",
     alignItems: "center",

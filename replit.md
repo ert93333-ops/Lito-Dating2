@@ -39,6 +39,9 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **DB 기반 Discovery**: 실제 가입 사용자가 Discover에 등장. `swipe_passes` 테이블 신규 추가. 좋아요/패스/매칭 모두 DB 저장 (실제 유저 간). AI 페르소나는 좋아요 즉시 자동 매칭. 데모 유저는 인메모리 폴백으로 유지. 비인증 게스트는 데모+AI 유저만 표시
 - **연락처 차단**: `expo-contacts` + `expo-crypto` 기반. 기기에서 SHA-256 해시 처리 → 원본 번호 서버 미전달. `contact_block_hashes` 테이블. Discover 풀에서 양방향 차단 적용. 설정 → 계정 → 연락처 차단
 - **흡연/음주 필드 + 필터**: `SmokingHabit`/`DrinkingHabit` 타입 (`"never"|"socially"|"regularly"|"prefer_not_to_say"`). DB `user_profiles` 테이블 smoking/drinking 컬럼 추가. `profile-edit.tsx`에 라이프스타일 섹션 (칩 선택 UI + API 저장). `user-profile/[id].tsx` + `profile.tsx`에 표시. 프로필 완성도 +5점 보너스. `prefer_not_to_say` 선택 시 공개 화면에 미표시. Discover 필터 모달에 흡연/음주 항목 추가 (전체/안 함/가끔/자주) — API 쿼리 파라미터 `smoking`, `drinking`으로 서버 사이드 필터링
+- **채팅 리스트 탭**: 전체/안 읽음/요청 필터 탭 추가. 안 읽음 배지 아바타 코너로 이동. Bold 폰트 + 로즈 색 시간 표시로 안 읽음 우선순위 강화. 시간 포맷 개선 (HH:MM/요일명/월일).
+- **채팅 말풍선 애니메이션**: 진입 시 fade + 10px 슬라이드업 (200ms, ease-out, useNativeDriver). 번역 토글 crossfade (220ms). AI 빠른 답장 패널 slide-up (250ms).
+- **Discover 카드 애니메이션**: 카드 진입 fade+slide (260ms). LIKE/PASS 스탬프에 scale 0.72→1 스프링 애니메이션 추가. 스와이프 방향 색상 오버레이 — 우측(LIKE): rose 틴트 20%, 좌측(PASS): grey 틴트 18%. 하단 그라데이션 강화 (0.24→0.94, 더 높은 위치에서 시작). 상단 scrim 추가 (신고 버튼 가독성 보호).
 - **TODO**: Kakao/LINE OAuth, 프로필 완성도 기반 필터링
 
 ### Lito Admin — Trust & Safety Dashboard (`artifacts/admin`)
