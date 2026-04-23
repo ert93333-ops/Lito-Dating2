@@ -241,20 +241,10 @@ export default function ProfileSetupScreen() {
   // Step state
   const [step, setStep] = useState(1);
 
-  // Step transition — simple fade only (no slide) for reliable cross-platform behavior
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-
-  const goTo = (next: number) => {
-    Animated.timing(fadeAnim, { toValue: 0, duration: 120, useNativeDriver: false }).start(() => {
-      setStep(next);
-      fadeAnim.setValue(0);
-      Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: false }).start();
-    });
-  };
+  const goTo = (next: number) => setStep(next);
 
   const goBack = () => {
     if (step <= 1) return;
-    fadeAnim.setValue(1);
     setStep(step - 1);
   };
 
@@ -415,8 +405,6 @@ export default function ProfileSetupScreen() {
     </View>
   );
 
-  const stepAnim = { opacity: fadeAnim };
-
   // ══════════════════════════════════════════════════════════════════════════
   // STEP 1 — Name
   // ══════════════════════════════════════════════════════════════════════════
@@ -429,7 +417,7 @@ export default function ProfileSetupScreen() {
           subtitle={lang === "ko" ? "프로필 카드에 표시될 이름이에요." : "プロフィールカードに表示される名前です。"}
         />
         <KeyboardAwareScrollViewCompat contentContainerStyle={[s.scroll, { paddingBottom: bottomPad + 130 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <Animated.View style={stepAnim}>
+          <View>
             {/* Live preview card */}
             {nickname.trim().length > 0 && (
               <View style={[nameStyle.previewCard, { backgroundColor: colors.roseLight, borderColor: colors.roseSoft }]}>
@@ -463,7 +451,7 @@ export default function ProfileSetupScreen() {
               </Text>
             )}
             <Text style={[s.charCount, { color: colors.charcoalFaint }]}>{nickname.length}/20</Text>
-          </Animated.View>
+          </View>
         </KeyboardAwareScrollViewCompat>
         <View style={[s.stickyFooter, { paddingBottom: bottomPad + 14, borderTopColor: colors.border, backgroundColor: colors.white }]}>
           <PrimaryButton label={lang === "ko" ? "다음 →" : "次へ →"} onPress={() => goTo(2)} disabled={!nameReady} />
@@ -487,7 +475,6 @@ export default function ProfileSetupScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-        <Animated.View style={stepAnim}>
           <View style={dobStyle.row}>
             <View style={dobStyle.fieldWrap}>
               <Text style={[dobStyle.label, { color: colors.charcoalLight }]}>
@@ -514,7 +501,7 @@ export default function ProfileSetupScreen() {
               </Text>
               <TextInput
                 ref={monthRef}
-                style={[dobStyle.input, dobStyle.inputSm, { backgroundColor: colors.muted, borderColor: birthMonth.length > 0 ? colors.rose : colors.border, color: colors.charcoal }]}
+                style={[dobStyle.input, { backgroundColor: colors.muted, borderColor: birthMonth.length > 0 ? colors.rose : colors.border, color: colors.charcoal }]}
                 value={birthMonth}
                 onChangeText={(v) => {
                   const clean = v.replace(/\D/g, "").slice(0, 2);
@@ -534,7 +521,7 @@ export default function ProfileSetupScreen() {
               </Text>
               <TextInput
                 ref={dayRef}
-                style={[dobStyle.input, dobStyle.inputSm, { backgroundColor: colors.muted, borderColor: birthDay.length > 0 ? colors.rose : colors.border, color: colors.charcoal }]}
+                style={[dobStyle.input, { backgroundColor: colors.muted, borderColor: birthDay.length > 0 ? colors.rose : colors.border, color: colors.charcoal }]}
                 value={birthDay}
                 onChangeText={(v) => setBirthDay(v.replace(/\D/g, "").slice(0, 2))}
                 placeholder="15"
@@ -562,7 +549,6 @@ export default function ProfileSetupScreen() {
               </Text>
             </View>
           )}
-        </Animated.View>
         </ScrollView>
         <View style={[s.stickyFooter, { paddingBottom: bottomPad + 14, borderTopColor: colors.border, backgroundColor: colors.white }]}>
           <PrimaryButton label={lang === "ko" ? "다음 →" : "次へ →"} onPress={() => goTo(3)} disabled={!dobValid} />
@@ -593,7 +579,7 @@ export default function ProfileSetupScreen() {
           subtitle={lang === "ko" ? "매칭 알고리즘에서 사용됩니다." : "マッチングアルゴリズムで使用されます。"}
         />
         <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: bottomPad + 130 }]} showsVerticalScrollIndicator={false}>
-          <Animated.View style={stepAnim}>
+          <View>
             <Text style={[s.sectionLabel, { color: colors.charcoalMid }]}>
               {lang === "ko" ? "나의 성별" : "自分の性別"}
             </Text>
@@ -625,7 +611,7 @@ export default function ProfileSetupScreen() {
                 </View>
               ))}
             </View>
-          </Animated.View>
+          </View>
         </ScrollView>
         <View style={[s.stickyFooter, { paddingBottom: bottomPad + 14, borderTopColor: colors.border, backgroundColor: colors.white }]}>
           <PrimaryButton label={lang === "ko" ? "다음 →" : "次へ →"} onPress={() => goTo(4)} disabled={!step3Ready} />
@@ -650,7 +636,7 @@ export default function ProfileSetupScreen() {
           subtitle={lang === "ko" ? "상대 프로필에서 볼 수 있어요." : "相手のプロフィールに表示されます。"}
         />
         <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: bottomPad + 130 }]} showsVerticalScrollIndicator={false}>
-          <Animated.View style={[stepAnim, { gap: 12 }]}>
+          <View style={{ gap: 12 }}>
             {natOptions.map((n) => (
               <SelectionCard
                 key={n.value}
@@ -661,7 +647,7 @@ export default function ProfileSetupScreen() {
                 emoji={n.emoji}
               />
             ))}
-          </Animated.View>
+          </View>
         </ScrollView>
         <View style={[s.stickyFooter, { paddingBottom: bottomPad + 14, borderTopColor: colors.border, backgroundColor: colors.white }]}>
           <PrimaryButton label={lang === "ko" ? "다음 →" : "次へ →"} onPress={() => goTo(5)} disabled={nationality === null} />
@@ -681,7 +667,7 @@ export default function ProfileSetupScreen() {
           subtitle={lang === "ko" ? "비슷한 레벨의 상대를 더 잘 연결해드려요." : "同レベルの相手とより繋がりやすくなります。"}
         />
         <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: bottomPad + 130 }]} showsVerticalScrollIndicator={false}>
-          <Animated.View style={stepAnim}>
+          <View>
             {/* Korean level */}
             <Text style={[s.sectionLabel, { color: colors.charcoalMid }]}>
               {lang === "ko" ? "KR 한국어" : "KR 韓国語"}
@@ -731,7 +717,7 @@ export default function ProfileSetupScreen() {
                   : "正確なレベルを選ぶと、より相性の良い相手と出会えます。"}
               </Text>
             </View>
-          </Animated.View>
+          </View>
         </ScrollView>
         <View style={[s.stickyFooter, { paddingBottom: bottomPad + 14, borderTopColor: colors.border, backgroundColor: colors.white }]}>
           <PrimaryButton label={lang === "ko" ? "다음 →" : "次へ →"} onPress={() => goTo(6)} />
@@ -752,7 +738,7 @@ export default function ProfileSetupScreen() {
           subtitle={lang === "ko" ? "3개 이상 선택하면 더 잘 맞는 상대를 찾아드려요." : "3つ以上選ぶと、より相性の良い相手が見つかります。"}
         />
         <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: bottomPad + 130 }]} showsVerticalScrollIndicator={false}>
-          <Animated.View style={stepAnim}>
+          <View>
             <View style={intStyle.tagWrap}>
               {INTERESTS_I18N.map((item) => {
                 const stored = item.ko;
@@ -777,7 +763,7 @@ export default function ProfileSetupScreen() {
                 );
               })}
             </View>
-          </Animated.View>
+          </View>
         </ScrollView>
         <View style={[s.stickyFooter, { paddingBottom: bottomPad + 14, borderTopColor: colors.border, backgroundColor: colors.white }]}>
           <PrimaryButton
@@ -802,7 +788,7 @@ export default function ProfileSetupScreen() {
           subtitle={lang === "ko" ? "사진이 있으면 매칭률이 3배 높아져요. 최소 2장 필요해요." : "写真があるとマッチ率が3倍に。最低2枚必要です。"}
         />
         <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: bottomPad + 130 }]} showsVerticalScrollIndicator={false}>
-          <Animated.View style={stepAnim}>
+          <View>
             {/* Upload counter pill */}
             <View style={[photoStyle.countPill, { backgroundColor: photoCount >= 2 ? "#E8F8EE" : colors.roseLight, borderColor: photoCount >= 2 ? "#A9DFC2" : colors.roseSoft }]}>
               <FIcon name={photoCount >= 2 ? "check-circle" : "camera"} size={15} color={photoCount >= 2 ? "#1A7A4A" : colors.rose} />
@@ -852,7 +838,7 @@ export default function ProfileSetupScreen() {
                   : "明るくクリアな写真を使うと、マッチ率が上がります。"}
               </Text>
             </View>
-          </Animated.View>
+          </View>
         </ScrollView>
         <View style={[s.stickyFooter, { paddingBottom: bottomPad + 14, borderTopColor: colors.border, backgroundColor: colors.white }]}>
           <PrimaryButton
