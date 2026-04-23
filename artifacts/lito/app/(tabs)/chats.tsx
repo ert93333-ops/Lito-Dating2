@@ -22,13 +22,28 @@ import { Conversation } from "@/types";
 
 type TabKey = "all" | "unread" | "requests";
 
-function formatTime(iso?: string) {
+function formatTime(iso?: string, lang: "ko" | "ja" = "ko") {
   if (!iso) return "";
   const d = new Date(iso);
   const now = new Date();
-  const diffH = (now.getTime() - d.getTime()) / 3600000;
-  if (diffH < 24) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  if (diffH < 24 * 7) return d.toLocaleDateString([], { weekday: "short" });
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = diffMs / 60000;
+  const diffH = diffMs / 3600000;
+  const diffD = diffMs / 86400000;
+
+  if (diffMin < 1) return lang === "ko" ? "방금" : "たった今";
+  if (diffMin < 60) {
+    const m = Math.floor(diffMin);
+    return lang === "ko" ? `${m}분 전` : `${m}分前`;
+  }
+  if (diffH < 24) {
+    const h = Math.floor(diffH);
+    return lang === "ko" ? `${h}시간 전` : `${h}時間前`;
+  }
+  if (diffD < 7) {
+    const dd = Math.floor(diffD);
+    return lang === "ko" ? `${dd}일 전` : `${dd}日前`;
+  }
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
@@ -53,8 +68,8 @@ function ConversationRow({ conversation }: { conversation: Conversation }) {
           <View style={[styles.onlineDot, { backgroundColor: colors.green, borderColor: colors.white }]} />
         )}
         {hasLockRequest && !hasUnread && (
-          <View style={[styles.lockBadge, { backgroundColor: "#F5D98A", borderColor: colors.white }]}>
-            <FIcon name="lock" size={9} color="#7A5200" />
+          <View style={[styles.lockBadge, { backgroundColor: "#F2BDCA", borderColor: colors.white }]}>
+            <FIcon name="instagram" size={9} color="#D85870" />
           </View>
         )}
         {hasUnread && (
@@ -84,15 +99,15 @@ function ConversationRow({ conversation }: { conversation: Conversation }) {
             <CountryFlag country={conversation.user.country} size={13} />
           </View>
           <Text style={[styles.time, { color: hasUnread ? colors.rose : colors.charcoalFaint }]}>
-            {formatTime(conversation.lastMessage?.createdAt)}
+            {formatTime(conversation.lastMessage?.createdAt, lang)}
           </Text>
         </View>
 
         {/* ── Preview line ── */}
         {hasLockRequest ? (
-          <View style={[styles.lockChip, { backgroundColor: "#FFF8EC", borderColor: "#F5D98A" }]}>
-            <FIcon name="instagram" size={11} color="#8A5D00" />
-            <Text style={[styles.lockChipText, { color: "#8A5D00" }]}>
+          <View style={[styles.lockChip, { backgroundColor: "#FFF0F3", borderColor: "#F2BDCA" }]}>
+            <FIcon name="instagram" size={11} color="#D85870" />
+            <Text style={[styles.lockChipText, { color: "#D85870" }]}>
               {lang === "ko" ? "인스타 공개 요청" : "インスタ公開リクエスト"}
             </Text>
           </View>

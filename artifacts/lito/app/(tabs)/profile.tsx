@@ -84,12 +84,20 @@ export default function ProfileScreen() {
           <View
             style={[
               styles.heroPlaceholder,
-              { backgroundColor: colors.rose, height: heroHeight + topPad },
+              { height: heroHeight + topPad },
             ]}
           >
-            <Text style={styles.heroInitial}>
-              {(profile.nickname || "U")[0].toUpperCase()}
-            </Text>
+            <View style={styles.heroPlaceholderInner}>
+              <View style={styles.heroAvatarCircle}>
+                <Text style={styles.heroInitial}>
+                  {(profile.nickname || "U")[0].toUpperCase()}
+                </Text>
+              </View>
+              <Text style={styles.heroPlaceholderName}>{profile.nickname || (lang === "ko" ? "내 프로필" : "マイプロフィール")}</Text>
+              <Text style={styles.heroPlaceholderSub}>
+                {lang === "ko" ? "사진을 추가하면 더 많은 매칭을 받아요" : "写真を追加するとマッチが増えます"}
+              </Text>
+            </View>
           </View>
         )}
 
@@ -208,7 +216,9 @@ export default function ProfileScreen() {
             <Text style={[styles.barLabelText, { color: colors.charcoalLight }]}>
               {lang === "ko" ? "프로필 완성도" : "プロフィール完成度"}
             </Text>
-            <Text style={[styles.barPct, { color: profileTotal >= 70 ? "#1A7A4A" : colors.rose }]}>
+            <Text style={[styles.barPct, {
+                color: profileTotal >= 70 ? "#1A7A4A" : profileTotal >= 40 ? "#C07A00" : colors.rose,
+              }]}>
               {Math.round(profileTotal)}%
             </Text>
           </View>
@@ -217,7 +227,7 @@ export default function ProfileScreen() {
               style={[
                 styles.barFill,
                 {
-                  backgroundColor: profileTotal >= 70 ? "#1A7A4A" : colors.rose,
+                  backgroundColor: profileTotal >= 70 ? "#1A7A4A" : profileTotal >= 40 ? "#F0A500" : "#D85870",
                   width: barAnim.interpolate({
                     inputRange: [0, 100],
                     outputRange: ["0%", "100%"],
@@ -641,11 +651,37 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#F5E8ED",
+  },
+  heroPlaceholderInner: {
+    alignItems: "center",
+    gap: 10,
+  },
+  heroAvatarCircle: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: "#D85870",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
   },
   heroInitial: {
     fontFamily: "Inter_700Bold",
-    fontSize: 96,
-    color: "rgba(255,255,255,0.55)",
+    fontSize: 40,
+    color: "#fff",
+  },
+  heroPlaceholderName: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 20,
+    color: "#3C1A24",
+  },
+  heroPlaceholderSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    color: "#9A6070",
+    textAlign: "center",
+    paddingHorizontal: 32,
   },
   settingsBtn: {
     position: "absolute",

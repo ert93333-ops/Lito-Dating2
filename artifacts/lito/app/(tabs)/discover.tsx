@@ -336,11 +336,11 @@ function DiscoverCard({
       <LinearGradient
         colors={[
           "transparent",
-          "rgba(8,6,8,0.24)",
-          "rgba(8,6,8,0.76)",
-          "rgba(8,6,8,0.94)",
+          "rgba(8,6,8,0.38)",
+          "rgba(8,6,8,0.86)",
+          "rgba(8,6,8,0.97)",
         ]}
-        locations={[0.18, 0.44, 0.72, 1]}
+        locations={[0.10, 0.38, 0.65, 1]}
         style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
@@ -352,42 +352,6 @@ function DiscoverCard({
         style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
-
-      {/* ── Action buttons — bottom-right of card ───────────────────────── */}
-      {isTop && (
-        <View style={cardStyles.cardActions}>
-          <ActionButton
-            onPress={onPass}
-            hapticStyle="light"
-            accessibilityLabel={viewerLang === "ko" ? "패스" : "パス"}
-          >
-            <View style={cardStyles.cardBtn}>
-              <FIcon name="x" size={20} color="rgba(255,255,255,0.92)" />
-            </View>
-          </ActionButton>
-          <ActionButton
-            onPress={onSuperLike}
-            hapticStyle="medium"
-            accessibilityLabel={viewerLang === "ko" ? "슈퍼 좋아요" : "スーパーいいね"}
-          >
-            <View style={[
-              cardStyles.cardBtn,
-              { backgroundColor: superLikesLeft > 0 ? "rgba(255,218,60,0.22)" : "rgba(255,255,255,0.12)" },
-            ]}>
-              <FIcon name="star" size={18} color={superLikesLeft > 0 ? "#FFD43B" : "rgba(255,255,255,0.45)"} />
-            </View>
-          </ActionButton>
-          <ActionButton
-            onPress={onLike}
-            hapticStyle="medium"
-            accessibilityLabel={viewerLang === "ko" ? `${user.nickname} 좋아요` : `${user.nickname}にいいね`}
-          >
-            <View style={cardStyles.cardBtnMain}>
-              <FIcon name="heart" size={22} color="#fff" />
-            </View>
-          </ActionButton>
-        </View>
-      )}
 
       {/* ── Info overlay — floats over gradient ─────────────────────────── */}
       <View style={cardStyles.info}>
@@ -1031,7 +995,7 @@ export default function DiscoverScreen() {
       )}
 
       {/* ── Card stack ─────────────────────────────────────────────────── */}
-      <View style={{ flex: 1, paddingHorizontal: 8, paddingTop: 8, paddingBottom: TAB_BAR_H + 8 }}>
+      <View style={{ flex: 1, paddingHorizontal: 8, paddingTop: 8, paddingBottom: TAB_BAR_H + 104 }}>
       <View style={styles.stack}>
         {filteredUsers.slice(0, 3).map((user, idx) => {
           const isTop = idx === 0;
@@ -1078,6 +1042,42 @@ export default function DiscoverScreen() {
         })}
       </View>
       </View>
+
+      {/* ── Horizontal action buttons — below card stack ─────────────────── */}
+      {filteredUsers.length > 0 && (
+        <View style={[styles.bottomActionRow, { bottom: TAB_BAR_H + 20 }]}>
+          <ActionButton
+            onPress={() => handlePass(filteredUsers[0].id)}
+            hapticStyle="light"
+            accessibilityLabel={isKo ? "패스" : "パス"}
+          >
+            <View style={styles.actionBtnPass}>
+              <FIcon name="x" size={22} color="#6E6E76" />
+            </View>
+          </ActionButton>
+          <ActionButton
+            onPress={() => handleSuperLike(filteredUsers[0].id)}
+            hapticStyle="medium"
+            accessibilityLabel={isKo ? "슈퍼 좋아요" : "スーパーいいね"}
+          >
+            <View style={[
+              styles.actionBtnStar,
+              { backgroundColor: superLikesLeft > 0 ? "rgba(255,218,60,0.14)" : "rgba(0,0,0,0.04)" },
+            ]}>
+              <FIcon name="star" size={20} color={superLikesLeft > 0 ? "#F0B700" : "#C0C0C6"} />
+            </View>
+          </ActionButton>
+          <ActionButton
+            onPress={() => handleLike(filteredUsers[0].id)}
+            hapticStyle="medium"
+            accessibilityLabel={isKo ? `${filteredUsers[0].nickname} 좋아요` : `${filteredUsers[0].nickname}にいいね`}
+          >
+            <View style={styles.actionBtnLike}>
+              <FIcon name="heart" size={26} color="#fff" />
+            </View>
+          </ActionButton>
+        </View>
+      )}
 
 
       {/* ── Filter Sheet ───────────────────────────────────────────────── */}
@@ -1347,7 +1347,7 @@ export default function DiscoverScreen() {
 
             {/* Text fades in */}
             <Animated.View style={[{ alignItems: "center" }, matchTextStyle]}>
-              <Text style={styles.matchCongrats}>CONGRATULATIONS</Text>
+              <Text style={styles.matchCongrats}>{isKo ? "매칭 성공" : "マッチ成立"}</Text>
               <Text style={styles.matchTitle}>
                 {isKo ? `${newMatch.nickname}님과 매칭!` : `${newMatch.nickname}とマッチ！`}
               </Text>
@@ -1455,6 +1455,59 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
+  // ── Bottom action row — horizontal, below card stack ─────────────────────
+  bottomActionRow: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 24,
+    zIndex: 20,
+  },
+  actionBtnPass: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F5F5F7",
+    borderWidth: 1.5,
+    borderColor: "#E0E0E4",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  actionBtnStar: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "#E8E0A0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  actionBtnLike: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#D85870",
+    shadowColor: "#D85870",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 14,
+    elevation: 10,
+  },
   // ── Side action column (right of card) ───────────────────────────────────
   sideActionCol: {
     position: "absolute",

@@ -38,6 +38,8 @@ export default function SettingsScreen() {
     onPress,
     right,
     danger = false,
+    iconBg,
+    iconColor: iconColorProp,
   }: {
     icon: string;
     label: string;
@@ -45,14 +47,16 @@ export default function SettingsScreen() {
     onPress?: () => void;
     right?: React.ReactNode;
     danger?: boolean;
+    iconBg?: string;
+    iconColor?: string;
   }) => (
     <TouchableOpacity
       style={[styles.row, { borderBottomColor: colors.border }]}
       onPress={onPress}
       disabled={!onPress && !right}
     >
-      <View style={[styles.rowIcon, { backgroundColor: danger ? "#FFEDED" : colors.roseLight }]}>
-        <FIcon name={icon as any} size={16} color={danger ? colors.destructive : colors.rose} />
+      <View style={[styles.rowIcon, { backgroundColor: danger ? "#FFEDED" : (iconBg ?? colors.roseLight) }]}>
+        <FIcon name={icon as any} size={16} color={danger ? colors.destructive : (iconColorProp ?? colors.rose)} />
       </View>
       <View style={styles.rowContent}>
         <Text style={[styles.rowLabel, { color: danger ? colors.destructive : colors.charcoal }]}>
@@ -122,12 +126,16 @@ export default function SettingsScreen() {
           <View style={[styles.section, { backgroundColor: colors.white, borderColor: colors.border }]}>
             <SettingRow
               icon="award"
+              iconBg="#E8F3FF"
+              iconColor="#1A6AEB"
               label={lang === "ko" ? "신뢰 센터" : "信頼センター"}
               sublabel={lang === "ko" ? "인증 현황 및 점수 확인" : "認証状況・スコアを確認"}
               onPress={() => router.push("/trust-center")}
             />
             <SettingRow
               icon="credit-card"
+              iconBg="#E8F3FF"
+              iconColor="#1A6AEB"
               label={lang === "ko" ? "신분증 인증" : "本人確認書類"}
               sublabel={
                 idStatus === "verified"
@@ -157,17 +165,23 @@ export default function SettingsScreen() {
           <View style={[styles.section, { backgroundColor: colors.white, borderColor: colors.border }]}>
             <SettingRow
               icon="mail"
+              iconBg="#E8F8EE"
+              iconColor="#1A7A4A"
               label={lang === "ko" ? "지원팀에 문의" : "サポートに連絡"}
               sublabel="litosupport@gmail.com"
               onPress={() => Linking.openURL("mailto:litosupport@gmail.com")}
             />
             <SettingRow
               icon="file-text"
+              iconBg="#E8F8EE"
+              iconColor="#1A7A4A"
               label={lang === "ko" ? "개인정보 보호정책" : "プライバシーポリシー"}
               onPress={() => Linking.openURL("https://litodate.app/privacy")}
             />
             <SettingRow
               icon="help-circle"
+              iconBg="#E8F8EE"
+              iconColor="#1A7A4A"
               label={lang === "ko" ? "자주 묻는 질문" : "よくある質問"}
               onPress={() => router.push("/faq")}
             />
@@ -181,6 +195,8 @@ export default function SettingsScreen() {
           <View style={[styles.section, { backgroundColor: colors.white, borderColor: colors.border }]}>
             <SettingRow
               icon="globe"
+              iconBg="#F0EBFF"
+              iconColor="#6B3FEB"
               label={lang === "ko" ? "앱 언어" : "アプリ言語"}
               sublabel={appLanguage === "ko" ? "한국어" : "日本語"}
               right={

@@ -99,71 +99,32 @@ function MatchCard({ match, index = 0 }: { match: Match; index?: number }) {
         <View style={styles.matchNameRow}>
           <Text style={[styles.matchName, { color: colors.charcoal }]}>{match.user.nickname.split(" ")[0]}</Text>
           <CountryFlag country={match.user.country} size={14} />
-          {match.user.studyingLanguage && (
-            <View style={[styles.studyBadge, { backgroundColor: "#E8FAF4", borderColor: "#B8EDD8" }]}>
-              <Text style={[styles.studyBadgeText, { color: "#1A7A4A" }]}>
-                {match.user.language === "ja"
-                  ? (lang === "ko" ? "한국어 공부중" : "韓国語学習中")
-                  : (lang === "ko" ? "일본어 공부중" : "日本語学習中")}
-              </Text>
+          {match.isNew && (
+            <View style={[styles.newPill, { backgroundColor: colors.rose }]}>
+              <Text style={styles.newPillText}>{lang === "ko" ? "새 매칭" : "新しいマッチ"}</Text>
             </View>
           )}
         </View>
 
-        {/* Trust badges */}
-        <View style={styles.trustRow}>
-          <TrustBadge trustProfile={match.user.trustProfile} size="sm" lang={lang} />
-          {trustScore === 0 && (
-            <Text style={[styles.noTrustText, { color: colors.charcoalLight }]}>
-              {lang === "ko" ? "미인증" : "未認証"}
-            </Text>
-          )}
-        </View>
+        {/* One-line bio */}
+        <Text style={[styles.matchBio, { color: colors.charcoalLight }]} numberOfLines={1}>
+          {(lang === "ja" ? (match.iceBreakerJa ?? match.iceBreaker) : (match.iceBreaker ?? match.iceBreakerJa))
+            ?? match.user.bio.split("\n")[0]}
+        </Text>
 
-        {/* Ice breaker or bio */}
-        {(match.iceBreaker || match.iceBreakerJa) ? (
-          <View style={[styles.iceBreakerRow, { backgroundColor: colors.roseLight, borderColor: "#F2BDCA" }]}>
-            <FIcon name="cpu" size={9} color={colors.rose} />
-            <Text style={[styles.iceBreakerText, { color: colors.rose }]} numberOfLines={2}>
-              {lang === "ja"
-                ? (match.iceBreakerJa ?? match.iceBreaker)
-                : (match.iceBreaker ?? match.iceBreakerJa)}
-            </Text>
-          </View>
-        ) : (
-          <Text style={[styles.matchBio, { color: colors.charcoalLight }]} numberOfLines={1}>
-            {match.user.bio.split("\n")[0]}
+        {/* Single chat button */}
+        <TouchableOpacity
+          style={[styles.matchChatBtn, { backgroundColor: colors.rose }]}
+          onPress={() => goToChat()}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={lang === "ko" ? "채팅 시작" : "チャットを始める"}
+        >
+          <FIcon name="message-circle" size={13} color="#fff" />
+          <Text style={[styles.matchActionBtnText, { color: "#fff" }]}>
+            {lang === "ko" ? "채팅하기" : "チャット"}
           </Text>
-        )}
-
-        {/* Action buttons */}
-        <View style={styles.matchActions}>
-          <TouchableOpacity
-            style={[styles.matchActionBtn, styles.matchActionBtnOutline, { borderColor: colors.border }]}
-            onPress={goToProfile}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel={lang === "ko" ? "프로필 보기" : "プロフィールを見る"}
-          >
-            <FIcon name="user" size={13} color={colors.charcoalMid} />
-            <Text style={[styles.matchActionBtnText, { color: colors.charcoalMid }]}>
-              {lang === "ko" ? "프로필" : "プロフィール"}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.matchActionBtn, styles.matchActionBtnFill, { backgroundColor: colors.rose }]}
-            onPress={() => goToChat()}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel={lang === "ko" ? "채팅 시작" : "チャットを始める"}
-          >
-            <FIcon name="message-circle" size={13} color="#fff" />
-            <Text style={[styles.matchActionBtnText, { color: "#fff" }]}>
-              {lang === "ko" ? "채팅" : "チャット"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
+        </TouchableOpacity>
       </View>
     </Animated.View>
   );
@@ -402,26 +363,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
   },
-  matchActions: {
-    flexDirection: "row",
-    gap: 7,
-    marginTop: 8,
-  },
-  matchActionBtn: {
+  matchChatBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
+    alignSelf: "flex-start",
+    marginTop: 8,
   },
-  matchActionBtnOutline: {
-    borderWidth: 1,
-  },
-  matchActionBtnFill: {},
   matchActionBtnText: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 12,
+  },
+  newPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  newPillText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 9,
+    color: "#fff",
   },
   starterTrigger: {
     flexDirection: "row",
