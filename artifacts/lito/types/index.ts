@@ -233,7 +233,7 @@ export interface User {
   lastActive: string;
   isOnline?: boolean;          // true = currently online / active within ~5 min
   studyingLanguage?: boolean;  // true = actively studying the other language (KR↔JP)
-  languageLevel?: "beginner" | "intermediate" | "advanced";
+  languageLevel?: "beginner" | "elementary" | "intermediate" | "advanced" | "fluent";
   interests?: string[];        // Hobbies/interests for cultural matching
   smoking?: SmokingHabit;
   drinking?: DrinkingHabit;
@@ -290,7 +290,7 @@ export interface MyProfile {
   photos: string[];
   aiStyleSummary?: { ko: string; ja: string };
   trustProfile: TrustProfile;
-  languageLevel?: "beginner" | "intermediate" | "advanced";
+  languageLevel?: "beginner" | "elementary" | "intermediate" | "advanced" | "fluent";
   smoking?: SmokingHabit;
   drinking?: DrinkingHabit;
 }

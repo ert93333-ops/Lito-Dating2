@@ -241,36 +241,23 @@ export default function ProfileSetupScreen() {
   // Step state
   const [step, setStep] = useState(1);
 
-  // Step transition animation
-  const slideAnim = useRef(new Animated.Value(0)).current;
+  // Step transition — simple fade only (no slide) for reliable cross-platform behavior
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   const goTo = (next: number) => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 140, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: -30, duration: 140, useNativeDriver: true }),
-    ]).start(() => {
-      slideAnim.setValue(30);
+    Animated.timing(fadeAnim, { toValue: 0, duration: 120, useNativeDriver: false }).start(() => {
       setStep(next);
-      Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-      ]).start();
+      fadeAnim.setValue(0);
+      Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: false }).start();
     });
   };
 
   const goBack = () => {
     if (step <= 1) return;
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 140, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 30, duration: 140, useNativeDriver: true }),
-    ]).start(() => {
-      slideAnim.setValue(-30);
+    Animated.timing(fadeAnim, { toValue: 0, duration: 120, useNativeDriver: false }).start(() => {
       setStep(step - 1);
-      Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-      ]).start();
+      fadeAnim.setValue(0);
+      Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: false }).start();
     });
   };
 
@@ -431,7 +418,7 @@ export default function ProfileSetupScreen() {
     </View>
   );
 
-  const stepAnim = { opacity: fadeAnim, transform: [{ translateY: slideAnim }] };
+  const stepAnim = { opacity: fadeAnim };
 
   // ══════════════════════════════════════════════════════════════════════════
   // STEP 1 — Name
@@ -498,7 +485,12 @@ export default function ProfileSetupScreen() {
           title={lang === "ko" ? "생년월일을 입력해주세요" : "生年月日を入力してください"}
           subtitle={lang === "ko" ? "나이는 프로필에서 자동으로 계산돼요. 19세 이상만 사용 가능해요." : "年齢はプロフィールで自動計算されます。19歳以上が対象です。"}
         />
-        <Animated.View style={[s.scroll, stepAnim]}>
+        <ScrollView
+          contentContainerStyle={[s.scroll, { paddingBottom: bottomPad + 130 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+        <Animated.View style={stepAnim}>
           <View style={dobStyle.row}>
             <View style={dobStyle.fieldWrap}>
               <Text style={[dobStyle.label, { color: colors.charcoalLight }]}>
@@ -574,6 +566,7 @@ export default function ProfileSetupScreen() {
             </View>
           )}
         </Animated.View>
+        </ScrollView>
         <View style={[s.stickyFooter, { paddingBottom: bottomPad + 14, borderTopColor: colors.border, backgroundColor: colors.white }]}>
           <PrimaryButton label={lang === "ko" ? "다음 →" : "次へ →"} onPress={() => goTo(3)} disabled={!dobValid} />
         </View>
@@ -815,7 +808,7 @@ export default function ProfileSetupScreen() {
           <Animated.View style={stepAnim}>
             {/* Upload counter pill */}
             <View style={[photoStyle.countPill, { backgroundColor: photoCount >= 2 ? "#E8F8EE" : colors.roseLight, borderColor: photoCount >= 2 ? "#A9DFC2" : colors.roseSoft }]}>
-              <FIcon name={photoCount >= 2 ? "check-circle" : "image"} size={15} color={photoCount >= 2 ? "#1A7A4A" : colors.rose} />
+              <FIcon name={photoCount >= 2 ? "check-circle" : "camera"} size={15} color={photoCount >= 2 ? "#1A7A4A" : colors.rose} />
               <Text style={[photoStyle.countText, { color: photoCount >= 2 ? "#1A7A4A" : colors.rose }]}>
                 {lang === "ko" ? `${photoCount}/6장 업로드됨` : `${photoCount}/6枚アップロード済み`}
               </Text>
@@ -1026,6 +1019,7 @@ const dobStyle = StyleSheet.create({
   fieldWrap: { flex: 1 },
   label: { fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 6 },
   input: {
+    flex: 1,
     fontFamily: "Inter_700Bold",
     fontSize: 22,
     borderRadius: 16,
