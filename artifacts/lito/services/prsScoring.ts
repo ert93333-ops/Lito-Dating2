@@ -37,6 +37,8 @@ export interface PRSOrchestrationInput {
   viewerLang: "ko" | "ja";
   /** Replit dev domain base URL (e.g. https://xxx.replit.dev). No trailing slash. */
   apiBase: string;
+  /** JWT access token — required for authenticated PRS API calls */
+  token?: string;
 }
 
 /** Lightweight result when the score should not be shown to the user. */
@@ -123,6 +125,7 @@ export async function getConversationInterestSnapshot(
     partnerCountry,
     viewerLang,
     apiBase,
+    token,
   } = input;
 
   // Step 1: Cache check
@@ -158,9 +161,12 @@ export async function getConversationInterestSnapshot(
   // Step 4: POST to scoring API
   const endpoint = `${apiBase}/api/ai/prs`;
 
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   const response = await fetch(endpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       featureWindow: enrichedFeatureWindow,
       viewerLang,

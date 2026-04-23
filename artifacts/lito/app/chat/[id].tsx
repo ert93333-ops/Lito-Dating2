@@ -1006,6 +1006,7 @@ export default function ChatDetailScreen() {
       partnerCountry,
       viewerLang: lang,
       apiBase: API_BASE,
+      token: token ?? undefined,
     })
       .then((outcome) => {
         if (outcome.ready) {
@@ -1499,8 +1500,8 @@ export default function ChatDetailScreen() {
             </View>
           )}
 
-          {/* Not enough data */}
-          {(prsCardState.status === "not_enough_data" || prsCardState.status === "low_confidence") && (
+          {/* Not enough data / hidden (error fallback) */}
+          {(prsCardState.status === "not_enough_data" || prsCardState.status === "low_confidence" || prsCardState.status === "hidden") && (
             <Text style={[styles.signalPanelEmpty, { color: colors.charcoalLight }]}>
               {lang === "ko"
                 ? "대화 신호가 쌓이는 중이에요 · 조금만 더 대화해보세요"
