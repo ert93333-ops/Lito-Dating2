@@ -29,6 +29,10 @@ import { uploadPhotoToStorage } from "@/utils/photoUpload";
 
 const MAX_INTERESTS = 8;
 
+const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+  : "http://localhost:8080";
+
 function isUriPhoto(key: string): boolean {
   return (
     key.startsWith("file://") ||
@@ -83,6 +87,8 @@ export default function ProfileEditScreen() {
   const [bio, setBio] = useState(profile.bio ?? "");
   const [instagramHandle, setInstagramHandle] = useState(profile.instagramHandle ?? "");
   const [selectedInterests, setSelectedInterests] = useState<string[]>(profile.interests ?? []);
+  const [smoking, setSmoking] = useState<"never" | "socially" | "regularly" | "prefer_not_to_say" | undefined>(profile.smoking);
+  const [drinking, setDrinking] = useState<"never" | "socially" | "regularly" | "prefer_not_to_say" | undefined>(profile.drinking);
   const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
 
@@ -148,6 +154,8 @@ export default function ProfileEditScreen() {
       gender,
       bio: bio.trim() || profile.bio,
       interests: selectedInterests.length > 0 ? selectedInterests : profile.interests,
+      smoking,
+      drinking,
     };
 
     if (instagramHandle.trim()) {
@@ -170,6 +178,25 @@ export default function ProfileEditScreen() {
     }
 
     updateProfile(updates);
+
+    if (token) {
+      fetch(`${API_BASE}/api/auth/profile`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          nickname: updates.nickname,
+          age: updates.age,
+          gender: updates.gender,
+          bio: updates.bio,
+          intro: updates.intro,
+          interests: updates.interests,
+          instagramHandle: updates.instagramHandle,
+          smoking: updates.smoking ?? null,
+          drinking: updates.drinking ?? null,
+        }),
+      }).catch(() => {});
+    }
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.back();
   };
@@ -500,6 +527,89 @@ export default function ProfileEditScreen() {
           </View>
         </View>
 
+        {/* ── Lifestyle section ─────────────────────────────────────────────── */}
+        <View style={[s.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[s.sectionLabel, { color: colors.charcoalLight }]}>
+            {lang === "ko" ? "라이프스타일" : "ライフスタイル"}
+          </Text>
+
+          {/* 흡연 */}
+          <Text style={[s.lifestyleSubLabel, { color: colors.charcoalMid }]}>
+            {lang === "ko" ? "흡연" : "喫煙"}
+          </Text>
+          <View style={s.lifestyleRow}>
+            {(["never", "socially", "regularly", "prefer_not_to_say"] as const).map((val) => {
+              const label =
+                val === "never"
+                  ? lang === "ko" ? "안 함" : "しない"
+                  : val === "socially"
+                  ? lang === "ko" ? "가끔" : "たまに"
+                  : val === "regularly"
+                  ? lang === "ko" ? "자주" : "よくする"
+                  : lang === "ko" ? "비공개" : "非公開";
+              const selected = smoking === val;
+              return (
+                <TouchableOpacity
+                  key={val}
+                  onPress={() => {
+                    setSmoking(selected ? undefined : val);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  style={[
+                    s.lifestyleChip,
+                    {
+                      backgroundColor: selected ? colors.rose : colors.muted,
+                      borderColor: selected ? colors.rose : colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[s.lifestyleChipText, { color: selected ? "#fff" : colors.charcoalMid }]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* 음주 */}
+          <Text style={[s.lifestyleSubLabel, { color: colors.charcoalMid, marginTop: 16 }]}>
+            {lang === "ko" ? "음주" : "飲酒"}
+          </Text>
+          <View style={s.lifestyleRow}>
+            {(["never", "socially", "regularly", "prefer_not_to_say"] as const).map((val) => {
+              const label =
+                val === "never"
+                  ? lang === "ko" ? "안 함" : "しない"
+                  : val === "socially"
+                  ? lang === "ko" ? "가끔" : "たまに"
+                  : val === "regularly"
+                  ? lang === "ko" ? "자주" : "よく飲む"
+                  : lang === "ko" ? "비공개" : "非公開";
+              const selected = drinking === val;
+              return (
+                <TouchableOpacity
+                  key={val}
+                  onPress={() => {
+                    setDrinking(selected ? undefined : val);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  style={[
+                    s.lifestyleChip,
+                    {
+                      backgroundColor: selected ? colors.rose : colors.muted,
+                      borderColor: selected ? colors.rose : colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[s.lifestyleChipText, { color: selected ? "#fff" : colors.charcoalMid }]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
         {/* ── Save button ───────────────────────────────────────────────────── */}
         <View style={s.saveBtnWrap}>
           <SaveButton
@@ -726,6 +836,28 @@ const s = StyleSheet.create({
     borderWidth: 1,
   },
   tagText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+  },
+
+  // ── Lifestyle ─────────────────────────────────────────────────────────────
+  lifestyleSubLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  lifestyleRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  lifestyleChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  lifestyleChipText: {
     fontFamily: "Inter_500Medium",
     fontSize: 13,
   },

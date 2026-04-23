@@ -50,6 +50,8 @@ export function buildServerUser(user: UserRow, profile: ProfileRow): ServerUser 
     },
     instagramHandle: profile.instagramHandle || undefined,
     gender: (profile.gender as "male" | "female" | "other" | undefined) ?? undefined,
+    smoking: (profile.smoking as "never" | "socially" | "regularly" | "prefer_not_to_say" | undefined) ?? undefined,
+    drinking: (profile.drinking as "never" | "socially" | "regularly" | "prefer_not_to_say" | undefined) ?? undefined,
     isAI: false,
   };
 }

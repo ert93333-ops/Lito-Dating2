@@ -185,7 +185,8 @@ export default function ProfileScreen() {
           const interestScore = (profile.interests?.length ?? 0) >= 3 ? 15 : (profile.interests?.length ?? 0) > 0 ? 8 : 0;
           const nickScore = profile.nickname && profile.nickname !== "User" ? 5 : 0;
           const trustScore = computeTrustScore(profile.trustProfile) * 0.3;
-          const total = Math.min(100, photoScore + genderScore + bioScore + interestScore + nickScore + trustScore);
+          const lifestyleScore = (profile.smoking || profile.drinking) ? 5 : 0;
+          const total = Math.min(100, photoScore + genderScore + bioScore + interestScore + nickScore + trustScore + lifestyleScore);
           return (
             <View>
               <View style={styles.barLabelRow}>
@@ -342,6 +343,41 @@ export default function ProfileScreen() {
                 </View>
               );
             })}
+          </View>
+        </View>
+      )}
+
+      {/* ── Lifestyle ────────────────────────────────────────────────────── */}
+      {(profile.smoking || profile.drinking) && (
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.sectionLabel, { color: colors.charcoalLight }]}>
+            {lang === "ko" ? "라이프스타일" : "ライフスタイル"}
+          </Text>
+          <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+            {profile.smoking && profile.smoking !== "prefer_not_to_say" && (
+              <View style={[styles.tag, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                <Text style={[styles.tagText, { color: colors.charcoalMid }]}>
+                  {lang === "ko" ? "흡연 · " : "喫煙 · "}
+                  {profile.smoking === "never"
+                    ? lang === "ko" ? "안 함" : "しない"
+                    : profile.smoking === "socially"
+                    ? lang === "ko" ? "가끔" : "たまに"
+                    : lang === "ko" ? "자주" : "よくする"}
+                </Text>
+              </View>
+            )}
+            {profile.drinking && profile.drinking !== "prefer_not_to_say" && (
+              <View style={[styles.tag, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                <Text style={[styles.tagText, { color: colors.charcoalMid }]}>
+                  {lang === "ko" ? "음주 · " : "飲酒 · "}
+                  {profile.drinking === "never"
+                    ? lang === "ko" ? "안 함" : "しない"
+                    : profile.drinking === "socially"
+                    ? lang === "ko" ? "가끔" : "たまに"
+                    : lang === "ko" ? "자주" : "よく飲む"}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       )}

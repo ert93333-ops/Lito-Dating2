@@ -46,6 +46,8 @@ interface ServerUser {
     institutionVerified: boolean;
   };
   instagramHandle?: string;
+  smoking?: "never" | "socially" | "regularly" | "prefer_not_to_say";
+  drinking?: "never" | "socially" | "regularly" | "prefer_not_to_say";
   isAI?: boolean;
   personaId?: string;
 }
@@ -84,6 +86,8 @@ function serverUserToAppUser(u: ServerUser): User {
     interests: u.interests,
     trustProfile: tp,
     instagramHandle: u.instagramHandle,
+    smoking: u.smoking,
+    drinking: u.drinking,
     isAI: u.isAI,
     personaId: u.personaId,
   };

@@ -212,6 +212,9 @@ export function isAccountRestricted(rp: RiskProfile): boolean {
 
 // ── Core domain types ─────────────────────────────────────────────────────────
 
+export type SmokingHabit = "never" | "socially" | "regularly" | "prefer_not_to_say";
+export type DrinkingHabit = "never" | "socially" | "regularly" | "prefer_not_to_say";
+
 export interface User {
   id: string;
   nickname: string;
@@ -232,6 +235,8 @@ export interface User {
   studyingLanguage?: boolean;  // true = actively studying the other language (KR↔JP)
   languageLevel?: "beginner" | "intermediate" | "advanced";
   interests?: string[];        // Hobbies/interests for cultural matching
+  smoking?: SmokingHabit;
+  drinking?: DrinkingHabit;
   isAI?: boolean;              // TEST ONLY — AI-powered persona, delete before launch
   personaId?: string;          // TEST ONLY — identifier for persona system prompt
 }
@@ -286,6 +291,8 @@ export interface MyProfile {
   aiStyleSummary?: { ko: string; ja: string };
   trustProfile: TrustProfile;
   languageLevel?: "beginner" | "intermediate" | "advanced";
+  smoking?: SmokingHabit;
+  drinking?: DrinkingHabit;
 }
 
 // ── PRS (Partner Receptivity Score) types ─────────────────────────────────────

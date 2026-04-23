@@ -38,6 +38,8 @@ export interface ServerUser {
   };
   instagramHandle?: string;
   gender?: "male" | "female" | "other";
+  smoking?: "never" | "socially" | "regularly" | "prefer_not_to_say";
+  drinking?: "never" | "socially" | "regularly" | "prefer_not_to_say";
   isAI?: boolean;
   personaId?: string;
 }

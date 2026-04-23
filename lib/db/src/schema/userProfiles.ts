@@ -28,6 +28,10 @@ export const userProfiles = pgTable("user_profiles", {
   languageLevel: varchar("language_level", { length: 20 }).notNull().default("beginner"),
   /** 성별: 'male' | 'female' | 'other' | null (선택 사항) */
   gender: varchar("gender", { length: 10 }),
+  /** 흡연: 'never' | 'socially' | 'regularly' | 'prefer_not_to_say' | null */
+  smoking: varchar("smoking", { length: 20 }),
+  /** 음주: 'never' | 'socially' | 'regularly' | 'prefer_not_to_say' | null */
+  drinking: varchar("drinking", { length: 20 }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

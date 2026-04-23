@@ -168,6 +168,45 @@ export default function UserProfileScreen() {
             </View>
           )}
 
+          {/* ── Lifestyle ── */}
+          {(user.smoking || user.drinking) && (
+            <View style={[styles.section, { borderColor: colors.border }]}>
+              <Text style={[styles.sectionLabel, { color: colors.charcoalLight }]}>
+                {lang === "ko" ? "라이프스타일" : "ライフスタイル"}
+              </Text>
+              <View style={styles.lifestyleGrid}>
+                {user.smoking && user.smoking !== "prefer_not_to_say" && (
+                  <View style={[styles.lifestyleItem, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                    <Text style={[styles.lifestyleItemLabel, { color: colors.charcoalLight }]}>
+                      {lang === "ko" ? "흡연" : "喫煙"}
+                    </Text>
+                    <Text style={[styles.lifestyleItemValue, { color: colors.charcoalMid }]}>
+                      {user.smoking === "never"
+                        ? lang === "ko" ? "안 함" : "しない"
+                        : user.smoking === "socially"
+                        ? lang === "ko" ? "가끔" : "たまに"
+                        : lang === "ko" ? "자주" : "よくする"}
+                    </Text>
+                  </View>
+                )}
+                {user.drinking && user.drinking !== "prefer_not_to_say" && (
+                  <View style={[styles.lifestyleItem, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                    <Text style={[styles.lifestyleItemLabel, { color: colors.charcoalLight }]}>
+                      {lang === "ko" ? "음주" : "飲酒"}
+                    </Text>
+                    <Text style={[styles.lifestyleItemValue, { color: colors.charcoalMid }]}>
+                      {user.drinking === "never"
+                        ? lang === "ko" ? "안 함" : "しない"
+                        : user.drinking === "socially"
+                        ? lang === "ko" ? "가끔" : "たまに"
+                        : lang === "ko" ? "자주" : "よく飲む"}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
           {/* ── Compatibility reasons ── */}
           {user.compatibilityReasons && user.compatibilityReasons.length > 0 && (
             <View style={[styles.section, { borderColor: colors.border }]}>
@@ -378,6 +417,29 @@ const styles = StyleSheet.create({
   },
   interestText: {
     fontFamily: "Inter_500Medium",
+    fontSize: 13,
+  },
+  lifestyleGrid: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  lifestyleItem: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    minWidth: 90,
+    alignItems: "center",
+  },
+  lifestyleItemLabel: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    letterSpacing: 0.4,
+    marginBottom: 2,
+  },
+  lifestyleItemValue: {
+    fontFamily: "Inter_600SemiBold",
     fontSize: 13,
   },
   reasonRow: {

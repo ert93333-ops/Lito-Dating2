@@ -151,7 +151,7 @@ router.get("/auth/me", requireAuth, async (req, res) => {
 router.put("/auth/profile", requireAuth, async (req, res) => {
   try {
     const userId = req.user!.userId;
-    const { nickname, age, bio, intro, interests, photos, instagramHandle, languageLevel } =
+    const { nickname, age, bio, intro, interests, photos, instagramHandle, languageLevel, smoking, drinking } =
       req.body;
 
     await db
@@ -165,6 +165,8 @@ router.put("/auth/profile", requireAuth, async (req, res) => {
         ...(photos !== undefined && { photos }),
         ...(instagramHandle !== undefined && { instagramHandle }),
         ...(languageLevel !== undefined && { languageLevel }),
+        ...(smoking !== undefined && { smoking }),
+        ...(drinking !== undefined && { drinking }),
         updatedAt: new Date(),
       })
       .where(eq(userProfiles.userId, userId));
