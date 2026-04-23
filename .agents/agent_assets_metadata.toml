@@ -125,3 +125,9 @@ id = "Gn69K7kdWEBYY7s6jpXWU"
 uri = "file://patch-4-report.md"
 type = "text"
 title = "Lito 4차 패치 작업보고서"
+
+[[outputs]]
+id = "tJAh00LRDeGDVyZ8Y4pIT"
+uri = "file://patch-5-report.md"
+type = "text"
+title = "Lito 5차 패치 완료 보고서"

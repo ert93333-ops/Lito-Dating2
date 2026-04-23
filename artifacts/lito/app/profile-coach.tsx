@@ -1,10 +1,12 @@
 import FIcon from "@/components/FIcon";
+import { NoConsentSheet } from "@/components/chat/NoConsentSheet";
+import { ZeroCreditSheet } from "@/components/chat/ZeroCreditSheet";
+import { UnsafeNotice } from "@/components/chat/UnsafeNotice";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -128,53 +130,98 @@ export default function ProfileCoachScreen() {
   const {
     profileSuggestions,
     profileCoachLoading,
+    profileCoachBlockedState,
+    clearProfileCoachBlock,
     refreshProfileSuggestions,
     consentStatus,
     grantConsent,
-    walletBalance,
+    walletState,
     track,
   } = useGrowth();
   const { lang } = useLocale();
 
+  // 로컬 no_consent 시트 표시 상태 (서버 호출 전 pre-check)
+  const [showNoConsentSheet, setShowNoConsentSheet] = useState(false);
+  const [isGranting, setIsGranting] = useState(false);
+
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  // 화면 열릴 때 분석 시작 안 함 — 사용자가 명시적으로 버튼을 눌러야만 요청
+  // 화면 열릴 때 analytics만 — 자동 coach 실행 금지
   useEffect(() => {
     track("profile_coach_opened");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 서버 blocked 상태를 우선순위에 따라 시트 표시
+  // unsafe > no_consent > zero_credit
+  const serverBlockedAs = profileCoachBlockedState;
+
   // 명시적 탭 → consent 게이트 → 서버 요청
   const handleStartCoach = async () => {
     if (profileCoachLoading) return;
+    // 로컬 consent pre-check — 서버 호출 전 빠른 분기
     if (consentStatus !== null && !consentStatus.profile_coach) {
-      Alert.alert(
-        "AI 프로필 코치 동의",
-        "AI 데이터 처리에 동의해야 합니다. 채팅 내용은 분석에 사용되지 않으며, 프로필 정보만 참고합니다.",
-        [
-          { text: "지금은 안 함", style: "cancel" },
-          {
-            text: "동의하고 계속",
-            onPress: async () => {
-              const ok = await grantConsent("profile_coach");
-              if (!ok) {
-                Alert.alert("오류", "동의 처리 중 문제가 발생했어요. 다시 시도해주세요.");
-              }
-              // 동의 후 자동 실행 금지 — 사용자가 다시 버튼을 눌러야 함
-            },
-          },
-        ]
-      );
+      setShowNoConsentSheet(true);
       return;
     }
     await refreshProfileSuggestions();
+  };
+
+  // 동의 완료 후 자동 실행 금지 — 사용자가 다시 버튼을 눌러야 함
+  const handleConsentGranted = async () => {
+    setIsGranting(true);
+    try {
+      await grantConsent("profile_coach");
+    } finally {
+      setIsGranting(false);
+      setShowNoConsentSheet(false);
+      // 동의 후 자동 코치 실행 금지 — UX 원칙
+    }
   };
 
   const pendingCount = profileSuggestions.filter((s) => s.accepted === null || s.accepted === undefined).length;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+
+      {/* ── NoConsent Sheet (로컬 pre-check) ─────────────────────────── */}
+      <NoConsentSheet
+        visible={showNoConsentSheet && serverBlockedAs !== "unsafe"}
+        onDismiss={() => setShowNoConsentSheet(false)}
+        onConsentGranted={handleConsentGranted}
+        isGranting={isGranting}
+        bodyOverride={lang === "ko"
+          ? "AI 프로필 코치를 사용하려면 AI 데이터 처리에 동의해야 합니다.\n채팅 내용은 사용되지 않으며, 프로필 정보만 참고합니다."
+          : "AIプロフィールコーチを使用するには、AIデータ処理に同意が必要です。\nチャット内容は使用されず、プロフィール情報のみ参照します。"}
+      />
+
+      {/* ── NoConsent Sheet (서버 응답) ────────────────────────────────── */}
+      <NoConsentSheet
+        visible={serverBlockedAs === "no_consent" && !showNoConsentSheet}
+        onDismiss={clearProfileCoachBlock}
+        onConsentGranted={handleConsentGranted}
+        isGranting={isGranting}
+        bodyOverride={lang === "ko"
+          ? "AI 프로필 코치를 사용하려면 AI 데이터 처리에 동의해야 합니다.\n채팅 내용은 사용되지 않으며, 프로필 정보만 참고합니다."
+          : "AIプロフィールコーチを使用するには、AIデータ処理に同意が必要です。\nチャット内容は使用されず、プロフィール情報のみ参照します。"}
+      />
+
+      {/* ── ZeroCredit Sheet ──────────────────────────────────────────── */}
+      <ZeroCreditSheet
+        visible={serverBlockedAs === "zero_credit"}
+        onDismiss={() => {
+          clearProfileCoachBlock();
+          track("continue_basic_chat_after_paywall");
+        }}
+        onBuyCredits={() => {
+          clearProfileCoachBlock();
+          router.push("/paywall");
+        }}
+        trialRemaining={walletState?.trial_remaining}
+        paidRemaining={walletState?.paid_remaining}
+        secondaryCta={lang === "ko" ? "그냥 직접 수정하기" : "そのまま自分で編集する"}
+      />
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <LinearGradient
@@ -218,16 +265,25 @@ export default function ProfileCoachScreen() {
           </Text>
         </View>
 
-        {/* Wallet balance indicator */}
-        {walletBalance !== null && (
+        {/* Wallet balance indicator (trial + paid, 서버 authoritative) */}
+        {walletState !== null && (
           <View style={[styles.walletRow, { borderColor: colors.border }]}>
             <FIcon name="credit-card" size={12} color={colors.charcoalMid} />
             <Text style={[styles.walletText, { color: colors.charcoalMid }]}>
               {lang === "ko"
-                ? `크레딧 잔액: ${walletBalance}`
-                : `クレジット残高: ${walletBalance}`}
+                ? `체험 ${walletState.trial_remaining} · 유료 ${walletState.paid_remaining}`
+                : `トライアル ${walletState.trial_remaining} · 有料 ${walletState.paid_remaining}`}
             </Text>
           </View>
+        )}
+
+        {/* Unsafe Notice (profile context) — coach CTA 숨김, paywall 금지 */}
+        {serverBlockedAs === "unsafe" && (
+          <UnsafeNotice
+            onReport={() => { /* 프로필 안전 신고: 지원팀 연결 */ }}
+            onBlock={() => { clearProfileCoachBlock(); router.back(); }}
+            onHelp={() => { /* 도움말 링크 */ }}
+          />
         )}
 
         {/* Suggestions / Loading / CTA */}
@@ -238,7 +294,7 @@ export default function ProfileCoachScreen() {
               {lang === "ko" ? "AI가 프로필을 분석하고 있어요..." : "AIがプロフィールを分析中..."}
             </Text>
           </View>
-        ) : profileSuggestions.length === 0 ? (
+        ) : profileSuggestions.length === 0 && serverBlockedAs !== "unsafe" ? (
           /* 미분석 상태 — 명시적 CTA만 제공, 자동 실행 없음 */
           <View style={styles.emptyState}>
             <Text style={[styles.emptyTitle, { color: colors.charcoal }]}>

@@ -152,16 +152,17 @@ export interface ChemistryCard {
 // ── Analytics ─────────────────────────────────────────────────────────────────
 
 export type AnalyticsEvent =
-  // Monetization
+  // Monetization — canonical (purchase_completed 외부 송신 금지)
   | "paywall_viewed"
   | "plan_selected"
   | "purchase_started"
-  | "purchase_completed"
   | "purchase_verified"
   | "purchase_verify_failed"
   | "purchase_failed"
   | "purchase_cancelled"
   | "purchase_success_returned"
+  | "wallet_balance_viewed"
+  | "continue_basic_chat_after_paywall"
   | "feature_gate_hit"
   | "boost_used"
   | "direct_intro_used"

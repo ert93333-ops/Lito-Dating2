@@ -26,9 +26,10 @@ interface Props {
   onDismiss: () => void;
   onConsentGranted: () => void;
   isGranting?: boolean;
+  bodyOverride?: string;
 }
 
-export function NoConsentSheet({ visible, onDismiss, onConsentGranted, isGranting }: Props) {
+export function NoConsentSheet({ visible, onDismiss, onConsentGranted, isGranting, bodyOverride }: Props) {
   const colors = useColors();
   const { lang } = useLocale();
 
@@ -48,9 +49,9 @@ export function NoConsentSheet({ visible, onDismiss, onConsentGranted, isGrantin
             {lang === "ko" ? "AI 코치 이용 동의" : "AIコーチ 利用同意"}
           </Text>
           <Text style={[styles.body, { color: colors.charcoalMid }]}>
-            {lang === "ko"
+            {bodyOverride ?? (lang === "ko"
               ? "AI 코치를 사용하려면 AI 데이터 처리에 동의해야 합니다.\n채팅 내용은 사용되지 않으며, 대화 맥락만 참고합니다."
-              : "AIコーチを使用するには、AIデータ処理に同意が必要です。\nチャット内容は使用されず、会話の文脈のみを参照します。"}
+              : "AIコーチを使用するには、AIデータ処理に同意が必要です。\nチャット内容は使用されず、会話の文脈のみを参照します。")}
           </Text>
 
           <View style={[styles.infoRow, { backgroundColor: colors.roseLight, borderColor: colors.rose }]}>

@@ -28,9 +28,10 @@ interface Props {
   onBuyCredits: () => void;
   trialRemaining?: number;
   paidRemaining?: number;
+  secondaryCta?: string;
 }
 
-export function ZeroCreditSheet({ visible, onDismiss, onBuyCredits, trialRemaining, paidRemaining }: Props) {
+export function ZeroCreditSheet({ visible, onDismiss, onBuyCredits, trialRemaining, paidRemaining, secondaryCta }: Props) {
   const colors = useColors();
   const { lang } = useLocale();
 
@@ -93,7 +94,7 @@ export function ZeroCreditSheet({ visible, onDismiss, onBuyCredits, trialRemaini
 
           <TouchableOpacity style={styles.secondaryBtn} onPress={onDismiss} activeOpacity={0.7}>
             <Text style={[styles.secondaryBtnText, { color: colors.charcoalMid }]}>
-              {lang === "ko" ? "그냥 기본 채팅 계속하기" : "基本チャットを続ける"}
+              {secondaryCta ?? (lang === "ko" ? "그냥 기본 채팅 계속하기" : "基本チャットを続ける")}
             </Text>
           </TouchableOpacity>
         </View>

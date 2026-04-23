@@ -82,6 +82,8 @@ interface GrowthContextType {
   profileSuggestions: ProfileSuggestion[];
   profileCoachLoading: boolean;
   profileCoachOutputId: number | null;
+  profileCoachBlockedState: "no_consent" | "zero_credit" | "unsafe" | null;
+  clearProfileCoachBlock: () => void;
   refreshProfileSuggestions: () => Promise<void>;
   acceptSuggestion: (id: string) => Promise<void>;
   rejectSuggestion: (id: string) => void;
@@ -127,6 +129,7 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
   const [profileSuggestions, setProfileSuggestions] = useState<ProfileSuggestion[]>([]);
   const [profileCoachLoading, setProfileCoachLoading] = useState(false);
   const [profileCoachOutputId, setProfileCoachOutputId] = useState<number | null>(null);
+  const [profileCoachBlockedState, setProfileCoachBlockedState] = useState<"no_consent" | "zero_credit" | "unsafe" | null>(null);
   const [referral, setReferral] = useState<ReferralState>(() =>
     defaultReferralState(profile.id || "user_default")
   );
@@ -226,11 +229,9 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
     setSubscription((prev) => mockAddConsumable(prev, id, count));
   }, []);
 
+  // 로컬 구독 상태 갱신 전용 — purchase 이벤트는 paywall.tsx에서 직접 송신
   const upgradePlan = useCallback((planId: PlanId) => {
-    trackEvent("purchase_started", { plan: planId });
-    // Mock upgrade — replace with real billing in production
     setSubscription((prev) => mockUpgradeToPlan(prev, planId));
-    trackEvent("purchase_completed", { plan: planId });
   }, []);
 
   // ── AI Coach credit methods ─────────────────────────────────────────────────
@@ -280,9 +281,9 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // 로컬 크레딧 상태 갱신 전용 — purchase 이벤트는 paywall.tsx에서 직접 송신
   const buyAiCoachCredits = useCallback((count: number) => {
     setSubscription((prev) => mockAddConsumable(prev, "ai_coach_credit", count));
-    trackEvent("purchase_completed", { plan: "consumable" } as any);
   }, []);
 
   // ── AI Matching methods ─────────────────────────────────────────────────────
@@ -340,12 +341,17 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
 
   // ── Profile Coach methods ───────────────────────────────────────────────────
 
+  const clearProfileCoachBlock = useCallback(() => {
+    setProfileCoachBlockedState(null);
+  }, []);
+
   const refreshProfileSuggestions = useCallback(async (): Promise<void> => {
     const t = tokenRef.current;
     if (!t) return;
     setProfileCoachLoading(true);
     setProfileCoachOutputId(null);
-    trackEvent("profile_coach_opened");
+    setProfileCoachBlockedState(null);
+    trackEvent("coach_request_started", { context: "profile" });
     try {
       const p = profileRef.current;
       const profileSnapshot: Record<string, string> = {};
@@ -353,9 +359,37 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
       if (p.intro) profileSnapshot.intro = p.intro;
       const locale: "ko" | "ja" = (p as any).country === "JP" ? "ja" : "ko";
       const result = await requestProfileCoach(t, profileSnapshot, locale);
-      if (!result) return;
-      if (result.blocked) {
+      if (!result) {
+        trackEvent("coach_request_no_charge_failure", { context: "profile", reason: "no_result" });
         return;
+      }
+      if (result.blocked) {
+        const reason = result.block_reason;
+        // blocked_no_consent / blocked_zero_credit / blocked_unsafe 정규화
+        if (reason === "blocked_no_consent" || reason === "no_consent") {
+          setProfileCoachBlockedState("no_consent");
+          trackEvent("coach_blocked_no_consent", { context: "profile" });
+        } else if (reason === "blocked_zero_credit" || reason === "zero_credit") {
+          setProfileCoachBlockedState("zero_credit");
+          trackEvent("coach_blocked_zero_credit", { context: "profile" });
+        } else if (reason === "blocked_unsafe") {
+          setProfileCoachBlockedState("unsafe");
+          trackEvent("coach_blocked_unsafe", { context: "profile" });
+        } else {
+          trackEvent("coach_request_no_charge_failure", { context: "profile", reason: reason ?? "unknown" });
+        }
+        return;
+      }
+      // 서버 wallet 반영
+      if (result.trial_remaining !== undefined || result.remaining_total !== undefined) {
+        setWalletState((prev) => prev ? {
+          ...prev,
+          trial_remaining: result.trial_remaining ?? prev.trial_remaining,
+          paid_remaining: result.paid_remaining ?? prev.paid_remaining,
+          remaining_total: result.remaining_total ?? prev.remaining_total,
+          balance: result.remaining_total ?? prev.balance,
+          isZeroCredit: (result.remaining_total ?? prev.remaining_total) === 0,
+        } : prev);
       }
       setProfileCoachOutputId(result.coach_output_id);
       const fieldLabels: Record<string, string> = { intro: "한 줄 소개", bio: "자기소개" };
@@ -370,6 +404,7 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
         generatedAt: new Date().toISOString(),
       }));
       setProfileSuggestions(mapped);
+      trackEvent("coach_request_completed", { context: "profile", source: result.consumption_source });
       trackEvent("profile_coach_saved");
     } finally {
       setProfileCoachLoading(false);
@@ -457,6 +492,8 @@ export function GrowthProvider({ children }: { children: React.ReactNode }) {
         profileSuggestions,
         profileCoachLoading,
         profileCoachOutputId,
+        profileCoachBlockedState,
+        clearProfileCoachBlock,
         refreshProfileSuggestions,
         acceptSuggestion,
         rejectSuggestion,
