@@ -1,196 +1,108 @@
-# Workspace
+# Overview
 
-## Overview
+This project is a pnpm workspace monorepo using TypeScript, focused on developing a Korean-Japanese dating app called "Lito" and its supporting services.
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+The Lito app (artifacts/lito) is an Expo (React Native) mobile application designed to connect users from Korea and Japan for dating and language exchange. It features a sophisticated matching system, real-time chat with translation capabilities, and a personalized user experience. Key capabilities include user authentication, profile management, a swipe-based discovery feed, real-time chat with message persistence, object storage for photos, and a contact blocking feature. The app aims to facilitate cultural connection and language learning.
 
-## Stack
+Complementing the app is the Lito Admin dashboard (artifacts/admin), a React-based data visualization tool for trust & safety moderation, and an Express-based API Server (artifacts/api-server) providing backend services, including authentication, user management, chat, AI-powered features (matching, coaching, translation), and legal content serving.
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+The project's ambition is to create a leading platform for cross-cultural dating with robust AI integration and a strong focus on user safety and experience.
 
-## Artifacts
+# User Preferences
 
-### Lito - Korean-Japanese Dating App (`artifacts/lito`)
-- **Type**: Expo (React Native) mobile app
-- **Preview Path**: `/`
-- **Stack**: Expo Router, React Native, TypeScript, AsyncStorage
-- **Key screens**: Onboarding (3 slides), Login, Profile Setup, Discover (swipe cards), Matches, Chats, Chat Detail, Profile, Settings, Dating Style Diagnosis (6-question flow)
-- **Data**: 실제 DB 연결 (auth 완료). Discovery/Chat은 목업 유지 중
-- **Theme**: White background, rose/pink (#D85870) accent, dark charcoal text
-- **UX improvements done**:
-  - User type extended: `city?`, `studyingLanguage?`, `languageLevel?`, `interests?`
-  - Match type extended: `iceBreaker?` (AI suggested opening line)
-  - Discover cards: language study badge (📚 pill, green glass), interests + match reason chips
-  - Matches screen: TrustBadge (sm), trust dot overlay, study badge, ice breaker suggestion card, last active
-  - Profile screen: 문화 연결 목표 section (KR↔JP flag bridge, beginner/intermediate/advanced level)
-- **Auth**: 실제 이메일+비밀번호 회원가입/로그인 완성. JWT 30일 만료. `/api/auth/register`, `/api/auth/login`, `/api/auth/me`, `/api/auth/profile`
-- **WebSocket 실시간 채팅**: `ws` 패키지 기반. `/ws` 경로. JWT 인증. 방(room) 기반 브로드캐스트. 메시지 DB 저장. 자동 재연결(3초). WS 미연결 시 HTTP 폴백
-- **채팅 DB 저장+로드**: `chat_messages` 테이블. 채팅방 열릴 때 서버에서 과거 메시지 로드. 앱 재시작 후 대화 복구
-- **Discovery JWT**: `/api/users/discover`, `/api/users/:id/like`, `/api/users/:id/pass` 모두 optionalAuth로 사용자별 스와이프 이력 분리
-- **Object Storage 사진 저장**: GCS 기반. `/api/storage/uploads/request-url` (JWT 필요) → presigned PUT URL → GCS 직접 업로드 → `/api/storage/objects/*` 서빙. 업로드 중 로딩 인디케이터 표시. `utils/photoUpload.ts`에 유틸리티 구현. profile-setup/profile-edit 양쪽에서 사진 선택 즉시 GCS 업로드
-- **DB 기반 Discovery**: 실제 가입 사용자가 Discover에 등장. `swipe_passes` 테이블 신규 추가. 좋아요/패스/매칭 모두 DB 저장 (실제 유저 간). AI 페르소나는 좋아요 즉시 자동 매칭. 데모 유저는 인메모리 폴백으로 유지. 비인증 게스트는 데모+AI 유저만 표시
-- **연락처 차단**: `expo-contacts` + `expo-crypto` 기반. 기기에서 SHA-256 해시 처리 → 원본 번호 서버 미전달. `contact_block_hashes` 테이블. Discover 풀에서 양방향 차단 적용. 설정 → 계정 → 연락처 차단
-- **흡연/음주 필드 + 필터**: `SmokingHabit`/`DrinkingHabit` 타입 (`"never"|"socially"|"regularly"|"prefer_not_to_say"`). DB `user_profiles` 테이블 smoking/drinking 컬럼 추가. `profile-edit.tsx`에 라이프스타일 섹션 (칩 선택 UI + API 저장). `user-profile/[id].tsx` + `profile.tsx`에 표시. 프로필 완성도 +5점 보너스. `prefer_not_to_say` 선택 시 공개 화면에 미표시. Discover 필터 모달에 흡연/음주 항목 추가 (전체/안 함/가끔/자주) — API 쿼리 파라미터 `smoking`, `drinking`으로 서버 사이드 필터링
-- **채팅 리스트 탭**: 전체/안 읽음/요청 필터 탭 추가. 안 읽음 배지 아바타 코너로 이동. Bold 폰트 + 로즈 색 시간 표시로 안 읽음 우선순위 강화. 시간 포맷 개선 (HH:MM/요일명/월일).
-- **채팅 말풍선 애니메이션**: 진입 시 fade + 10px 슬라이드업 (200ms, ease-out, useNativeDriver). 번역 토글 crossfade (220ms). AI 빠른 답장 패널 slide-up (250ms).
-- **Discover 카드 애니메이션**: 카드 진입 fade+slide (260ms). LIKE/PASS 스탬프에 scale 0.72→1 스프링 애니메이션 추가. 스와이프 방향 색상 오버레이 — 우측(LIKE): rose 틴트 20%, 좌측(PASS): grey 틴트 18%. 하단 그라데이션 강화 (0.24→0.94, 더 높은 위치에서 시작). 상단 scrim 추가 (신고 버튼 가독성 보호).
-- **TODO**: Kakao/LINE OAuth, 프로필 완성도 기반 필터링
+I want iterative development.
+Do not make changes to `chat/[id].tsx`.
+Do not reintroduce pronunciation features.
+Translation must remain free for all plans; never paywall it.
 
-### Lito Admin — Trust & Safety Dashboard (`artifacts/admin`)
-- **Type**: data-visualization (React + Vite)
-- **Preview Path**: `/admin/`
-- **Stack**: React, Wouter, TanStack Query, Tailwind CSS
-- **Pages**: 개요, 신고 큐, 사용자 조회, 사용자 상세(모더레이터 조치), 신분증 인증 큐, 위험 플래그, 이의 신청
-- **Data**: Mock 데이터 (`src/data/mockData.ts`) — DB 연동 필요 시 API 서버 확장 필요
-- **Features**: 리스크 점수, 안티스캠 플래그 7종, 4티어 모더레이터 권한 설계, 감사 로그 설계
+# System Architecture
 
-### API Server (`artifacts/api-server`)
-- **Type**: Express API server
-- **Stack**: Express 5, TypeScript, Drizzle ORM, Pino logging
-- **Legal pages**: `GET /api/legal/privacy` (개인정보처리방침), `GET /api/legal/terms` (이용약관) — 한국어 HTML 페이지, 앱스토어 심사용
-- **아키텍처**: 모듈화 3계층 (Router → Service → Repository)
-  - `src/modules/chat/` — 채팅 메시지 CRUD (chatRepository → chatService → chatRouter)
-  - `src/modules/interest/` — AI Interest Signal System v4:
-    - `participant.repository.ts` — conversation_participants CRUD (WS 인증 + 워커)
-    - `feature.extractor.ts` — 순수 함수 Feature Window 추출 (50개 최근 메시지 기반 8개 그룹 특징)
-    - `interest.repository.ts` — interest_snapshots + latest_interest_snapshots DB I/O
-    - `llm.circuit.ts` — LLM 서킷 브레이커 (3회 실패 → OPEN, 60초 후 HALF_OPEN)
-    - `interest.worker.ts` — 비동기 분석 워커 (30초 디바운스, Layer1+Layer2, 방향성 PRS, viewer-scoped WS push)
-    - `interest.service.ts` — computePrs (Layer1 결정론적 + Layer2 LLM 선택)
-    - `interest.router.ts` — `GET /api/ai/prs/:conversationId`, `GET /api/ai/prs/:conversationId/history`, `POST /api/ai/prs` (내부 전용, requireAuth), admin analytics
-  - `src/modules/coaching/` — AI 코칭/언어 기능 (coachingService + coachingRouter: `/ai/coach`, `/ai/suggest-reply`, `/ai/translate`, `/ai/persona`, `/ai/conversation-starter`, `/ai/generate-profile-photo`)
-  - `src/modules/match/` — discover 피드, 스와이프, 매칭. **insertMatch 성공 시 participantRepository.seedParticipants 자동 호출**
-  - `src/modules/user/` — 사용자 프로필 변환 (userRepository, userService)
-  - `src/modules/reports/` — 신고/차단
-  - `src/infra/` — 공유 인프라 싱글톤 (openai, analytics re-exports)
-  - `src/fixtures/` — AI·데모 목업 유저, 인메모리 스와이프 상태
-  - `src/lib/` — 순수 함수 엔진 (prsScoring.ts v1.1.0, prsCoaching.ts, prsAnalytics.ts — 변경 없음)
-  - `src/ws.ts` — WebSocket 게이트웨이 v4: JWT 인증, room join 권한 검증 (conversation_participants), senderUserId NULL 차단, setImmediate로 interest.worker.schedule(), broadcastToViewer(viewer-scoped PRS push)
-- **라우팅 원칙**: Router는 I/O 검증만. Service는 비즈니스 로직 + LLM 호출. Repository는 DB 쿼리만.
-- **Interest Signal System v4 DB 테이블**:
-  - `conversation_participants` — 대화 참여자 멤버십 (conversationId, userId, membershipSource)
-  - `interest_snapshots` — PRS 스냅샷 이력 (방향성, append-only)
-  - `latest_interest_snapshots` — 최신 PRS 스냅샷 캐시 (conversationId+viewerUserId unique)
+The project is structured as a pnpm workspace monorepo using Node.js 24 and TypeScript 5.9.
 
-## Launch Readiness
+## UI/UX Decisions (Lito App)
 
-### 1단계 완료 항목
-- **앱 아이콘** (`assets/images/icon.png`): 1024×1024, 두 개 겹친 하트 (코랄 핑크 + 골든 옐로우), 흰 배경
-- **스플래시 스크린** (`assets/images/splash.png`): 9:16, 같은 하트 + "lito" 텍스트, 흰 배경
-- **app.json 설정 완료**: `bundleIdentifier: com.litodate.app`, `package: app.litodate`, 카메라/사진 권한 설명, `expo-apple-authentication` 플러그인 포함
-- **개인정보처리방침**: `https://litodate.app/api/legal/privacy`
-- **이용약관**: `https://litodate.app/api/legal/terms`
+- **Theme**: White background, rose/pink (#D85870) accent, dark charcoal text.
+- **App Icons**: Two overlapping hearts (coral pink + golden yellow) on a white background for `icon.png` (1024x1024) and `splash.png` (9:16).
+- **Key Screens**: Onboarding (3 slides), Login, Profile Setup, Discover (swipe cards), Matches, Chats, Chat Detail, Profile, Settings, Dating Style Diagnosis.
+- **Component Design**: Custom components like `Button`, `CompatibilityChip`, `CountryFlag`, `ProfileImage`, `LitoMark`, and a layered `TrustBadge` system.
+- **Animations**:
+    - Chat bubble animations: fade + slide-up on entry (200ms), translation toggle crossfade (220ms), AI quick reply panel slide-up (250ms).
+    - Discover card animations: fade + slide on entry (260ms), LIKE/PASS stamps with spring animation (scale 0.72→1), directional color overlays (rose tint for LIKE, grey tint for PASS), enhanced bottom gradient, and top scrim for readability.
+- **Chat List UI**: Filter tabs (All/Unread/Requests), unread badge on avatar, bold font + rose color for unread timestamps, improved time formatting.
+- **Discover Cards**: Language study badge (📚 pill, green glass), interests, and match reason chips.
+- **Matches Screen**: TrustBadge, trust dot overlay, study badge, AI ice breaker suggestion card, last active status.
+- **Profile Screen**: Section for cultural connection goals (KR↔JP flag bridge, language levels).
+- **Lifestyle Filters**: Smoking/Drinking habits with UI for selection chips and display, filtering options in Discover.
 
-### 소셜 로그인 구조 (서버사이드 OAuth)
-- **Google**: `/api/auth/google/start` → 구글 콘솔에 `https://litodate.app/api/auth/google/callback` 등록 필요 (배포 후)
-- **Apple**: 동적 import (`expo-apple-authentication`)
-- **Kakao/LINE**: `/api/auth/kakao/start`, `/api/auth/line/start` (앱 키 등록 필요)
-- **딥링크**: `lito://auth/callback`
+## Technical Implementations (Lito App)
 
-### 다음 단계 (런칭 로드맵)
-1. **배포**: Replit 배포 후 `litodate.app` 커스텀 도메인 연결
-2. **환경변수 업데이트**: `EXPO_PUBLIC_DOMAIN=litodate.app`
-3. **Google OAuth**: 구글 클라우드 콘솔 리디렉션 URI 등록
-4. **EAS Build**: `eas build --platform all`
-5. **앱스토어 심사**: App Store Connect + Google Play Console 제출
+- **Monetization**:
+    - 3 plans: Free (20 likes/day, 3 picks), Plus (unlimited likes + boost), Premium (see who liked + AI coach).
+    - Consumables: Boost, Direct Intro, City Pass, AI Review.
+    - Entitlement system (`isEntitled`/`useEntitlement`) to check plan membership.
+    - Mock billing system for future integration with RevenueCat/App Store.
+    - Paywall screen for plan comparison and upgrades.
+- **AI Matching (Heuristic)**:
+    - `computeCompatibility()`: Scores based on intent, interests, cultural fit, conversation style, meeting feasibility.
+    - `generateChemistryPicks()`: Daily ranked picks (3 for free, 10 for Plus/Premium).
+    - `generateProfileSuggestions()`: Template-based intro/bio improvements.
+    - `generateOpeners()`: Contextual conversation starters based on shared interests and country.
+    - `generateChemistryCard()`: Deterministic dating-type card (4 types).
+- **Viral / Referral**:
+    - `generateReferralCode()`: Deterministic userId prefix + random suffix.
+    - Reward system: boost on signup, direct intro on first match.
+    - `applyReferralCode()`: Validates and records referral attribution.
+    - Referral screen for code/link sharing, reward claiming, and stats.
+- **Analytics**: `trackEvent()` facade covering 24 events across monetization, AI, and viral categories, with console logging in development.
+- **Authentication**: Email/password registration/login with JWT (30-day expiry). Social login support for Google, Apple, Kakao, and LINE (server-side OAuth). Deep linking for auth callbacks.
+- **Real-time Chat**: WebSocket-based (`ws` package) with JWT authentication, room-based broadcasting, message persistence in DB, auto-reconnection, and HTTP fallback.
+- **Object Storage**: Google Cloud Storage (GCS) based for photo uploads, utilizing presigned PUT URLs for direct client-to-GCS uploads, with server-side serving of objects.
+- **Discovery**: DB-driven discovery with `swipe_passes` table, enabling actual user interaction tracking (like/pass/match). AI personas auto-match, demo users are in-memory, and unauthenticated guests see demo/AI users.
+- **Contact Blocking**: `expo-contacts` and `expo-crypto` are used to hash contact numbers client-side (SHA-256) before sending to the server (`contact_block_hashes` table), ensuring two-way blocking in the Discover feed.
 
-## Key Commands
+## System Design Choices (API Server)
 
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
+- **API Framework**: Express 5.
+- **Database**: PostgreSQL with Drizzle ORM.
+- **Validation**: Zod (`zod/v4`) and `drizzle-zod`.
+- **API Codegen**: Orval from OpenAPI spec.
+- **Build**: esbuild (CJS bundle).
+- **Logging**: Pino.
+- **Architecture**: Modular 3-layer design (Router → Service → Repository).
+    - **Router**: Handles I/O validation only.
+    - **Service**: Contains business logic and LLM calls.
+    - **Repository**: Manages DB queries only.
+- **Interest Signal System v4**:
+    - `conversation_participants`: Manages chat memberships.
+    - `feature.extractor`: Extracts conversation features from messages.
+    - `interest.repository`: Handles `interest_snapshots` and `latest_interest_snapshots` DB I/O.
+    - `llm.circuit`: Implements an LLM circuit breaker for resilience.
+    - `interest.worker`: Asynchronous worker for analyzing interest signals with debouncing.
+    - `interest.service`: Computes PRS (Persona-Relationship Score) using deterministic and LLM-based logic.
+    - `ws.ts`: WebSocket gateway for real-time communication, JWT authentication, room authorization, and interest signal push.
+- **AI Coaching/Language Features**: `/ai/coach`, `/ai/suggest-reply`, `/ai/translate`, `/ai/persona`, `/ai/conversation-starter`, `/ai/generate-profile-photo`.
 
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+# External Dependencies
 
-## Lito App Structure
-
-```
-artifacts/lito/
-  app/
-    _layout.tsx          # Root layout: AppProvider → GrowthProvider → GestureHandler → …
-    onboarding.tsx       # 4-phase onboarding: 3 feature slides → country selection (KR/JP)
-    login.tsx            # Login screen (Email, Kakao, LINE placeholders)
-    profile-setup.tsx    # Profile setup (2-step wizard: basics→interests, country pre-selected in onboarding)
-    settings.tsx         # Settings screen
-    paywall.tsx          # Subscription upgrade screen (Free / Plus / Premium)
-    profile-coach.tsx    # AI Profile Coach: suggestions the user can accept/reject
-    referral.tsx         # Referral invite: code sharing, rewards, apply friend codes
-    (tabs)/
-      _layout.tsx        # Tab bar with Discover, Matches, Chats, Profile
-      discover.tsx       # Swipe cards + chemistry picks pill in header
-      matches.tsx        # Matches list + referral nudge card
-      chats.tsx          # Conversations list
-      profile.tsx        # My profile + Growth section (plan badge, AI coach, referral)
-    chat/
-      [id].tsx           # Chat with real-time KR↔JP translation (DO NOT TOUCH)
-  components/
-    Button.tsx, CompatibilityChip.tsx, CountryFlag.tsx, ProfileImage.tsx, LitoMark.tsx
-    TrustBadge.tsx  # Layered trust badge system (4 layers: human/face/id/institution)
-  constants/colors.ts    # Design tokens (rose pink theme)
-  context/
-    AppContext.tsx        # Core app state (auth, users, matches, conversations)
-    GrowthContext.tsx     # Phase 5 growth state (subscription, picks, coach, referral)
-  services/
-    analytics.ts         # Event tracking facade (console in dev, swap in real provider)
-    monetization.ts      # Plan definitions, entitlements, usage limits, mock billing
-    aiMatching.ts        # Heuristic compatibility scoring + chemistry picks + openers
-    referral.ts          # Referral code generation + reward logic
-  hooks/
-    useEntitlement.ts    # Inline entitlement check hook
-    useColors.ts, useLocale.ts
-  types/
-    index.ts             # Core app types
-    growth.ts            # Phase 5 types (plans, entitlements, picks, referral, analytics)
-  data/mockData.ts       # Mock users, matches, conversations, messages
-```
-
-## Phase 5 — Growth Layer (Implemented)
-
-### Monetization
-- 3 plans: Free (20 likes/day, 3 picks), Plus ($9.99, unlimited likes + boost), Premium ($19.99, see who liked + AI coach)
-- Consumables: Boost, Direct Intro, City Pass, AI Review
-- Entitlement system: `isEntitled(key)` / `useEntitlement(key)` checks plan membership
-- Mock billing: `mockUpgradeToPlan()` — ready for RevenueCat/App Store wiring
-- Paywall screen: plan comparison, trust note ("translation always free"), one-tap upgrade
-
-### AI Matching (heuristic, clearly labeled in code)
-- `computeCompatibility()` scores 5 dimensions: intent fit, interest overlap, cultural fit, conversation style, meeting feasibility
-- `generateChemistryPicks()` — daily ranked picks (3 for free, 10 for plus/premium)
-- `generateProfileSuggestions()` — template-based intro/bio improvements, user can accept/reject
-- `generateOpeners()` — 3 contextual conversation starters based on shared interests + country
-- `generateChemistryCard()` — deterministic dating-type card (4 types, shareable)
-
-### Viral / Referral
-- `generateReferralCode()` — deterministic userId prefix + random suffix
-- Reward system: boost on signup, direct intro on first match
-- `applyReferralCode()` — validates and records referral attribution
-- Referral screen: code/link sharing, reward claiming, stats, step-by-step explainer
-
-### Analytics
-- `trackEvent()` facade covers 24 events across monetization, AI, and viral categories
-- Console logging in dev; replace `send()` in analytics.ts to wire in PostHog/Amplitude
-
-### UI 버전 기록 (롤백 기준점)
-
-| 버전 | 커밋 ID | 설명 |
-|------|---------|------|
-| **UI 버전 1** | `fec57722a701159c05d88b551e7dcff9c2c33c21` | 5차 패치 완료 상태 — analytics/consent 버그 수정 포함 기준 UI |
-
-> "버전 1로 롤백해줘" → 위 커밋으로 복원
-
----
-
-### CRITICAL — Do Not Touch
-- `chat/[id].tsx` — translation enrichment pipeline (enrichmentMap, inflight, translationCache)
-- Pronunciation features must NEVER be reintroduced
-- Translation is free for all plans — never paywall it
+- **Monorepo Tool**: pnpm workspaces
+- **Package Manager**: pnpm
+- **API Framework**: Express 5
+- **Database**: PostgreSQL
+- **ORM**: Drizzle ORM
+- **Validation**: Zod
+- **API Codegen**: Orval
+- **Build Tool**: esbuild
+- **Logging**: Pino
+- **Mobile Framework**: Expo (React Native), Expo Router
+- **State Management (Mobile)**: AsyncStorage
+- **Contact Management (Mobile)**: expo-contacts
+- **Cryptography (Mobile)**: expo-crypto
+- **Real-time Communication**: `ws` package
+- **Object Storage**: Google Cloud Storage (GCS)
+- **UI Framework (Admin)**: React
+- **Routing (Admin)**: Wouter
+- **Data Fetching (Admin)**: TanStack Query
+- **Styling (Admin)**: Tailwind CSS
+- **OAuth Providers**: Google, Apple (via `expo-apple-authentication`), Kakao, LINE
+- **AI/LLM**: OpenAI (via `src/infra/openai`)
+- **Analytics**: PostHog/Amplitude (facade present, integration points defined)

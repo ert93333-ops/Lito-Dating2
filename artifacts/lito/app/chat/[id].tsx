@@ -20,20 +20,19 @@ import {
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ContactLockCard } from "@/components/ContactLockCard";
 import { CountryFlag } from "@/components/CountryFlag";
 import { NoConsentSheet } from "@/components/chat/NoConsentSheet";
 import { ZeroCreditSheet } from "@/components/chat/ZeroCreditSheet";
 import { UnsafeNotice } from "@/components/chat/UnsafeNotice";
 import { ProfileImage } from "@/components/ProfileImage";
-import { PRSInsightCard, type PRSCardState } from "@/components/PRSInsightCard";
+import { type PRSCardState } from "@/components/PRSInsightCard";
 import { useApp } from "@/context/AppContext";
 import { useGrowth } from "@/context/GrowthContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocale } from "@/hooks/useLocale";
 import { AI_COACH_PACKS } from "@/services/monetization";
 import { getConversationInterestSnapshot } from "@/services/prsScoring";
-import { Message, computeTrustScore } from "@/types";
+import { Message } from "@/types";
 
 const CURRENT_USER_ID = "me";
 
@@ -878,9 +877,6 @@ export default function ChatDetailScreen() {
     profile,
     token,
     sendMessage,
-    unlockExternalContact,
-    requestUnlock,
-    respondToUnlock,
     blockUser,
     loadConversationMessages,
     joinConversation,
@@ -902,7 +898,6 @@ export default function ChatDetailScreen() {
 
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [showCoachSheet, setShowCoachSheet] = useState(false);
-  const [showTrustGateModal, setShowTrustGateModal] = useState(false);
   const [coachData, setCoachData] = useState<CoachResult | null>(null);
 
   // S08: Blocked UI 3종 분리 상태
@@ -916,6 +911,10 @@ export default function ChatDetailScreen() {
   // ── PRS Insight Card state (isolated — no changes to existing chat logic) ──
   const [prsCardState, setPrsCardState] = useState<PRSCardState>({ status: "loading" });
   const [prsExpanded, setPrsExpanded] = useState(false);
+
+  // ── Signal panel (header button → slide-down panel) ────────────────────────
+  const [showSignalPanel, setShowSignalPanel] = useState(false);
+  const signalPanelAnim = useRef(new Animated.Value(0)).current;
 
   const [inputText, setInputText] = useState(draft ? decodeURIComponent(draft) : "");
   const [inputFocused, setInputFocused] = useState(false);
@@ -1362,10 +1361,17 @@ export default function ChatDetailScreen() {
     }
   };
 
-  const handleUnlock = () => {
-    if (!id) return;
-    unlockExternalContact(id);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const handleToggleSignalPanel = () => {
+    const next = !showSignalPanel;
+    setShowSignalPanel(next);
+    Animated.spring(signalPanelAnim, {
+      toValue: next ? 1 : 0,
+      useNativeDriver: true,
+      damping: 20,
+      stiffness: 300,
+      mass: 0.8,
+    }).start();
+    if (next) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -1418,47 +1424,185 @@ export default function ChatDetailScreen() {
           </View>
         </TouchableOpacity>
 
+        {/* Signal pill button */}
+        <TouchableOpacity
+          style={[
+            styles.signalBtn,
+            {
+              backgroundColor: showSignalPanel ? colors.rose : colors.roseLight,
+              borderColor: colors.roseSoft,
+            },
+          ]}
+          onPress={handleToggleSignalPanel}
+          activeOpacity={0.78}
+          hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+        >
+          <FIcon
+            name="bar-chart-2"
+            size={12}
+            color={showSignalPanel ? "#fff" : colors.rose}
+          />
+          <Text style={[styles.signalBtnLabel, { color: showSignalPanel ? "#fff" : colors.rose }]}>
+            {lang === "ko" ? "시그널" : "シグナル"}
+          </Text>
+        </TouchableOpacity>
+
         {/* More options */}
         <TouchableOpacity
-          style={styles.moreBtn}
+          style={styles.moreBtnSmall}
           onPress={() => setShowMoreMenu(true)}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <FIcon name="more-vertical" size={20} color={colors.charcoal} />
+          <FIcon name="more-vertical" size={18} color={colors.charcoalLight} />
         </TouchableOpacity>
 
       </View>
 
-      {/* ── Contact lock card (4-state) ─────────────────────────────────── */}
-      <ContactLockCard
-        conversation={conversation}
-        myTrustProfile={profile.trustProfile}
-        lang={lang}
-        onRequestUnlock={() => {
-          if (computeTrustScore(profile.trustProfile) < 25) {
-            setShowTrustGateModal(true);
-          } else {
-            requestUnlock(id!);
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }
-        }}
-        onRespondUnlock={(accept) => {
-          respondToUnlock(id!, accept);
-          Haptics.notificationAsync(
-            accept
-              ? Haptics.NotificationFeedbackType.Success
-              : Haptics.NotificationFeedbackType.Warning
-          );
-        }}
-        onGoToTrustCenter={() => router.push("/trust-center" as any)}
-      />
+      {/* ── Signal Panel (slides down when 시그널 button pressed) ──────── */}
+      {showSignalPanel && (
+        <Animated.View
+          style={[
+            styles.signalPanel,
+            {
+              backgroundColor: colors.surface,
+              borderBottomColor: colors.border,
+              opacity: signalPanelAnim,
+              transform: [
+                {
+                  translateY: signalPanelAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-10, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          {/* Panel header */}
+          <View style={styles.signalPanelHeader}>
+            <FIcon name="bar-chart-2" size={12} color={colors.rose} />
+            <Text style={[styles.signalPanelTitle, { color: colors.charcoalLight }]}>
+              {lang === "ko" ? "AI 시그널 분석 · 실시간 업데이트" : "AIシグナル分析 · リアルタイム更新"}
+            </Text>
+            <TouchableOpacity
+              onPress={handleToggleSignalPanel}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <FIcon name="x" size={14} color={colors.charcoalLight} />
+            </TouchableOpacity>
+          </View>
 
-      {/* ── PRS Insight Card — between banner and messages, isolated ──── */}
-      <PRSInsightCard
-        state={prsCardState}
-        expanded={prsExpanded}
-        onToggle={() => setPrsExpanded((v) => !v)}
-      />
+          {/* Loading */}
+          {prsCardState.status === "loading" && (
+            <View style={{ paddingVertical: 16, alignItems: "center" }}>
+              <ActivityIndicator size="small" color={colors.rose} />
+            </View>
+          )}
+
+          {/* Not enough data */}
+          {(prsCardState.status === "not_enough_data" || prsCardState.status === "low_confidence") && (
+            <Text style={[styles.signalPanelEmpty, { color: colors.charcoalLight }]}>
+              {lang === "ko"
+                ? "대화 신호가 쌓이는 중이에요 · 조금만 더 대화해보세요"
+                : "会話シグナルが蓄積中です · もう少し話してみてください"}
+            </Text>
+          )}
+
+          {/* Ready: insight cards + temperature bar */}
+          {prsCardState.status === "ready" && (() => {
+            const { snapshot } = prsCardState;
+            const insights = snapshot.generatedInsights.slice(0, 3);
+            const prs = snapshot.prsScore;
+
+            return (
+              <>
+                {/* 3 insight cards in a row */}
+                <View style={styles.signalCardsRow}>
+                  {insights.map((ins, i) => {
+                    const iconName =
+                      ins.polarity === "positive" ? "trending-up" :
+                      ins.polarity === "negative" ? "trending-down" : "activity";
+                    const iconBg =
+                      ins.polarity === "positive" ? colors.roseSoft :
+                      ins.polarity === "negative" ? "#FFF0EE" : "#EEF4FF";
+                    const iconColor =
+                      ins.polarity === "positive" ? colors.rose :
+                      ins.polarity === "negative" ? "#C0392B" : colors.blue;
+                    const fullText = lang === "ko" ? ins.textKo : ins.textJa;
+                    const dashIdx = fullText.indexOf(" — ");
+                    const title = dashIdx > 0 ? fullText.slice(0, dashIdx) : fullText.slice(0, 10);
+                    const body = dashIdx > 0 ? fullText.slice(dashIdx + 3) : fullText;
+                    return (
+                      <View
+                        key={i}
+                        style={[
+                          styles.signalCard,
+                          { backgroundColor: colors.muted, borderColor: colors.border },
+                        ]}
+                      >
+                        <View style={[styles.signalCardIcon, { backgroundColor: iconBg }]}>
+                          <FIcon name={iconName as any} size={11} color={iconColor} />
+                        </View>
+                        <Text
+                          style={[styles.signalCardTitle, { color: colors.charcoal }]}
+                          numberOfLines={1}
+                        >
+                          {title}
+                        </Text>
+                        <Text
+                          style={[styles.signalCardBody, { color: colors.charcoalLight }]}
+                          numberOfLines={2}
+                        >
+                          {body}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {/* Temperature bar */}
+                <View style={styles.signalTempRow}>
+                  <Text style={[styles.signalTempLabel, { color: colors.charcoalMid }]}>
+                    {lang === "ko" ? "대화 온도" : "会話温度"}
+                  </Text>
+                  <Text style={[styles.signalTempPct, { color: colors.rose }]}>
+                    {Math.round(prs)}%
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.signalTempBar,
+                    { backgroundColor: colors.muted },
+                  ]}
+                >
+                  <View
+                    style={{
+                      flex: Math.max(1, prs),
+                      height: 6,
+                      backgroundColor: colors.rose,
+                      borderRadius: 3,
+                    }}
+                  />
+                  {prs < 99 && <View style={{ flex: Math.max(0, 100 - prs) }} />}
+                </View>
+                <View style={styles.signalTempLabels}>
+                  <Text style={[styles.signalTempEndLabel, { color: colors.charcoalFaint }]}>
+                    {lang === "ko" ? "차가움" : "冷たい"}
+                  </Text>
+                  <Text style={[styles.signalTempEndLabel, { color: colors.charcoalFaint }]}>
+                    {lang === "ko" ? "따뜻함" : "暖かい"}
+                  </Text>
+                </View>
+                <Text style={[styles.signalDisclaimer, { color: colors.charcoalFaint }]}>
+                  {lang === "ko"
+                    ? "AI 분석은 참고용이에요 · 직접 느끼는 대화가 가장 중요해요"
+                    : "AI分析はご参考用です · 実際の会話感覚を大切に"}
+                </Text>
+              </>
+            );
+          })()}
+        </Animated.View>
+      )}
 
       {/* ── Message list ────────────────────────────────────────────────── */}
       <FlatList
@@ -1561,8 +1705,8 @@ export default function ChatDetailScreen() {
           >
             <FIcon name="zap" size={11} color={colors.rose} />
             <Text style={[styles.quickRepliesLabel, { color: colors.charcoalLight, flex: 1 }]}>
-              {viewerLang === "ko" ? "AI 빠른 답장" : "AIクイック返信"}
-              {quickReplies.length > 0 && !quickRepliesLoading ? ` (${quickReplies.length})` : ""}
+              {viewerLang === "ko" ? "AI 코칭" : "AIコーチング"}
+              {quickReplies.length > 0 && !quickRepliesLoading ? ` · ${quickReplies.length}개` : ""}
             </Text>
             <FIcon
               name={quickRepliesExpanded ? "chevron-down" : "chevron-up"}
@@ -1846,63 +1990,6 @@ export default function ChatDetailScreen() {
         </View>
       </Modal>
 
-      {/* ── Trust Gate Modal ─────────────────────────────────────────────── */}
-      <Modal visible={showTrustGateModal} transparent animationType="fade">
-        <Pressable
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}
-          onPress={() => setShowTrustGateModal(false)}
-        />
-        <View
-          style={{
-            position: "absolute",
-            left: 16,
-            right: 16,
-            bottom: 40 + insets.bottom,
-            backgroundColor: colors.surface,
-            borderRadius: 18,
-            padding: 20,
-            gap: 12,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.18,
-            shadowRadius: 16,
-            elevation: 8,
-          }}
-        >
-          <View style={{ alignItems: "center", gap: 6 }}>
-            <View style={{ backgroundColor: colors.roseLight, borderRadius: 30, padding: 10, marginBottom: 4 }}>
-              <FIcon name="lock" size={22} color={colors.rose} />
-            </View>
-            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 16, color: colors.charcoal, textAlign: "center" }}>
-              {lang === "ko" ? "본인 인증이 필요해요" : "本人確認が必要です"}
-            </Text>
-            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.charcoalLight, textAlign: "center", lineHeight: 19 }}>
-              {lang === "ko"
-                ? "연락처 공개 요청은 신뢰 점수 25점 이상인 경우에만 가능해요. 신뢰 센터에서 인증을 완료해 주세요."
-                : "連絡先の公開リクエストは信頼スコア25点以上が必要です。トラストセンターで認証を完了してください。"}
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={{ backgroundColor: colors.rose, borderRadius: 12, paddingVertical: 13, alignItems: "center" }}
-            onPress={() => {
-              setShowTrustGateModal(false);
-              router.push("/trust-center" as any);
-            }}
-          >
-            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff" }}>
-              {lang === "ko" ? "신뢰 센터로 이동" : "トラストセンターへ"}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{ alignItems: "center", paddingVertical: 6 }}
-            onPress={() => setShowTrustGateModal(false)}
-          >
-            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.charcoalLight }}>
-              {lang === "ko" ? "닫기" : "閉じる"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -2062,6 +2149,129 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     marginBottom: 4,
+  },
+
+  // ── Signal button (header pill) ───────────────────────────────────────────
+  signalBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  signalBtnLabel: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 11,
+    letterSpacing: 0.3,
+  },
+
+  // ── More button (small, alongside signal) ─────────────────────────────────
+  moreBtnSmall: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 2,
+  },
+
+  // ── Signal panel (slides down below header) ───────────────────────────────
+  signalPanel: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 10,
+  },
+  signalPanelHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  signalPanelTitle: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 10.5,
+    letterSpacing: 0.2,
+    flex: 1,
+  },
+  signalPanelEmpty: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    lineHeight: 17,
+    paddingVertical: 10,
+    textAlign: "center",
+  },
+
+  // Signal insight cards (3-column row)
+  signalCardsRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  signalCard: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 8,
+    gap: 4,
+  },
+  signalCardIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 2,
+  },
+  signalCardTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 10.5,
+    letterSpacing: 0.1,
+  },
+  signalCardBody: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 10,
+    lineHeight: 14,
+  },
+
+  // Temperature bar
+  signalTempRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 2,
+  },
+  signalTempLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
+  },
+  signalTempPct: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 11,
+  },
+  signalTempBar: {
+    height: 6,
+    borderRadius: 3,
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  signalTempLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 3,
+  },
+  signalTempEndLabel: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 9.5,
+    letterSpacing: 0.1,
+  },
+  signalDisclaimer: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 9.5,
+    lineHeight: 14,
+    textAlign: "center",
+    marginTop: 2,
   },
 
   // ── Quick reply chips ──────────────────────────────────────────────────────
