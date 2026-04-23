@@ -118,6 +118,7 @@ export interface DiscoverFilters {
 }
 
 interface AppContextType {
+  isInitialized: boolean;
   hasCompletedOnboarding: boolean;
   hasCompletedProfileSetup: boolean;
   isLoggedIn: boolean;
@@ -179,6 +180,7 @@ const INITIAL_MESSAGES = {
 const INITIAL_MATCHES = mockMatches;
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const [isInitialized, setIsInitialized] = useState(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [hasCompletedProfileSetup, setHasCompletedProfileSetupState] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -297,6 +299,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (map["lito_diagnosis_seen"] === "true" || map["lito_profile_setup"] === "done") {
         setHasSeenDiagnosisPrompt(true);
       }
+      // 모든 저장 상태 로드 완료 → 라우팅 가드 활성화
+      setIsInitialized(true);
+    }).catch(() => {
+      // 스토리지 읽기 실패 시에도 기본값으로 앱 진입 허용
+      setIsInitialized(true);
     });
     fetchDiscover();
   }, [fetchDiscover]);
@@ -905,6 +912,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider
       value={{
+        isInitialized,
         hasCompletedOnboarding,
         hasCompletedProfileSetup,
         isLoggedIn,

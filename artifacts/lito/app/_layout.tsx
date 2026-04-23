@@ -10,7 +10,7 @@ import { setBaseUrl } from "@workspace/api-client-react";
 import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
-import { View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -32,11 +32,14 @@ if (process.env.EXPO_PUBLIC_DOMAIN) {
 const queryClient = new QueryClient();
 
 function RootNavigator() {
-  const { hasCompletedOnboarding, isLoggedIn, hasCompletedProfileSetup, hasSeenDiagnosisPrompt, toast, dismissToast } = useApp();
+  const { isInitialized, hasCompletedOnboarding, isLoggedIn, hasCompletedProfileSetup, hasSeenDiagnosisPrompt, toast, dismissToast } = useApp();
 
   usePushNotifications();
 
   useEffect(() => {
+    // AsyncStorage 로드 완료 전에는 라우팅 결정을 내리지 않음
+    if (!isInitialized) return;
+
     if (!hasCompletedOnboarding) {
       router.replace("/onboarding");
     } else if (!isLoggedIn) {
@@ -48,14 +51,22 @@ function RootNavigator() {
     } else {
       router.replace("/(tabs)/discover");
     }
-  }, [hasCompletedOnboarding, isLoggedIn, hasCompletedProfileSetup, hasSeenDiagnosisPrompt]);
+  }, [isInitialized, hasCompletedOnboarding, isLoggedIn, hasCompletedProfileSetup, hasSeenDiagnosisPrompt]);
+
+  if (!isInitialized) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#fff" }}>
+        <ActivityIndicator size="small" color="#D85870" />
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="login" options={{ headerShown: false, gestureEnabled: false }} />
-        <Stack.Screen name="profile-setup" options={{ headerShown: false }} />
+        <Stack.Screen name="profile-setup" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
