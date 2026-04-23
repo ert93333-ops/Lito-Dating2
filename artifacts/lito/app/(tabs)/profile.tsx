@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CountryFlag } from "@/components/CountryFlag";
 import { ProfileImage } from "@/components/ProfileImage";
+import { FadeScreen } from "@/components/FadeScreen";
 import { TrustBadge } from "@/components/TrustBadge";
 import { useApp } from "@/context/AppContext";
 import { useGrowth } from "@/context/GrowthContext";
@@ -64,8 +65,9 @@ export default function ProfileScreen() {
   const heroHeight = 290;
 
   return (
+    <FadeScreen style={{ backgroundColor: colors.background }}>
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={styles.container}
       contentContainerStyle={{ paddingBottom: bottomPad + 90 }}
       showsVerticalScrollIndicator={false}
     >
@@ -626,6 +628,7 @@ export default function ProfileScreen() {
         </Text>
       </View>
     </ScrollView>
+    </FadeScreen>
   );
 }
 

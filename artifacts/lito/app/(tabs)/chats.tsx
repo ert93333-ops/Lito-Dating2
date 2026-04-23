@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CountryFlag } from "@/components/CountryFlag";
+import { FadeScreen } from "@/components/FadeScreen";
 import { ProfileImage } from "@/components/ProfileImage";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
@@ -158,7 +159,7 @@ export default function ChatsScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <FadeScreen style={[styles.container, { backgroundColor: colors.background }]}>
       {/* ── Header ── */}
       <View style={[styles.header, { paddingTop: topPad + 16 }]}>
         <Text style={[styles.title, { color: colors.charcoal }]}>
@@ -249,7 +250,7 @@ export default function ChatsScreen() {
           ))
         )}
       </ScrollView>
-    </View>
+    </FadeScreen>
   );
 }
 

@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CountryFlag } from "@/components/CountryFlag";
+import { FadeScreen } from "@/components/FadeScreen";
 import { ProfileImage } from "@/components/ProfileImage";
 import { TrustBadge } from "@/components/TrustBadge";
 import { useApp } from "@/context/AppContext";
@@ -229,8 +230,9 @@ export default function MatchesScreen() {
   const pastMatches = matches.filter((m) => !m.isNew);
 
   return (
+    <FadeScreen style={{ backgroundColor: colors.background }}>
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={styles.container}
       contentContainerStyle={{ paddingBottom: bottomPad + 100 }}
       showsVerticalScrollIndicator={false}
     >
@@ -305,6 +307,7 @@ export default function MatchesScreen() {
         </TouchableOpacity>
       </View>
     </ScrollView>
+    </FadeScreen>
   );
 }
 

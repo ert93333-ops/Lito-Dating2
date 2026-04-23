@@ -31,6 +31,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CountryFlag } from "@/components/CountryFlag";
+import { FadeScreen } from "@/components/FadeScreen";
 import { ProfileImage } from "@/components/ProfileImage";
 import { TrustBadge } from "@/components/TrustBadge";
 import { DiscoverFilters, useApp } from "@/context/AppContext";
@@ -957,7 +958,7 @@ export default function DiscoverScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <FadeScreen style={[styles.container, { backgroundColor: colors.background }]}>
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={[styles.header, { paddingTop: topPad + 14 }]}>
@@ -1380,7 +1381,7 @@ export default function DiscoverScreen() {
           </Animated.View>
         </Animated.View>
       )}
-    </View>
+    </FadeScreen>
   );
 }
 
